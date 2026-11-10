@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0a0c10" />
   <title>MONSTER DUMB — PS1 Horror Escape</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -146,7 +150,10 @@
       <!-- Top HUD -->
       <div class="hud-top">
         <div class="hud-status" id="hud-status-text">STEALTH: Sneak behind the monster</div>
-        <button id="btn-hud-pause" class="retro-btn hud-pause-btn" aria-label="Pause">||</button>
+        <div class="hud-top-right">
+          <button id="btn-toggle-fullscreen" class="hud-fs-btn" aria-label="Toggle Fullscreen" title="Full Screen">&#x26F6;</button>
+          <button id="btn-hud-pause" class="retro-btn hud-pause-btn" aria-label="Pause">||</button>
+        </div>
       </div>
 
       <!-- Stealth Detection Warning Indicator -->
@@ -155,7 +162,14 @@
         <div class="meter-bar"><div id="detection-meter-fill"></div></div>
       </div>
 
-      <!-- Contextual Attack Button (Mobile & Desktop Prompts) -->
+      <!-- Desktop & Center Attack Banner Prompt (Appears prominently when behind monster) -->
+      <div id="desktop-attack-prompt" class="attack-prompt-banner hidden">
+        <div class="prompt-icon">&#9876;</div>
+        <div class="prompt-title">PUKUL TUBUH MONSTER!</div>
+        <div class="prompt-key">[SPASI / KLIK KIRI / ENTER]</div>
+      </div>
+
+      <!-- Contextual Attack Button (Compatibility Wrapper) -->
       <div id="contextual-attack-wrapper" class="hidden">
         <button id="btn-contextual-attack" class="attack-button">
           <span class="attack-icon">&#9876;</span>
@@ -166,7 +180,7 @@
 
       <!-- Desktop Control Reminder Hints (fades out after 5s) -->
       <div id="desktop-controls-hint" class="controls-hint">
-        WASD: Jalan | Shift: Lari | Mouse: Lihat Sekitar | Klik Kiri / Spasi: Pukul Kepala Monster
+        WASD: Jalan | Shift: Lari | Mouse: Lihat Sekitar | Spasi / Klik Kiri: Ayunkan Tongkat Baseball
       </div>
 
       <!-- Mobile Touch Controls Container -->
@@ -185,10 +199,20 @@
           </div>
         </div>
 
-        <button id="btn-touch-sprint" class="touch-sprint-btn hidden">SPRINT</button>
+        <!-- Mobile Sprint Button (Replaces Attack Button at Bottom-Right during Chase) -->
+        <button id="btn-touch-sprint" class="touch-sprint-btn" type="button" style="display: none;">
+          <span class="touch-sprint-icon">&#9889;</span>
+          <span class="touch-sprint-label">SPRINT</span>
+        </button>
 
         <!-- Right Touch Look Area -->
         <div id="touch-look-zone"></div>
+
+        <!-- Permanent Mobile Attack Button (Right Thumb) -->
+        <button id="btn-mobile-attack" class="touch-attack-btn" type="button">
+          <span class="touch-attack-icon">&#9876;</span>
+          <span class="touch-attack-label">PUKUL</span>
+        </button>
       </div>
     </div>
 
@@ -250,7 +274,8 @@
         <span class="phone-arrow">&#8635;</span>
       </div>
       <h2 class="rotate-title">PUTAR KE POSISI LANDSCAPE</h2>
-      <p class="rotate-desc">Untuk pergerakan yang paling nyaman dengan joystick di kiri dan tombol pukul di kanan, putar HP Anda ke posisi mendatar (landscape).</p>
+      <p class="rotate-desc">Untuk pengalaman layar penuh tanpa tab browser dan kontrol yang nyaman, putar HP Anda ke posisi mendatar (landscape).</p>
+      <button id="btn-enter-fullscreen-landscape" class="retro-btn primary-btn pulse-glow">MASUK FULL SCREEN & LANDSCAPE</button>
       <button id="btn-dismiss-landscape" class="retro-btn small-btn">LANJUTKAN SAJA</button>
     </div>
 

@@ -77,10 +77,10 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionFovDeg: 90,       // 90 total (45 each side)
       detectionDistance: 9.0,    // realistic corridor stealth sight distance
       reactionDelaySeconds: 0.85,// fair warning window with alert meter before detection
-      rearAttackAngleDeg: 140,   // generous rear attack angle (70 deg each side from directly behind)
-      attackDistance: 2.8,       // comfortable bat striking range
+      rearAttackAngleDeg: 200,   // generous rear/side stealth attack arc
+      attackDistance: 4.5,       // comfortable bat striking range (full corridor tile reach)
       chaseSpeed: 4.8,           // monster run speed (faster than player walk, slightly slower than sprint)
-      catchDistance: 1.4,        // game over distance
+      catchDistance: 1.6,        // game over distance
     },
     playerConfig: {
       walkSpeed: 3.6,

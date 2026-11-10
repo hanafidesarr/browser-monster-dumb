@@ -37,6 +37,9 @@ export class MonsterController {
   private pathRecalcTimer: number = 0;
   private footstepTimer: number = 0;
 
+  // Latch flag: once in rear striking zone, keep attack button active until player backs far away
+  private isPlayerInRearStrikeZone: boolean = false;
+
   // Callbacks
   public onPlayerDetected: (() => void) | null = null;
   public onPlayerCaught: (() => void) | null = null;
@@ -66,6 +69,7 @@ export class MonsterController {
     this.stateTime = 0;
     this.animProgress = 0;
     this.currentPath = [];
+    this.isPlayerInRearStrikeZone = false;
     this.model.applySittingPosture(0);
   }
 
@@ -73,37 +77,44 @@ export class MonsterController {
     return new THREE.Vector3(Math.sin(this.rotationY), 0, Math.cos(this.rotationY)).normalize();
   }
 
-  // Check if player meets all Rear Contextual Attack criteria
+  // Check if monster can be attacked (near monster proximity for UI prompt)
   public canBeAttackedFromBehind(playerPos: THREE.Vector3): boolean {
-    if (this.state !== 'SITTING_IDLE' || !this.levelDef || !this.pathfinding) {
-      return false;
-    }
-
-    // Use 2D horizontal distance (floor distance) so player camera eye height does not reduce striking range
+    if (this.state !== 'SITTING_IDLE') return false;
     const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
-    if (horizontalDist > this.levelDef.monsterConfig.attackDistance) {
-      return false;
+    return horizontalDist <= 4.2;
+  }
+
+  // Check if player's swing hits ANY part of the monster's body
+  public isHitByPlayerSwing(camera: THREE.Camera, playerPos: THREE.Vector3, playerForward: THREE.Vector3): boolean {
+    if (this.state !== 'SITTING_IDLE') return false;
+
+    // 1. Precise raycast from crosshair against all monster meshes (head, body, arms, legs)
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    raycaster.far = 3.6;
+    const hits = raycaster.intersectObjects(this.group.children, true);
+    if (hits.length > 0) {
+      return true;
     }
 
-    // Line of sight check: cannot attack through wall
-    if (!this.pathfinding.hasLineOfSight(this.position.x, this.position.z, playerPos.x, playerPos.z)) {
-      return false;
+    // 2. Proximity strike (within 3.2m and looking generally towards monster)
+    const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
+    if (horizontalDist <= 3.2) {
+      if (this.pathfinding && !this.pathfinding.hasLineOfSight(this.position.x, this.position.z, playerPos.x, playerPos.z)) {
+        return false;
+      }
+      const dirToMonster = new THREE.Vector3(
+        this.position.x - playerPos.x,
+        0,
+        this.position.z - playerPos.z
+      ).normalize();
+
+      if (playerForward.dot(dirToMonster) > -0.1) {
+        return true;
+      }
     }
 
-    // Monster forward vector
-    const forward = this.getForwardVector();
-    // Direction from monster to player
-    const dirToPlayer = new THREE.Vector3()
-      .subVectors(playerPos, this.position)
-      .setY(0)
-      .normalize();
-
-    // Dot product: Behind means opposite of forward
-    // For 110 degree rear angle: dot < -cos(55 deg) = -0.57
-    const dot = forward.dot(dirToPlayer);
-    const rearThreshold = -Math.cos(((this.levelDef.monsterConfig.rearAttackAngleDeg / 2) * Math.PI) / 180);
-
-    return dot <= rearThreshold;
+    return false;
   }
 
   // Called when player lands successful bat hit
@@ -158,53 +169,13 @@ export class MonsterController {
     this.group.rotation.y = this.rotationY;
   }
 
-  // 1. SITTING_IDLE with FOV Stealth Detection
+  // 1. SITTING_IDLE: Monster is sleeping motionless on the floor.
+  // It will ONLY wake up and chase if struck by the player.
+  // The player will never be attacked before striking!
   private updateSittingIdle(dt: number, totalTime: number, playerPos: THREE.Vector3): void {
     this.model.applySittingPosture(totalTime);
-
-    const dist = this.position.distanceTo(playerPos);
-    const cfg = this.levelDef!.monsterConfig;
-
-    let isDetectedInFov = false;
-
-    if (dist <= cfg.detectionDistance) {
-      // 90-degree total FOV check (45 deg each side)
-      const forward = this.getForwardVector();
-      const dirToPlayer = new THREE.Vector3()
-        .subVectors(playerPos, this.position)
-        .setY(0)
-        .normalize();
-
-      const dot = forward.dot(dirToPlayer);
-      const halfFovRad = ((cfg.detectionFovDeg / 2) * Math.PI) / 180;
-      const cosThreshold = Math.cos(halfFovRad);
-
-      if (dot >= cosThreshold) {
-        // Wall obstruction check: monster CANNOT see through walls
-        if (this.pathfinding!.hasLineOfSight(this.position.x, this.position.z, playerPos.x, playerPos.z)) {
-          isDetectedInFov = true;
-        }
-      }
-    }
-
-    if (isDetectedInFov) {
-      this.detectionTimer += dt;
-      this.detectionPercent = Math.min(1, this.detectionTimer / cfg.reactionDelaySeconds);
-
-      if (this.detectionTimer >= cfg.reactionDelaySeconds) {
-        // Detected! Trigger Game Over sequence
-        this.state = 'DETECT_PLAYER';
-        this.stateTime = 0;
-        AudioManager.getInstance().playCaughtStinger();
-        if (this.onPlayerDetected) {
-          this.onPlayerDetected();
-        }
-      }
-    } else {
-      // Decay detection meter
-      this.detectionTimer = Math.max(0, this.detectionTimer - dt * 1.5);
-      this.detectionPercent = Math.min(1, this.detectionTimer / cfg.reactionDelaySeconds);
-    }
+    this.detectionPercent = 0;
+    this.detectionTimer = 0;
   }
 
   // 2. DETECT_PLAYER
@@ -270,17 +241,20 @@ export class MonsterController {
   // 6. CHASE (A* corridor navigation tracking player)
   private updateChase(dt: number, totalTime: number, playerPos: THREE.Vector3): void {
     const cfg = this.levelDef!.monsterConfig;
-    const distToPlayer = this.position.distanceTo(playerPos);
+
+    // Use 2D horizontal distance on the floor
+    const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
 
     // Footsteps with distance attenuation
     this.footstepTimer += dt;
     if (this.footstepTimer >= 0.35) {
       this.footstepTimer = 0;
-      AudioManager.getInstance().playMonsterFootstep(distToPlayer);
+      AudioManager.getInstance().playMonsterFootstep(horizontalDist);
     }
 
-    // Check catch distance
-    if (distToPlayer <= cfg.catchDistance) {
+    // Check catch distance (monster caught player: trigger Game Over!)
+    const catchDist = Math.max(1.6, cfg.catchDistance);
+    if (horizontalDist <= catchDist) {
       this.state = 'CATCH_PLAYER';
       AudioManager.getInstance().playCaughtStinger();
       if (this.onPlayerCaught) {

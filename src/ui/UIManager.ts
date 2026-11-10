@@ -18,7 +18,9 @@ export class UIManager {
 
   // HUD Elements
   private hudStatusText = document.getElementById('hud-status-text')!;
-  private contextualAttackWrapper = document.getElementById('contextual-attack-wrapper')!;
+  private desktopAttackPrompt = document.getElementById('desktop-attack-prompt');
+  private btnMobileAttack = document.getElementById('btn-mobile-attack');
+  private contextualAttackWrapper = document.getElementById('contextual-attack-wrapper');
   private detectionMeterContainer = document.getElementById('detection-meter-container')!;
   private detectionMeterFill = document.getElementById('detection-meter-fill')!;
   private joystickCenter = document.getElementById('joystick-container-center')!;
@@ -99,9 +101,42 @@ export class UIManager {
   public showGameplayHUD(): void {
     this.hideAllScreens();
     this.hudGameplay.classList.add('active');
+    if (this.btnMobileAttack) {
+      this.btnMobileAttack.style.display = 'flex';
+      this.btnMobileAttack.classList.remove('can-strike');
+      const label = this.btnMobileAttack.querySelector('.touch-attack-label');
+      if (label) label.textContent = 'PUKUL';
+    }
+    if (this.btnSprint) {
+      this.btnSprint.style.display = 'none';
+      this.btnSprint.classList.remove('active');
+    }
     this.setAttackPromptVisible(false);
     this.setDetectionMeter(0);
     this.applyMobileControlLayout();
+  }
+
+  // Switch to Chase Phase Controls (Sprint button replaces Attack button on mobile!)
+  public switchToChaseControls(): void {
+    this.setAttackPromptVisible(false);
+    if (this.btnMobileAttack) {
+      this.btnMobileAttack.style.display = 'none';
+    }
+    if (this.btnSprint) {
+      this.btnSprint.style.display = 'flex';
+      this.btnSprint.classList.remove('active');
+    }
+  }
+
+  public hideAttackControls(): void {
+    this.setAttackPromptVisible(false);
+    if (this.btnMobileAttack) {
+      this.btnMobileAttack.style.display = 'none';
+    }
+    if (this.btnSprint) {
+      this.btnSprint.style.display = 'none';
+      this.btnSprint.classList.remove('active');
+    }
   }
 
   public showPauseMenu(): void {
@@ -141,10 +176,31 @@ export class UIManager {
   }
 
   public setAttackPromptVisible(visible: boolean): void {
-    if (visible) {
-      this.contextualAttackWrapper.classList.remove('hidden');
-    } else {
-      this.contextualAttackWrapper.classList.add('hidden');
+    if (this.desktopAttackPrompt) {
+      if (visible) {
+        this.desktopAttackPrompt.classList.remove('hidden');
+      } else {
+        this.desktopAttackPrompt.classList.add('hidden');
+      }
+    }
+
+    if (this.contextualAttackWrapper) {
+      if (visible) {
+        this.contextualAttackWrapper.classList.remove('hidden');
+      } else {
+        this.contextualAttackWrapper.classList.add('hidden');
+      }
+    }
+
+    if (this.btnMobileAttack) {
+      const label = this.btnMobileAttack.querySelector('.touch-attack-label');
+      if (visible) {
+        this.btnMobileAttack.classList.add('can-strike');
+        if (label) label.textContent = 'PUKUL!';
+      } else {
+        this.btnMobileAttack.classList.remove('can-strike');
+        if (label) label.textContent = 'PUKUL';
+      }
     }
   }
 
@@ -159,31 +215,68 @@ export class UIManager {
   }
 
   public applyMobileControlLayout(): void {
-    const mode = SettingsManager.getInstance().settings.mobileControlMode;
     // Always use left-positioned joystick for maximum thumb comfort
     this.joystickLeft.classList.remove('hidden');
     this.joystickCenter.classList.add('hidden');
-
-    if (mode === 'fps') {
-      this.btnSprint.classList.remove('hidden');
-    } else {
-      this.btnSprint.classList.add('hidden');
-    }
   }
 
   private setupMenuNavigation(): void {
     const audio = AudioManager.getInstance();
 
-    // Helper to lock landscape orientation where supported on mobile
-    const tryLockOrientation = () => {
+    // Comprehensive helper to enter true fullscreen and lock landscape orientation
+    const requestFullScreenAndLandscape = async () => {
+      const docEl = document.documentElement as any;
+      try {
+        if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+          if (docEl.requestFullscreen) {
+            await docEl.requestFullscreen({ navigationUI: 'hide' });
+          } else if (docEl.webkitRequestFullscreen) {
+            await docEl.webkitRequestFullscreen();
+          } else if (docEl.mozRequestFullScreen) {
+            await docEl.mozRequestFullScreen();
+          } else if (docEl.msRequestFullscreen) {
+            await docEl.msRequestFullscreen();
+          }
+        }
+      } catch (_) {}
+
       try {
         if (screen.orientation && (screen.orientation as any).lock) {
-          (screen.orientation as any).lock('landscape').catch(() => {});
+          await (screen.orientation as any).lock('landscape');
         }
       } catch (_) {}
     };
 
+    const toggleFullscreen = async () => {
+      if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+        try {
+          if (document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else if ((document as any).webkitExitFullscreen) {
+            await (document as any).webkitExitFullscreen();
+          }
+        } catch (_) {}
+      } else {
+        await requestFullScreenAndLandscape();
+      }
+    };
+
+    // Fullscreen Toggle Button in HUD
+    const btnToggleFullscreen = document.getElementById('btn-toggle-fullscreen');
+    btnToggleFullscreen?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      audio.playUiClick();
+      toggleFullscreen();
+    });
+
     const landscapeOverlay = document.getElementById('landscape-prompt-overlay');
+
+    document.getElementById('btn-enter-fullscreen-landscape')?.addEventListener('click', async () => {
+      audio.playUiClick();
+      await requestFullScreenAndLandscape();
+      landscapeOverlay?.classList.remove('show-portrait');
+    });
+
     document.getElementById('btn-dismiss-landscape')?.addEventListener('click', () => {
       audio.playUiClick();
       landscapeOverlay?.classList.remove('show-portrait');
@@ -192,13 +285,24 @@ export class UIManager {
     const checkShowLandscapePrompt = () => {
       if (window.innerWidth < 900 && window.innerHeight > window.innerWidth) {
         landscapeOverlay?.classList.add('show-portrait');
+      } else {
+        landscapeOverlay?.classList.remove('show-portrait');
       }
     };
+
+    // Auto-dismiss prompt and update orientation when device rotated
+    window.addEventListener('resize', checkShowLandscapePrompt);
+    window.addEventListener('orientationchange', () => {
+      setTimeout(checkShowLandscapePrompt, 200);
+      if (window.innerWidth > window.innerHeight) {
+        requestFullScreenAndLandscape();
+      }
+    });
 
     // Main Menu Buttons
     document.getElementById('btn-menu-play')?.addEventListener('click', () => {
       audio.playUiClick();
-      tryLockOrientation();
+      requestFullScreenAndLandscape();
       checkShowLandscapePrompt();
       const currentUnlocked = SaveManager.getInstance().getData().unlockedLevel;
       if (this.onPlayRequested) {
@@ -231,7 +335,7 @@ export class UIManager {
     // Overview Buttons
     document.getElementById('btn-start-level')?.addEventListener('click', () => {
       audio.playUiClick();
-      tryLockOrientation();
+      requestFullScreenAndLandscape();
       checkShowLandscapePrompt();
       if (this.onStartLevelRequested) {
         this.onStartLevelRequested();

@@ -85,11 +85,17 @@ export class GameManager {
     // Apply Graphics Resolution
     this.applyGraphicsQuality(SettingsManager.getInstance().settings.graphicsQuality);
 
-    // Setup Window Resize & Mobile Orientation Changes
-    window.addEventListener('resize', () => this.onWindowResize());
-    window.addEventListener('orientationchange', () => {
+    // Setup Window Resize, Fullscreen, & Mobile Orientation Changes
+    const triggerResize = () => {
+      this.onWindowResize();
       setTimeout(() => this.onWindowResize(), 150);
-    });
+      setTimeout(() => this.onWindowResize(), 350);
+    };
+
+    window.addEventListener('resize', () => this.onWindowResize());
+    window.addEventListener('orientationchange', triggerResize);
+    document.addEventListener('fullscreenchange', triggerResize);
+    document.addEventListener('webkitfullscreenchange', triggerResize);
 
     // Setup UI Callbacks
     this.setupUICallbacks();
@@ -202,14 +208,13 @@ export class GameManager {
     };
 
     this.monster.onPlayerCaught = () => {
-      if (this.state === 'CHASE' || this.state === 'DETECT_PLAYER') {
-        this.triggerGameOver('The monster caught you.');
-      }
+      this.triggerGameOver('Monster berhasil menangkapmu!');
     };
 
     this.monster.onChaseStarted = () => {
       this.state = 'CHASE';
-      ui.setStatusText('CHASE: RUN TO THE EXIT DOOR!');
+      ui.switchToChaseControls();
+      ui.setStatusText('MONSTER MENGEJAR! CEPAT LARI KE PINTU EXIT!');
     };
   }
 
@@ -248,6 +253,7 @@ export class GameManager {
       this.pathfinding,
       this.levelBuild.monsterWorldSpawn
     );
+    this.fpController.setMonsterObstacle(this.monster.position);
 
     // Setup Overview Camera
     this.overviewCam.setLevel(this.currentLevelDef);
@@ -312,32 +318,52 @@ export class GameManager {
         this.isTimerRunning = true;
 
         UIManager.getInstance().showGameplayHUD();
-        UIManager.getInstance().setStatusText('STEALTH: Sneak behind the monster');
+        UIManager.getInstance().setStatusText('CARI MONSTER DAN PUKUL TUBUHNYA');
       }
     );
   }
 
-  // Execute Contextual Baseball Bat Attack
+  // Execute Baseball Bat Attack on Monster
   private performAttack(): void {
-    if (this.state !== 'STEALTH' || this.isAttackSuccessful) return;
+    if (this.state !== 'STEALTH') return;
 
-    const canAttack = this.monster.canBeAttackedFromBehind(this.fpController.position);
-    if (!canAttack) return;
+    const forward = this.fpController.getForwardVector();
+    const hitsMonster = this.monster.isHitByPlayerSwing(
+      this.fpController.camera,
+      this.fpController.position,
+      forward
+    );
 
-    this.state = 'ATTACK';
-    this.isAttackSuccessful = true;
+    if (hitsMonster) {
+      // Strike connected on monster's body!
+      this.state = 'ATTACK';
+      this.isAttackSuccessful = true;
 
-    // Permanent disable attack for this attempt
-    this.fpController.weapon.disableAttackPermanently();
-    UIManager.getInstance().setAttackPromptVisible(false);
+      // Clear monster obstacle and switch mobile button to SPRINT
+      this.fpController.setMonsterObstacle(null);
+      UIManager.getInstance().switchToChaseControls();
 
-    // Swing bat
-    this.fpController.weapon.swing(() => {
-      // Hit connected on monster's head!
+      // 1. Swing baseball bat animation
+      this.fpController.weapon.swing(() => {
+        this.fpController.weapon.disableAttackPermanently();
+      });
+
+      // 2. Immediately trigger Monster hit reaction, scream, and chase!
       this.monster.triggerBatHit();
-      this.triggerScreenShake(0.35);
-      UIManager.getInstance().setStatusText('MONSTER HIT! PREPARE TO RUN!');
-    });
+      this.triggerScreenShake(0.4);
+      UIManager.getInstance().setStatusText('MONSTER TERBANGUN & MENGEJAR! LARI KE PINTU EXIT!');
+    } else {
+      // Swung into air - play swing animation and allow player to swing again!
+      const swung = this.fpController.weapon.swing(() => {});
+      if (swung) {
+        UIManager.getInstance().setStatusText('DEKATI MONSTER DAN PUKUL TUBUHNYA!');
+        setTimeout(() => {
+          if (this.state === 'STEALTH') {
+            UIManager.getInstance().setStatusText('CARI MONSTER DAN PUKUL TUBUHNYA');
+          }
+        }, 1800);
+      }
+    }
   }
 
   private triggerScreenShake(amount: number): void {
@@ -443,13 +469,13 @@ export class GameManager {
       // 2. Update Monster
       this.monster.update(dt, this.totalTime, this.fpController.position);
 
-      // 3. Stealth Contextual Attack Check
+      // 3. Attack Check (When bat strikes any part of monster's body, triggers chase)
       if (this.state === 'STEALTH') {
-        const canAttack = this.monster.canBeAttackedFromBehind(this.fpController.position);
-        UIManager.getInstance().setAttackPromptVisible(canAttack);
-        UIManager.getInstance().setDetectionMeter(this.monster.detectionPercent);
+        const nearMonster = this.monster.canBeAttackedFromBehind(this.fpController.position);
+        UIManager.getInstance().setAttackPromptVisible(nearMonster);
+        UIManager.getInstance().setDetectionMeter(0);
 
-        if (canAttack && inputMgr.consumeAttackRequest()) {
+        if (inputMgr.consumeAttackRequest()) {
           this.performAttack();
         }
       } else {
@@ -457,9 +483,18 @@ export class GameManager {
         UIManager.getInstance().setDetectionMeter(0);
       }
 
-      // 4. Escape Door Trigger Check (only active during CHASE phase!)
-      if (this.state === 'CHASE' && this.levelBuild) {
-        if (this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)) {
+      // 4. Escape Door Trigger Check & Catch Check (during CHASE phase!)
+      if (this.state === 'CHASE') {
+        const horizontalDist = Math.hypot(
+          this.monster.position.x - this.fpController.position.x,
+          this.monster.position.z - this.fpController.position.z
+        );
+        if (horizontalDist <= 1.6) {
+          this.triggerGameOver('Monster berhasil menangkapmu!');
+          return;
+        }
+
+        if (this.levelBuild && this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)) {
           this.triggerLevelComplete();
         }
       }

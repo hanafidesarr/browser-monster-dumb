@@ -22,8 +22,8 @@ const DEFAULT_SAVE: SaveData = {
     sfxVolume: 90,
     musicVolume: 70,
     mobileControlMode: 'simple',
-    mouseSensitivity: 4,
-    touchSensitivity: 5,
+    mouseSensitivity: 5,
+    touchSensitivity: 8,
     graphicsQuality: 'med',
   },
 };
@@ -48,13 +48,18 @@ export class SaveManager {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        const settings = {
+          ...DEFAULT_SAVE.settings,
+          ...(parsed.settings || {}),
+        };
+        // Automatically upgrade legacy low touch sensitivity defaults
+        if (!settings.touchSensitivity || settings.touchSensitivity <= 5) {
+          settings.touchSensitivity = 8;
+        }
         return {
           ...DEFAULT_SAVE,
           ...parsed,
-          settings: {
-            ...DEFAULT_SAVE.settings,
-            ...(parsed.settings || {}),
-          },
+          settings,
         };
       }
     } catch (e) {

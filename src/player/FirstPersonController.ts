@@ -14,6 +14,14 @@ export class FirstPersonController {
   private playerRadius: number = 0.38;
   private playerHeight: number = 1.65;
 
+  // Monster Obstacle Collision (Prevents ghost-walking through monster during stealth)
+  private monsterObstacle: THREE.Vector3 | null = null;
+  private monsterRadius: number = 0.65;
+
+  public setMonsterObstacle(pos: THREE.Vector3 | null): void {
+    this.monsterObstacle = pos;
+  }
+
   private velocity: THREE.Vector3 = new THREE.Vector3();
   private isMoving: boolean = false;
   private isSprinting: boolean = false;
@@ -77,7 +85,7 @@ export class FirstPersonController {
     // 2. Movement
     const moveInput = inputMgr.getMovementInput();
     const hasInput = Math.abs(moveInput.forward) > 0.05 || Math.abs(moveInput.right) > 0.05;
-    this.isSprinting = moveInput.isSprinting && moveInput.forward > 0.1; // only sprint going forward
+    this.isSprinting = moveInput.isSprinting && (moveInput.forward > 0.05 || Math.abs(moveInput.right) > 0.05);
 
     const targetSpeed = this.isSprinting
       ? (this.levelDef?.playerConfig.sprintSpeed || 5.5)
@@ -165,6 +173,15 @@ export class FirstPersonController {
   // Circle vs Wall AABBs Collision Test
   private collidesWithWalls(wx: number, wz: number): boolean {
     if (!this.levelDef || !this.pathfinding) return false;
+
+    // Monster Obstacle Collision (Prevents player from walking through sitting monster into its face)
+    if (this.monsterObstacle) {
+      const distSq = (wx - this.monsterObstacle.x) ** 2 + (wz - this.monsterObstacle.z) ** 2;
+      const combinedRadius = this.playerRadius + this.monsterRadius;
+      if (distSq < combinedRadius ** 2) {
+        return true;
+      }
+    }
 
     const { grid, cellSize, gridWidth, gridHeight } = this.levelDef;
     const halfW = (gridWidth * cellSize) / 2;

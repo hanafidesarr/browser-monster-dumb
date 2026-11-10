@@ -97,8 +97,17 @@ export class InputManager {
       if (e.code === 'Escape') {
         this.pauseRequested = true;
       }
-      // Spacebar, E, F, Enter attack triggering with event prevention
-      if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter') {
+      // Spacebar, E, F, Enter attack triggering with comprehensive layout & key compatibility
+      const isAttackKey =
+        e.code === 'Space' ||
+        e.code === 'Spacebar' ||
+        e.key === ' ' ||
+        e.key === 'Spacebar' ||
+        e.code === 'KeyE' ||
+        e.code === 'KeyF' ||
+        e.code === 'Enter';
+
+      if (isAttackKey) {
         e.preventDefault();
         this.requestAttack();
       }
@@ -154,31 +163,49 @@ export class InputManager {
     const joystickBaseLeft = document.getElementById('joystick-base-left');
     const joystickKnobLeft = document.getElementById('joystick-knob-left');
     const sprintBtn = document.getElementById('btn-touch-sprint');
-    const attackBtn = document.getElementById('btn-contextual-attack');
+    const mobileAttackBtn = document.getElementById('btn-mobile-attack');
+    const contextualAttackBtn = document.getElementById('btn-contextual-attack');
 
-    // Contextual Attack Button (Instant hit response on mobile tap or click)
-    const onAttackTap = (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.requestAttack();
-    };
-    attackBtn?.addEventListener('click', onAttackTap);
-    attackBtn?.addEventListener('touchstart', onAttackTap);
-
-    // Sprint Button in Mode B
-    if (sprintBtn) {
-      sprintBtn.addEventListener('touchstart', (e) => {
+    // Attack Button (Fast, responsive tap handling on mobile)
+    const bindAttackElement = (btn: HTMLElement | null) => {
+      if (!btn) return;
+      const onAttackTap = (e: Event) => {
         e.preventDefault();
+        e.stopPropagation();
+        this.requestAttack();
+      };
+      btn.addEventListener('pointerdown', onAttackTap, { passive: false });
+      btn.addEventListener('touchstart', onAttackTap, { passive: false });
+      btn.addEventListener('click', onAttackTap);
+    };
+
+    bindAttackElement(mobileAttackBtn);
+    bindAttackElement(contextualAttackBtn);
+
+    // Sprint Button (Replaces attack button on mobile during chase phase)
+    if (sprintBtn) {
+      const startSprint = (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
         this.isMobileSprinting = true;
         sprintBtn.classList.add('active');
-      });
-      const endSprint = (e: TouchEvent) => {
+      };
+      const endSprint = (e: Event) => {
         e.preventDefault();
+        e.stopPropagation();
         this.isMobileSprinting = false;
         sprintBtn.classList.remove('active');
       };
-      sprintBtn.addEventListener('touchend', endSprint);
-      sprintBtn.addEventListener('touchcancel', endSprint);
+
+      sprintBtn.addEventListener('touchstart', startSprint, { passive: false });
+      sprintBtn.addEventListener('pointerdown', startSprint, { passive: false });
+      sprintBtn.addEventListener('mousedown', startSprint);
+
+      sprintBtn.addEventListener('touchend', endSprint, { passive: false });
+      sprintBtn.addEventListener('touchcancel', endSprint, { passive: false });
+      sprintBtn.addEventListener('pointerup', endSprint, { passive: false });
+      sprintBtn.addEventListener('pointercancel', endSprint, { passive: false });
+      sprintBtn.addEventListener('mouseup', endSprint);
     }
 
     // Generic Joystick touch binding helper
@@ -229,14 +256,23 @@ export class InputManager {
     bindJoystick(joystickBaseCenter, joystickKnobCenter);
     bindJoystick(joystickBaseLeft, joystickKnobLeft);
 
-    // Look Area Touch (Right side of screen, avoiding the movement joystick)
+    // Look Area Touch (Right side of screen, avoiding the movement joystick and attack button)
     if (lookZone) {
       lookZone.addEventListener('touchstart', (e: TouchEvent) => {
         if (this.activeTouchLookId !== null) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
           const touch = e.changedTouches[i];
-          // Only start camera look if not on active joystick and on right side of screen (>32% width)
-          if (touch.identifier !== this.activeJoystickTouchId && touch.clientX > window.innerWidth * 0.32) {
+          // Check if touch is NOT in bottom-right corner where attack button is located (120px zone)
+          const isNearAttackButton =
+            touch.clientX > window.innerWidth - 130 &&
+            touch.clientY > window.innerHeight - 130;
+
+          // Only start camera look if not on active joystick, on right side (>28% width), and not tapping attack button
+          if (
+            touch.identifier !== this.activeJoystickTouchId &&
+            touch.clientX > window.innerWidth * 0.28 &&
+            !isNearAttackButton
+          ) {
             this.activeTouchLookId = touch.identifier;
             this.lastTouchLookPos = { x: touch.clientX, y: touch.clientY };
             break;
@@ -253,7 +289,7 @@ export class InputManager {
             const dy = touch.clientY - this.lastTouchLookPos.y;
             this.lastTouchLookPos = { x: touch.clientX, y: touch.clientY };
 
-            const sens = SettingsManager.getInstance().settings.touchSensitivity * 0.0006;
+            const sens = SettingsManager.getInstance().settings.touchSensitivity * 0.0016;
             this.touchLookDeltaX += dx * sens;
             this.touchLookDeltaY += dy * sens;
             break;
