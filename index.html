@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>MONSTER DUMB — PS1 Horror Escape</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <!-- 3D Canvas Container -->
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+    <div id="ps1-overlay"></div>
+  </div>
+
+  <!-- UI Root -->
+  <div id="ui-root">
+    
+    <!-- MAIN MENU -->
+    <div id="screen-main-menu" class="ui-screen active">
+      <div class="menu-backdrop"></div>
+      <div class="menu-content">
+        <div class="title-container">
+          <h1 class="glitch-title" data-text="MONSTER DUMB">MONSTER DUMB</h1>
+          <p class="subtitle">SURVIVAL HORROR // ESCAPE PROTOCOL</p>
+          <div class="ps1-badge">PSX RETRO 3D</div>
+        </div>
+        
+        <div class="menu-buttons">
+          <button id="btn-menu-play" class="retro-btn primary-btn">PLAY</button>
+          <button id="btn-menu-levels" class="retro-btn">LEVEL SELECT</button>
+          <button id="btn-menu-settings" class="retro-btn">SETTINGS</button>
+        </div>
+
+        <div class="menu-footer">
+          <span>&copy; 2026 MONSTER DUMB — PS1 SURVIVAL HORROR</span>
+          <span class="warning-text">HEADPHONES RECOMMENDED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL SELECT -->
+    <div id="screen-level-select" class="ui-screen">
+      <div class="screen-header">
+        <h2>LEVEL SELECTION</h2>
+        <button id="btn-levels-back" class="retro-btn small-btn">BACK</button>
+      </div>
+      <div class="levels-grid" id="levels-container">
+        <!-- 10 Level Cards populated dynamically -->
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="screen-settings" class="ui-screen">
+      <div class="screen-header">
+        <h2>SYSTEM SETTINGS</h2>
+        <button id="btn-settings-back" class="retro-btn small-btn">BACK</button>
+      </div>
+      <div class="settings-content">
+        <div class="settings-group">
+          <h3>AUDIO</h3>
+          <div class="setting-row">
+            <label for="setting-master-vol">Master Volume</label>
+            <input type="range" id="setting-master-vol" min="0" max="100" value="80" />
+            <span id="label-master-vol">80%</span>
+          </div>
+          <div class="setting-row">
+            <label for="setting-sfx-vol">Sound Effects</label>
+            <input type="range" id="setting-sfx-vol" min="0" max="100" value="90" />
+            <span id="label-sfx-vol">90%</span>
+          </div>
+          <div class="setting-row">
+            <label for="setting-music-vol">Atmospheric Music</label>
+            <input type="range" id="setting-music-vol" min="0" max="100" value="70" />
+            <span id="label-music-vol">70%</span>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3>CONTROLS</h3>
+          <div class="setting-row">
+            <label>Mobile Control Mode</label>
+            <div class="segmented-control">
+              <button id="btn-mode-simple" class="segment-btn active">Simple Joystick</button>
+              <button id="btn-mode-fps" class="segment-btn">Advanced FPS</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <label for="setting-mouse-sens">Mouse Sensitivity</label>
+            <input type="range" id="setting-mouse-sens" min="1" max="10" value="4" />
+            <span id="label-mouse-sens">4</span>
+          </div>
+          <div class="setting-row">
+            <label for="setting-touch-sens">Touch Sensitivity</label>
+            <input type="range" id="setting-touch-sens" min="1" max="10" value="5" />
+            <span id="label-touch-sens">5</span>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3>GRAPHICS</h3>
+          <div class="setting-row">
+            <label>PS1 Visual Quality</label>
+            <div class="segmented-control">
+              <button id="btn-gfx-low" class="segment-btn">Low (PS1 240p)</button>
+              <button id="btn-gfx-med" class="segment-btn active">Med (PS1 480p)</button>
+              <button id="btn-gfx-high" class="segment-btn">High (Sharp)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRE-GAME OVERVIEW OVERLAY -->
+    <div id="screen-overview" class="ui-screen">
+      <div class="overview-header">
+        <div class="level-badge" id="overview-level-title">LEVEL 1 — THE LABYRINTH</div>
+        <div class="overview-instructions">
+          <span class="desktop-hint">DESKTOP: [RMB + Drag] Pan | [LMB + Drag] Rotate | [Scroll] Zoom</span>
+          <span class="mobile-hint">MOBILE: [1-Finger] Pan | [2-Fingers] Rotate | [Pinch] Zoom</span>
+        </div>
+      </div>
+
+      <div class="overview-legend">
+        <div class="legend-item"><span class="legend-dot player-dot"></span> Player Start</div>
+        <div class="legend-item"><span class="legend-dot monster-dot"></span> Monster (Sleeping)</div>
+        <div class="legend-item"><span class="legend-dot exit-dot"></span> Exit Door</div>
+      </div>
+
+      <div class="overview-actions">
+        <button id="btn-start-level" class="retro-btn action-btn pulse-glow">START LEVEL</button>
+        <button id="btn-overview-back" class="retro-btn small-btn">ABORT</button>
+      </div>
+    </div>
+
+    <!-- GAMEPLAY HUD -->
+    <div id="hud-gameplay" class="ui-hud">
+      <!-- Minimal Crosshair -->
+      <div id="crosshair">
+        <div class="ch-dot"></div>
+      </div>
+
+      <!-- Top HUD -->
+      <div class="hud-top">
+        <div class="hud-status" id="hud-status-text">STEALTH: Sneak behind the monster</div>
+        <button id="btn-hud-pause" class="retro-btn hud-pause-btn" aria-label="Pause">||</button>
+      </div>
+
+      <!-- Stealth Detection Warning Indicator -->
+      <div id="detection-meter-container" class="hidden">
+        <div class="meter-label">ALERT</div>
+        <div class="meter-bar"><div id="detection-meter-fill"></div></div>
+      </div>
+
+      <!-- Contextual Attack Button (Mobile & Desktop Prompts) -->
+      <div id="contextual-attack-wrapper" class="hidden">
+        <button id="btn-contextual-attack" class="attack-button">
+          <span class="attack-icon">&#9876;</span>
+          <span class="attack-text">HIT HEAD</span>
+          <span class="attack-key-hint">[LMB]</span>
+        </button>
+      </div>
+
+      <!-- Desktop Control Reminder Hints (fades out after 5s) -->
+      <div id="desktop-controls-hint" class="controls-hint">
+        WASD: Move | Shift: Sprint | Mouse: Look | LMB: Hit Behind Monster
+      </div>
+
+      <!-- Mobile Touch Controls Container -->
+      <div id="touch-controls-container">
+        <!-- MODE A: Simple Joystick (Horizontally Centered at Bottom) -->
+        <div id="joystick-container-center" class="joystick-zone">
+          <div id="joystick-base-center" class="joystick-base">
+            <div id="joystick-knob-center" class="joystick-knob"></div>
+          </div>
+        </div>
+
+        <!-- MODE B: Advanced FPS (Left Movement Joystick & Right Sprint Button) -->
+        <div id="joystick-container-left" class="joystick-zone hidden">
+          <div id="joystick-base-left" class="joystick-base">
+            <div id="joystick-knob-left" class="joystick-knob"></div>
+          </div>
+        </div>
+
+        <button id="btn-touch-sprint" class="touch-sprint-btn hidden">SPRINT</button>
+
+        <!-- Right Touch Look Area -->
+        <div id="touch-look-zone"></div>
+      </div>
+    </div>
+
+    <!-- PAUSE MENU -->
+    <div id="screen-pause" class="ui-screen">
+      <div class="modal-card">
+        <h2>GAME PAUSED</h2>
+        <div class="modal-buttons">
+          <button id="btn-pause-resume" class="retro-btn primary-btn">RESUME</button>
+          <button id="btn-pause-restart" class="retro-btn">RESTART LEVEL</button>
+          <button id="btn-pause-settings" class="retro-btn">SETTINGS</button>
+          <button id="btn-pause-menu" class="retro-btn">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div id="screen-game-over" class="ui-screen">
+      <div class="modal-card horror-card">
+        <h2 class="game-over-title">YOU WERE CAUGHT</h2>
+        <p id="game-over-reason">The monster detected your presence.</p>
+        <div class="modal-buttons">
+          <button id="btn-game-over-retry" class="retro-btn primary-btn pulse-glow">RETRY LEVEL</button>
+          <button id="btn-game-over-menu" class="retro-btn">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEVEL COMPLETE SCREEN -->
+    <div id="screen-level-complete" class="ui-screen">
+      <div class="modal-card success-card">
+        <h2 class="complete-title">ESCAPED SAFELY!</h2>
+        <div class="level-stats">
+          <div class="stat-row">
+            <span>LEVEL:</span>
+            <span id="complete-level-name">THE LABYRINTH</span>
+          </div>
+          <div class="stat-row">
+            <span>ESCAPE TIME:</span>
+            <span id="complete-time">00:45.2</span>
+          </div>
+          <div class="stat-row">
+            <span>STATUS:</span>
+            <span class="status-success">COMPLETED</span>
+          </div>
+        </div>
+        <div class="modal-buttons">
+          <button id="btn-complete-next" class="retro-btn primary-btn">NEXT LEVEL</button>
+          <button id="btn-complete-retry" class="retro-btn">REPLAY</button>
+          <button id="btn-complete-menu" class="retro-btn">MAIN MENU</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
