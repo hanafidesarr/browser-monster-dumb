@@ -79,8 +79,9 @@ export class MonsterController {
       return false;
     }
 
-    const dist = this.position.distanceTo(playerPos);
-    if (dist > this.levelDef.monsterConfig.attackDistance) {
+    // Use 2D horizontal distance (floor distance) so player camera eye height does not reduce striking range
+    const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
+    if (horizontalDist > this.levelDef.monsterConfig.attackDistance) {
       return false;
     }
 

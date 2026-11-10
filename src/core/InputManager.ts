@@ -23,8 +23,9 @@ export class InputManager {
   public touchLookDeltaY: number = 0;
   public isMobileSprinting: boolean = false;
 
-  // Attack Action Trigger
+  // Attack Action Trigger with Input Buffer
   public attackRequested: boolean = false;
+  private attackRequestedTime: number = 0;
 
   // Pause Action Trigger
   public pauseRequested: boolean = false;
@@ -71,7 +72,23 @@ export class InputManager {
     this.touchLookDeltaX = 0;
     this.touchLookDeltaY = 0;
     this.attackRequested = false;
+    this.attackRequestedTime = 0;
     this.pauseRequested = false;
+  }
+
+  public requestAttack(): void {
+    this.attackRequested = true;
+    this.attackRequestedTime = performance.now();
+  }
+
+  public consumeAttackRequest(): boolean {
+    const now = performance.now();
+    if (this.attackRequested || (this.attackRequestedTime > 0 && now - this.attackRequestedTime < 450)) {
+      this.attackRequested = false;
+      this.attackRequestedTime = 0;
+      return true;
+    }
+    return false;
   }
 
   private setupDesktopListeners(): void {
@@ -80,11 +97,10 @@ export class InputManager {
       if (e.code === 'Escape') {
         this.pauseRequested = true;
       }
-      // Alternative attack keys on keyboard (Spacebar, E, F, Enter)
+      // Spacebar, E, F, Enter attack triggering with event prevention
       if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter') {
-        if (this.isEnabled && !this.isOverviewMode) {
-          this.attackRequested = true;
-        }
+        e.preventDefault();
+        this.requestAttack();
       }
     });
 
@@ -106,10 +122,10 @@ export class InputManager {
       this.isPointerLocked = !!document.pointerLockElement;
     });
 
-    // Mouse Click for attack (Left Mouse Button / Klik Kiri)
+    // Mouse Click for attack (Left Mouse Button)
     window.addEventListener('mousedown', (e: MouseEvent) => {
       if (e.button === 0 && this.isEnabled && !this.isOverviewMode) {
-        this.attackRequested = true;
+        this.requestAttack();
       }
     });
   }
@@ -140,11 +156,14 @@ export class InputManager {
     const sprintBtn = document.getElementById('btn-touch-sprint');
     const attackBtn = document.getElementById('btn-contextual-attack');
 
-    // Contextual Attack Button
-    attackBtn?.addEventListener('click', (e) => {
+    // Contextual Attack Button (Instant hit response on mobile tap or click)
+    const onAttackTap = (e: Event) => {
+      e.preventDefault();
       e.stopPropagation();
-      this.attackRequested = true;
-    });
+      this.requestAttack();
+    };
+    attackBtn?.addEventListener('click', onAttackTap);
+    attackBtn?.addEventListener('touchstart', onAttackTap);
 
     // Sprint Button in Mode B
     if (sprintBtn) {
@@ -210,14 +229,14 @@ export class InputManager {
     bindJoystick(joystickBaseCenter, joystickKnobCenter);
     bindJoystick(joystickBaseLeft, joystickKnobLeft);
 
-    // Look Area Touch
+    // Look Area Touch (Right side of screen, avoiding the movement joystick)
     if (lookZone) {
       lookZone.addEventListener('touchstart', (e: TouchEvent) => {
         if (this.activeTouchLookId !== null) return;
         for (let i = 0; i < e.changedTouches.length; i++) {
           const touch = e.changedTouches[i];
-          // Ignore if it's over the active joystick
-          if (touch.identifier !== this.activeJoystickTouchId) {
+          // Only start camera look if not on active joystick and on right side of screen (>32% width)
+          if (touch.identifier !== this.activeJoystickTouchId && touch.clientX > window.innerWidth * 0.32) {
             this.activeTouchLookId = touch.identifier;
             this.lastTouchLookPos = { x: touch.clientX, y: touch.clientY };
             break;
@@ -332,12 +351,6 @@ export class InputManager {
     this.touchLookDeltaX = 0;
     this.touchLookDeltaY = 0;
     return { dx, dy };
-  }
-
-  public consumeAttackRequest(): boolean {
-    const req = this.attackRequested;
-    this.attackRequested = false;
-    return req;
   }
 
   public consumePauseRequest(): boolean {

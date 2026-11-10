@@ -160,25 +160,46 @@ export class UIManager {
 
   public applyMobileControlLayout(): void {
     const mode = SettingsManager.getInstance().settings.mobileControlMode;
-    if (mode === 'simple') {
-      // Center-bottom joystick
-      this.joystickCenter.classList.remove('hidden');
-      this.joystickLeft.classList.add('hidden');
-      this.btnSprint.classList.add('hidden');
-    } else {
-      // Advanced FPS: left joystick + sprint button
-      this.joystickCenter.classList.add('hidden');
-      this.joystickLeft.classList.remove('hidden');
+    // Always use left-positioned joystick for maximum thumb comfort
+    this.joystickLeft.classList.remove('hidden');
+    this.joystickCenter.classList.add('hidden');
+
+    if (mode === 'fps') {
       this.btnSprint.classList.remove('hidden');
+    } else {
+      this.btnSprint.classList.add('hidden');
     }
   }
 
   private setupMenuNavigation(): void {
     const audio = AudioManager.getInstance();
 
+    // Helper to lock landscape orientation where supported on mobile
+    const tryLockOrientation = () => {
+      try {
+        if (screen.orientation && (screen.orientation as any).lock) {
+          (screen.orientation as any).lock('landscape').catch(() => {});
+        }
+      } catch (_) {}
+    };
+
+    const landscapeOverlay = document.getElementById('landscape-prompt-overlay');
+    document.getElementById('btn-dismiss-landscape')?.addEventListener('click', () => {
+      audio.playUiClick();
+      landscapeOverlay?.classList.remove('show-portrait');
+    });
+
+    const checkShowLandscapePrompt = () => {
+      if (window.innerWidth < 900 && window.innerHeight > window.innerWidth) {
+        landscapeOverlay?.classList.add('show-portrait');
+      }
+    };
+
     // Main Menu Buttons
     document.getElementById('btn-menu-play')?.addEventListener('click', () => {
       audio.playUiClick();
+      tryLockOrientation();
+      checkShowLandscapePrompt();
       const currentUnlocked = SaveManager.getInstance().getData().unlockedLevel;
       if (this.onPlayRequested) {
         this.onPlayRequested(currentUnlocked);
@@ -210,6 +231,8 @@ export class UIManager {
     // Overview Buttons
     document.getElementById('btn-start-level')?.addEventListener('click', () => {
       audio.playUiClick();
+      tryLockOrientation();
+      checkShowLandscapePrompt();
       if (this.onStartLevelRequested) {
         this.onStartLevelRequested();
       }
