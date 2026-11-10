@@ -25,14 +25,15 @@ export class MonsterModel {
   constructor() {
     this.group = new THREE.Group();
     this.group.name = 'MonsterRoot';
+    this.group.scale.set(1.35, 1.35, 1.35); // Prominent, imposing horror stature
 
     const monsterTex = TextureGenerator.createMonsterTexture();
     const monsterMat = new THREE.MeshLambertMaterial({
       map: monsterTex,
-      roughness: 0.85,
+      roughness: 0.8,
     });
 
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff1111 });
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
     // 1. Pelvis
     this.pelvis = new THREE.Group();
@@ -78,15 +79,19 @@ export class MonsterModel {
     craniumMesh.position.set(0, 0.15, 0.05);
     this.head.add(craniumMesh);
 
-    // Sunken red glowing eyes
-    const eyeGeo = new THREE.BoxGeometry(0.06, 0.06, 0.06);
+    // Sunken red glowing eyes with eerie red aura
+    const eyeGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
     const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-    leftEye.position.set(-0.1, 0.16, 0.25);
+    leftEye.position.set(-0.11, 0.16, 0.25);
     this.head.add(leftEye);
 
     const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-    rightEye.position.set(0.1, 0.16, 0.25);
+    rightEye.position.set(0.11, 0.16, 0.25);
     this.head.add(rightEye);
+
+    const eyeGlow = new THREE.PointLight(0xff0000, 1.2, 5, 1.5);
+    eyeGlow.position.set(0, 0.16, 0.35);
+    this.head.add(eyeGlow);
 
     // Unhinged lower jaw
     this.jaw = new THREE.Group();
@@ -198,7 +203,7 @@ export class MonsterModel {
     const breath = Math.sin(time * 2.2) * 0.04;
     const twitch = (Math.sin(time * 0.7) > 0.95 ? (Math.random() - 0.5) * 0.1 : 0);
 
-    this.pelvis.position.set(0, 0.32 + breath * 0.2, 0);
+    this.pelvis.position.set(0, 0.42 + breath * 0.2, 0);
     this.pelvis.rotation.set(0.1, 0, 0);
 
     this.spine.rotation.set(0.35 + breath, 0, 0);

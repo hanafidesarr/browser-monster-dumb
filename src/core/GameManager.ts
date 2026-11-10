@@ -85,8 +85,11 @@ export class GameManager {
     // Apply Graphics Resolution
     this.applyGraphicsQuality(SettingsManager.getInstance().settings.graphicsQuality);
 
-    // Setup Window Resize
+    // Setup Window Resize & Mobile Orientation Changes
     window.addEventListener('resize', () => this.onWindowResize());
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => this.onWindowResize(), 150);
+    });
 
     // Setup UI Callbacks
     this.setupUICallbacks();

@@ -42,38 +42,27 @@ export class GridPathfinding {
     return this.grid[gz][gx] === 0;
   }
 
-  // Line-of-sight raycast on grid using DDA
-  // Returns true if clear vision (no wall cell intersects ray)
+  // Line-of-sight raycast on grid using fine-step sampling
+  // Prevents diagonal wall corner-cutting leaks and guarantees walls block vision completely
   public hasLineOfSight(wx1: number, wz1: number, wx2: number, wz2: number): boolean {
-    const p1 = this.worldToGrid(wx1, wz1);
-    const p2 = this.worldToGrid(wx2, wz2);
+    const dist = Math.hypot(wx2 - wx1, wz2 - wz1);
+    if (dist < 0.01) return true;
 
-    let x0 = p1.gx;
-    let y0 = p1.gz;
-    const x1 = p2.gx;
-    const y1 = p2.gz;
+    // Step every 0.25 of a cell size (approx 0.7 units)
+    const stepSize = this.cellSize * 0.25;
+    const steps = Math.ceil(dist / stepSize);
 
-    const dx = Math.abs(x1 - x0);
-    const dy = Math.abs(y1 - y0);
-    const sx = x0 < x1 ? 1 : -1;
-    const sy = y0 < y1 ? 1 : -1;
-    let err = dx - dy;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const curX = wx1 + (wx2 - wx1) * t;
+      const curZ = wz1 + (wz2 - wz1) * t;
+      const g = this.worldToGrid(curX, curZ);
 
-    while (true) {
-      if (!this.isWalkable(x0, y0)) {
+      if (!this.isWalkable(g.gx, g.gz)) {
         return false;
       }
-      if (x0 === x1 && y0 === y1) break;
-      const e2 = 2 * err;
-      if (e2 > -dy) {
-        err -= dy;
-        x0 += sx;
-      }
-      if (e2 < dx) {
-        err += dx;
-        y0 += sy;
-      }
     }
+
     return true;
   }
 

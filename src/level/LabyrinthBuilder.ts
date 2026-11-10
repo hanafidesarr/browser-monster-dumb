@@ -241,6 +241,11 @@ export class LabyrinthBuilder {
       rootGroup.add(fixtureMesh);
     });
 
+    // Atmospheric horror light directly over monster resting chamber
+    const monsterChamberLight = new THREE.PointLight(0xff3333, 2.2, 10, 1.2);
+    monsterChamberLight.position.set(mSpawnWx, wallHeight - 0.4, mSpawnWz);
+    rootGroup.add(monsterChamberLight);
+
     // 7. PRE-GAME OVERVIEW 3D MARKERS (CRITICAL FEATURE)
     // Marker A: Player Start (Blue Arrow pointing in initial player direction)
     const playerMarker = new THREE.Group();
