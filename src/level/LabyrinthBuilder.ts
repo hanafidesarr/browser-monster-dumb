@@ -193,32 +193,49 @@ export class LabyrinthBuilder {
     );
 
     // 6. Atmospheric PS1 Lights
-    // Dark moody ambient light
-    const ambientLight = new THREE.AmbientLight(0x1a2028, 0.9);
+    // Hemispherical ambient bounce (clear visibility from all angles)
+    const hemiLight = new THREE.HemisphereLight(0xb0c4de, 0x334155, 1.2);
+    rootGroup.add(hemiLight);
+
+    const ambientLight = new THREE.AmbientLight(0x5a6978, 1.4);
     rootGroup.add(ambientLight);
 
-    // Subtle overhead industrial lamps along main corridors
+    // Industrial lamps distributed across corridors and intersections
     const lightPositions = [
+      { gx: 1, gz: 1 },  // Near player spawn
       { gx: 3, gz: 1 },
-      { gx: 7, gz: 3 },
-      { gx: 1, gz: 7 },
-      { gx: 7, gz: 7 }, // Above monster chamber (dim flickering)
+      { gx: 7, gz: 1 },
+      { gx: 11, gz: 1 },
+      { gx: 13, gz: 1 },
+      { gx: 1, gz: 5 },
+      { gx: 5, gz: 5 },
+      { gx: 9, gz: 5 },
+      { gx: 13, gz: 5 },
+      { gx: 3, gz: 7 },
+      { gx: 7, gz: 7 },  // Monster chamber
       { gx: 11, gz: 7 },
-      { gx: 7, gz: 11 },
+      { gx: 1, gz: 9 },
+      { gx: 7, gz: 9 },  // Approach corridor
+      { gx: 13, gz: 9 },
+      { gx: 3, gz: 11 },
+      { gx: 9, gz: 11 },
       { gx: 13, gz: 11 },
+      { gx: 1, gz: 13 },
+      { gx: 7, gz: 13 },
+      { gx: 13, gz: 13 }, // Exit corridor
     ];
 
-    lightPositions.forEach((pos, idx) => {
+    lightPositions.forEach((pos) => {
       const lx = (pos.gx + 0.5) * cellSize - halfWidth;
       const lz = (pos.gz + 0.5) * cellSize - halfHeight;
 
-      const pLight = new THREE.PointLight(0xaad4f5, 0.75, 9, 1.8);
-      pLight.position.set(lx, wallHeight - 0.3, lz);
+      const pLight = new THREE.PointLight(0xdbeafe, 1.6, 12, 1.2);
+      pLight.position.set(lx, wallHeight - 0.25, lz);
       rootGroup.add(pLight);
 
       // Hanging fixture mesh
-      const fixtureGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.2, 6);
-      const fixtureMat = new THREE.MeshBasicMaterial({ color: 0xddeeff });
+      const fixtureGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.2, 6);
+      const fixtureMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
       const fixtureMesh = new THREE.Mesh(fixtureGeo, fixtureMat);
       fixtureMesh.position.set(lx, wallHeight - 0.1, lz);
       rootGroup.add(fixtureMesh);

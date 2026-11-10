@@ -18,14 +18,14 @@ export class TextureGenerator {
     const ctx = canvas.getContext('2d')!;
 
     // Base concrete
-    ctx.fillStyle = '#3c4046';
+    ctx.fillStyle = '#555c66';
     ctx.fillRect(0, 0, size, size);
 
     // Concrete noise
     for (let x = 0; x < size; x += 2) {
       for (let y = 0; y < size; y += 2) {
         const n = (Math.random() - 0.5) * 35;
-        const c = Math.max(30, Math.min(85, 60 + n));
+        const c = Math.max(55, Math.min(125, 88 + n));
         ctx.fillStyle = `rgb(${c}, ${c + 2}, ${c + 4})`;
         ctx.fillRect(x, y, 2, 2);
       }
@@ -78,7 +78,7 @@ export class TextureGenerator {
     for (let ty = 0; ty < 4; ty++) {
       for (let tx = 0; tx < 4; tx++) {
         const isDark = (tx + ty) % 2 === 0;
-        const base = isDark ? 42 : 55;
+        const base = isDark ? 65 : 82;
         ctx.fillStyle = `rgb(${base}, ${base - 2}, ${base - 4})`;
         ctx.fillRect(tx * tileSize, ty * tileSize, tileSize, tileSize);
 
@@ -86,7 +86,7 @@ export class TextureGenerator {
         for (let ix = 0; ix < tileSize; ix += 4) {
           for (let iy = 0; iy < tileSize; iy += 4) {
             const noise = (Math.random() - 0.5) * 18;
-            const col = Math.max(20, Math.min(80, base + noise));
+            const col = Math.max(45, Math.min(115, base + noise));
             ctx.fillStyle = `rgb(${col}, ${col - 2}, ${col - 4})`;
             ctx.fillRect(tx * tileSize + ix, ty * tileSize + iy, 4, 4);
           }
@@ -120,11 +120,11 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    ctx.fillStyle = '#22252a';
+    ctx.fillStyle = '#3a414a';
     ctx.fillRect(0, 0, size, size);
 
     // Grid panels
-    ctx.strokeStyle = '#121417';
+    ctx.strokeStyle = '#22272e';
     ctx.lineWidth = 2;
     ctx.strokeRect(2, 2, size - 4, size - 4);
     ctx.strokeRect(10, 10, size - 20, size - 20);

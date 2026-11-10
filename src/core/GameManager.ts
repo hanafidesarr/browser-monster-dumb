@@ -66,8 +66,9 @@ export class GameManager {
     });
 
     this.scene = new THREE.Scene();
-    // PS1 Retro Fog (dark dense atmospheric fog)
-    this.scene.fog = new THREE.FogExp2(0x0c0d0f, 0.045);
+    this.scene.background = new THREE.Color(0x181e26);
+    // Atmospheric PS1 Fog (soft depth without obscuring the labyrinth)
+    this.scene.fog = new THREE.Fog(0x181e26, 12, 60);
 
     this.currentLevelDef = ALL_LEVELS[0];
 

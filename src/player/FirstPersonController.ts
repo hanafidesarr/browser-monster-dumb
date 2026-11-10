@@ -31,6 +31,11 @@ export class FirstPersonController {
     this.position = new THREE.Vector3(0, this.playerHeight, 0);
     this.weapon = new WeaponController();
     this.camera.add(this.weapon.group);
+
+    // Player personal flashlight (Survival horror atmosphere with clear visibility)
+    const playerLight = new THREE.PointLight(0xfff5e6, 1.5, 10, 1.4);
+    playerLight.position.set(0, -0.15, 0.1);
+    this.camera.add(playerLight);
   }
 
   public setLevel(level: LevelDefinition, pathfinding: GridPathfinding, spawnPos: { x: number; y: number; z: number; rotationY: number }): void {
