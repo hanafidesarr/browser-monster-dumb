@@ -80,6 +80,12 @@ export class InputManager {
       if (e.code === 'Escape') {
         this.pauseRequested = true;
       }
+      // Alternative attack keys on keyboard (Spacebar, E, F, Enter)
+      if (e.code === 'Space' || e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter') {
+        if (this.isEnabled && !this.isOverviewMode) {
+          this.attackRequested = true;
+        }
+      }
     });
 
     window.addEventListener('keyup', (e: KeyboardEvent) => {
@@ -100,9 +106,9 @@ export class InputManager {
       this.isPointerLocked = !!document.pointerLockElement;
     });
 
-    // Mouse Click for attack
+    // Mouse Click for attack (Left Mouse Button / Klik Kiri)
     window.addEventListener('mousedown', (e: MouseEvent) => {
-      if (e.button === 0 && this.isPointerLocked && this.isEnabled && !this.isOverviewMode) {
+      if (e.button === 0 && this.isEnabled && !this.isOverviewMode) {
         this.attackRequested = true;
       }
     });
