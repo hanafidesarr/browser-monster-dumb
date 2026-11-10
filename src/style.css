@@ -90,6 +90,7 @@ html, body {
   display: none;
   flex-direction: column;
   pointer-events: auto;
+  z-index: 30;
   background-color: rgba(12, 13, 15, 0.88);
   backdrop-filter: blur(2px);
   padding: env(safe-area-inset-top, 20px) env(safe-area-inset-right, 20px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 20px);
@@ -97,6 +98,12 @@ html, body {
 
 .ui-screen.active {
   display: flex;
+}
+
+#screen-pause,
+#screen-game-over,
+#screen-level-complete {
+  z-index: 100;
 }
 
 /* ==========================================================================
@@ -114,6 +121,9 @@ html, body {
   letter-spacing: 2px;
   text-transform: uppercase;
   cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  z-index: 110;
   box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.15), 2px 2px 5px rgba(0,0,0,0.7);
   transition: transform 0.05s ease, background-color 0.1s ease;
   user-select: none;
@@ -753,6 +763,9 @@ html, body {
   max-width: 440px;
   width: 90%;
   text-align: center;
+  position: relative;
+  pointer-events: auto;
+  z-index: 105;
   box-shadow: 0 10px 30px rgba(0,0,0,0.85);
 }
 

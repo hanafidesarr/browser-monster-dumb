@@ -105,19 +105,23 @@ export class UIManager {
   }
 
   public showPauseMenu(): void {
+    this.hudGameplay.classList.remove('active');
     this.screenPause.classList.add('active');
   }
 
   public hidePauseMenu(): void {
     this.screenPause.classList.remove('active');
+    this.hudGameplay.classList.add('active');
   }
 
   public showGameOver(reason: string): void {
+    this.hideAllScreens();
     this.screenGameOver.classList.add('active');
     this.gameOverReason.textContent = reason;
   }
 
   public showLevelComplete(level: LevelDefinition, timeSeconds: number, hasNextLevel: boolean): void {
+    this.hideAllScreens();
     this.screenLevelComplete.classList.add('active');
     this.completeLevelName.textContent = level.title;
 
@@ -216,62 +220,79 @@ export class UIManager {
       this.showMainMenu();
     });
 
+    const bindAction = (elementId: string, action: () => void) => {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      let handled = false;
+      const trigger = (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (handled) return;
+        handled = true;
+        setTimeout(() => { handled = false; }, 250);
+        action();
+      };
+      el.addEventListener('click', trigger);
+      el.addEventListener('touchend', trigger);
+    };
+
     // Pause Buttons
     document.getElementById('btn-hud-pause')?.addEventListener('click', () => {
       audio.playUiClick();
       this.showPauseMenu();
     });
 
-    document.getElementById('btn-pause-resume')?.addEventListener('click', () => {
+    bindAction('btn-pause-resume', () => {
       audio.playUiClick();
       this.hidePauseMenu();
       if (this.onResumeRequested) this.onResumeRequested();
     });
 
-    document.getElementById('btn-pause-restart')?.addEventListener('click', () => {
+    bindAction('btn-pause-restart', () => {
       audio.playUiClick();
       this.hidePauseMenu();
       if (this.onRestartRequested) this.onRestartRequested();
     });
 
-    document.getElementById('btn-pause-settings')?.addEventListener('click', () => {
+    bindAction('btn-pause-settings', () => {
       audio.playUiClick();
       this.showSettings(true);
     });
 
-    document.getElementById('btn-pause-menu')?.addEventListener('click', () => {
+    bindAction('btn-pause-menu', () => {
       audio.playUiClick();
       this.hidePauseMenu();
       if (this.onExitToMenuRequested) this.onExitToMenuRequested();
     });
 
-    // Game Over Buttons
-    document.getElementById('btn-game-over-retry')?.addEventListener('click', () => {
+    // Game Over Buttons (Guaranteed instant response on click or touch)
+    bindAction('btn-game-over-retry', () => {
       audio.playUiClick();
       this.hideAllScreens();
       if (this.onRestartRequested) this.onRestartRequested();
     });
 
-    document.getElementById('btn-game-over-menu')?.addEventListener('click', () => {
+    bindAction('btn-game-over-menu', () => {
       audio.playUiClick();
       this.hideAllScreens();
       if (this.onExitToMenuRequested) this.onExitToMenuRequested();
     });
 
     // Level Complete Buttons
-    this.btnCompleteNext.addEventListener('click', () => {
+    this.btnCompleteNext.addEventListener('click', (e) => {
+      e.stopPropagation();
       audio.playUiClick();
       this.hideAllScreens();
       if (this.onNextLevelRequested) this.onNextLevelRequested();
     });
 
-    document.getElementById('btn-complete-retry')?.addEventListener('click', () => {
+    bindAction('btn-complete-retry', () => {
       audio.playUiClick();
       this.hideAllScreens();
       if (this.onRestartRequested) this.onRestartRequested();
     });
 
-    document.getElementById('btn-complete-menu')?.addEventListener('click', () => {
+    bindAction('btn-complete-menu', () => {
       audio.playUiClick();
       this.hideAllScreens();
       if (this.onExitToMenuRequested) this.onExitToMenuRequested();

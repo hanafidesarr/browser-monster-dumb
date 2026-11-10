@@ -117,11 +117,12 @@ export class InputManager {
   }
 
   public exitPointerLock(): void {
-    if (document.pointerLockElement) {
-      try {
+    try {
+      if (document.exitPointerLock) {
         document.exitPointerLock();
-      } catch (_) {}
-    }
+      }
+    } catch (_) {}
+    this.isPointerLocked = false;
   }
 
   private setupMobileListeners(): void {

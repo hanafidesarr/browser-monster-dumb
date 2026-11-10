@@ -343,10 +343,16 @@ export class GameManager {
 
   // Trigger Game Over
   private triggerGameOver(reason: string): void {
+    if (this.state === 'GAME_OVER') return;
     this.state = 'GAME_OVER';
     this.isTimerRunning = false;
     this.fpController.setEnabled(false);
     InputManager.getInstance().exitPointerLock();
+    try {
+      if (document.exitPointerLock) {
+        document.exitPointerLock();
+      }
+    } catch (_) {}
 
     UIManager.getInstance().showGameOver(reason);
   }
