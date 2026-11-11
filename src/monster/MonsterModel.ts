@@ -1,334 +1,296 @@
 import * as THREE from 'three';
-import { TextureGenerator } from '../level/TextureGenerator.ts';
+import { FBXLoader } from '../loaders/FBXLoader.js';
 
 export class MonsterModel {
   public group: THREE.Group;
+  public innerGroup: THREE.Group;
 
-  // Nodes for procedural articulation
-  public pelvis: THREE.Group;
-  public spine: THREE.Group;
-  public torso: THREE.Group;
-  public neck: THREE.Group;
-  public head: THREE.Group;
-  public jaw: THREE.Group;
+  // Visual components
+  private fbxRoot: THREE.Group | null = null;
+  private placeholderMesh: THREE.Group | null = null;
+  private eyeLight: THREE.PointLight;
+  private leftEyeGlow: THREE.Mesh;
+  private rightEyeGlow: THREE.Mesh;
+  private auraParticles: THREE.Points;
 
-  public leftArmUpper: THREE.Group;
-  public leftArmLower: THREE.Group;
-  public rightArmUpper: THREE.Group;
-  public rightArmLower: THREE.Group;
-
-  public leftLegUpper: THREE.Group;
-  public leftLegLower: THREE.Group;
-  public rightLegUpper: THREE.Group;
-  public rightLegLower: THREE.Group;
+  // Animation states
+  public isLoaded: boolean = false;
+  private baseScale: number = 0.0115;
 
   constructor() {
     this.group = new THREE.Group();
-    this.group.name = 'MonsterRoot';
-    this.group.scale.set(1.35, 1.35, 1.35); // Prominent, imposing horror stature
+    this.group.name = 'PocongRoot';
 
-    const monsterTex = TextureGenerator.createMonsterTexture();
-    const monsterMat = new THREE.MeshLambertMaterial({
-      map: monsterTex,
-      roughness: 0.8,
+    this.innerGroup = new THREE.Group();
+    this.innerGroup.name = 'PocongBody';
+    this.group.add(this.innerGroup);
+
+    // 1. Temporary immediate placeholder while FBX is streaming (zero black/missing frame)
+    this.placeholderMesh = this.createPocongPlaceholder();
+    this.innerGroup.add(this.placeholderMesh);
+
+    // 2. Sinister Red Eyes (Hollow glowing sockets)
+    const eyeGeo = new THREE.SphereGeometry(0.035, 6, 6);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff1111 });
+
+    this.leftEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
+    this.leftEyeGlow.position.set(-0.1, 1.62, 0.22);
+    this.innerGroup.add(this.leftEyeGlow);
+
+    this.rightEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
+    this.rightEyeGlow.position.set(0.1, 1.62, 0.22);
+    this.innerGroup.add(this.rightEyeGlow);
+
+    this.eyeLight = new THREE.PointLight(0xff0000, 1.5, 4.5, 1.5);
+    this.eyeLight.position.set(0, 1.62, 0.35);
+    this.innerGroup.add(this.eyeLight);
+
+    // 3. Eerie Floating Mist / Aura Particles
+    this.auraParticles = this.createAuraParticles();
+    this.innerGroup.add(this.auraParticles);
+
+    // 4. Load the actual pocong.fbx 3D model
+    this.loadPocongFBX();
+  }
+
+  // Fallback / immediate procedural shroud mesh
+  private createPocongPlaceholder(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'PocongPlaceholder';
+
+    const shroudMat = new THREE.MeshLambertMaterial({
+      color: 0xcccccc,
+      roughness: 0.9,
     });
 
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    // Wrapped body column
+    const bodyGeo = new THREE.CylinderGeometry(0.24, 0.26, 1.8, 8);
+    const body = new THREE.Mesh(bodyGeo, shroudMat);
+    body.position.y = 0.9;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
 
-    // 1. Pelvis
-    this.pelvis = new THREE.Group();
-    this.pelvis.position.set(0, 1.0, 0);
-    this.group.add(this.pelvis);
+    // Head bulge
+    const headGeo = new THREE.SphereGeometry(0.25, 8, 8);
+    const head = new THREE.Mesh(headGeo, shroudMat);
+    head.position.y = 1.65;
+    head.castShadow = true;
+    group.add(head);
 
-    const pelvisMesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.22, 0.28), monsterMat);
-    this.pelvis.add(pelvisMesh);
+    // Top knot (Tali pocong kepala)
+    const knotGeo = new THREE.ConeGeometry(0.12, 0.35, 6);
+    const knot = new THREE.Mesh(knotGeo, shroudMat);
+    knot.position.y = 2.0;
+    group.add(knot);
 
-    // 2. Spine & Torso
-    this.spine = new THREE.Group();
-    this.spine.position.set(0, 0.12, 0);
-    this.pelvis.add(this.spine);
+    return group;
+  }
 
-    this.torso = new THREE.Group();
-    this.torso.position.set(0, 0.25, 0);
-    this.spine.add(this.torso);
+  // Create eerie supernatural mist particles floating around pocong
+  private createAuraParticles(): THREE.Points {
+    const count = 35;
+    const geo = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
 
-    const torsoMesh = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.65, 0.32), monsterMat);
-    torsoMesh.position.set(0, 0.3, 0);
-    this.torso.add(torsoMesh);
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * 0.9;
+      positions[i * 3 + 1] = Math.random() * 2.1;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 0.9;
+    }
 
-    // Hunchback protrusion (unsettling horror silhouette)
-    const hunchMesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.45, 0.22), monsterMat);
-    hunchMesh.position.set(0, 0.45, -0.16);
-    this.torso.add(hunchMesh);
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-    // 3. Neck & Head
-    this.neck = new THREE.Group();
-    this.neck.position.set(0, 0.65, 0.05);
-    this.torso.add(this.neck);
+    const mat = new THREE.PointsMaterial({
+      color: 0x88ffaa,
+      size: 0.06,
+      transparent: true,
+      opacity: 0.45,
+      blending: THREE.AdditiveBlending,
+    });
 
-    const neckMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.25, 6), monsterMat);
-    neckMesh.position.set(0, 0.1, 0);
-    this.neck.add(neckMesh);
+    return new THREE.Points(geo, mat);
+  }
 
-    this.head = new THREE.Group();
-    this.head.position.set(0, 0.22, 0);
-    this.neck.add(this.head);
+  // Load pocong.fbx with custom patched loader and assign textures
+  private loadPocongFBX(): void {
+    const texLoader = new THREE.TextureLoader();
 
-    // Disturbing elongated skull
-    const craniumMesh = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.38, 0.42), monsterMat);
-    craniumMesh.position.set(0, 0.15, 0.05);
-    this.head.add(craniumMesh);
+    // Textures extracted from pocong-for-game.zip
+    const clothTex = texLoader.load('./textures/22.png');
+    const clothNormal = texLoader.load('./textures/sbklx0p_2K_Normal.jpg');
+    const clothAO = texLoader.load('./textures/pocon1_ao.png');
 
-    // Sunken red glowing eyes with eerie red aura
-    const eyeGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
-    const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-    leftEye.position.set(-0.11, 0.16, 0.25);
-    this.head.add(leftEye);
+    const faceTex = texLoader.load('./textures/3.png');
+    const faceNormal = texLoader.load('./textures/zombie1Normal.png');
+    const faceSpec = texLoader.load('./textures/zombie1Specular.png');
 
-    const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-    rightEye.position.set(0.11, 0.16, 0.25);
-    this.head.add(rightEye);
+    const shroudMaterial = new THREE.MeshLambertMaterial({
+      map: clothTex,
+      normalMap: clothNormal,
+      aoMap: clothAO,
+      side: THREE.DoubleSide,
+      roughness: 0.85,
+    });
 
-    const eyeGlow = new THREE.PointLight(0xff0000, 1.2, 5, 1.5);
-    eyeGlow.position.set(0, 0.16, 0.35);
-    this.head.add(eyeGlow);
+    const faceMaterial = new THREE.MeshLambertMaterial({
+      map: faceTex,
+      normalMap: faceNormal,
+      specularMap: faceSpec,
+      side: THREE.DoubleSide,
+      roughness: 0.65,
+    });
 
-    // Unhinged lower jaw
-    this.jaw = new THREE.Group();
-    this.jaw.position.set(0, -0.02, 0.12);
-    this.head.add(this.jaw);
+    const fbxLoader = new FBXLoader();
+    fbxLoader.load(
+      './models/pocong.fbx',
+      (fbx: THREE.Group) => {
+        // Traverse and assign materials
+        fbx.traverse((child: THREE.Object3D) => {
+          if (child instanceof THREE.Mesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
 
-    const jawMesh = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.12, 0.28), monsterMat);
-    jawMesh.position.set(0, -0.05, 0.05);
-    this.jaw.add(jawMesh);
+            const name = child.name.toLowerCase();
+            if (name.includes('cylinder') || name.includes('cloth') || name.includes('body')) {
+              child.material = shroudMaterial;
+            } else {
+              child.material = faceMaterial;
+            }
+          }
+        });
 
-    // 4. Arms (Elongated, unnatural)
-    // Left Arm
-    this.leftArmUpper = new THREE.Group();
-    this.leftArmUpper.position.set(-0.35, 0.55, 0);
-    this.torso.add(this.leftArmUpper);
+        // Compute bounding box and normalize scale
+        const box = new THREE.Box3().setFromObject(fbx);
+        const size = new THREE.Vector3();
+        box.getSize(size);
 
-    const upperArmGeo = new THREE.BoxGeometry(0.14, 0.55, 0.14);
-    const leftArmMesh = new THREE.Mesh(upperArmGeo, monsterMat);
-    leftArmMesh.position.set(0, -0.25, 0);
-    this.leftArmUpper.add(leftArmMesh);
+        // Target height ~2.1m (tall Indonesian horror ghost)
+        const targetHeight = 2.1;
+        const scaleFactor = size.y > 0 ? targetHeight / size.y : this.baseScale;
+        this.baseScale = scaleFactor;
 
-    this.leftArmLower = new THREE.Group();
-    this.leftArmLower.position.set(0, -0.52, 0);
-    this.leftArmUpper.add(this.leftArmLower);
+        fbx.scale.set(scaleFactor, scaleFactor, scaleFactor);
+        // Align base of shroud to floor (Y = 0)
+        fbx.position.set(0, -box.min.y * scaleFactor, 0);
 
-    const lowerArmGeo = new THREE.BoxGeometry(0.12, 0.58, 0.12);
-    const leftLowerArmMesh = new THREE.Mesh(lowerArmGeo, monsterMat);
-    leftLowerArmMesh.position.set(0, -0.28, 0);
-    this.leftArmLower.add(leftLowerArmMesh);
+        // Remove placeholder and insert FBX model
+        if (this.placeholderMesh && this.placeholderMesh.parent) {
+          this.innerGroup.remove(this.placeholderMesh);
+          this.placeholderMesh = null;
+        }
 
-    // Claws
-    const clawGeo = new THREE.BoxGeometry(0.14, 0.22, 0.06);
-    const leftClaws = new THREE.Mesh(clawGeo, monsterMat);
-    leftClaws.position.set(0, -0.6, 0);
-    this.leftArmLower.add(leftClaws);
-
-    // Right Arm
-    this.rightArmUpper = new THREE.Group();
-    this.rightArmUpper.position.set(0.35, 0.55, 0);
-    this.torso.add(this.rightArmUpper);
-
-    const rightArmMesh = new THREE.Mesh(upperArmGeo, monsterMat);
-    rightArmMesh.position.set(0, -0.25, 0);
-    this.rightArmUpper.add(rightArmMesh);
-
-    this.rightArmLower = new THREE.Group();
-    this.rightArmLower.position.set(0, -0.52, 0);
-    this.rightArmUpper.add(this.rightArmLower);
-
-    const rightLowerArmMesh = new THREE.Mesh(lowerArmGeo, monsterMat);
-    rightLowerArmMesh.position.set(0, -0.28, 0);
-    this.rightArmLower.add(rightLowerArmMesh);
-
-    const rightClaws = new THREE.Mesh(clawGeo, monsterMat);
-    rightClaws.position.set(0, -0.6, 0);
-    this.rightArmLower.add(rightClaws);
-
-    // 5. Legs
-    // Left Leg
-    this.leftLegUpper = new THREE.Group();
-    this.leftLegUpper.position.set(-0.16, -0.1, 0);
-    this.pelvis.add(this.leftLegUpper);
-
-    const upperLegGeo = new THREE.BoxGeometry(0.16, 0.6, 0.16);
-    const leftLegMesh = new THREE.Mesh(upperLegGeo, monsterMat);
-    leftLegMesh.position.set(0, -0.28, 0);
-    this.leftLegUpper.add(leftLegMesh);
-
-    this.leftLegLower = new THREE.Group();
-    this.leftLegLower.position.set(0, -0.55, 0);
-    this.leftLegUpper.add(this.leftLegLower);
-
-    const lowerLegGeo = new THREE.BoxGeometry(0.14, 0.65, 0.14);
-    const leftLowerLegMesh = new THREE.Mesh(lowerLegGeo, monsterMat);
-    leftLowerLegMesh.position.set(0, -0.3, 0);
-    this.leftLegLower.add(leftLowerLegMesh);
-
-    // Right Leg
-    this.rightLegUpper = new THREE.Group();
-    this.rightLegUpper.position.set(0.16, -0.1, 0);
-    this.pelvis.add(this.rightLegUpper);
-
-    const rightLegMesh = new THREE.Mesh(upperLegGeo, monsterMat);
-    rightLegMesh.position.set(0, -0.28, 0);
-    this.rightLegUpper.add(rightLegMesh);
-
-    this.rightLegLower = new THREE.Group();
-    this.rightLegLower.position.set(0, -0.55, 0);
-    this.rightLegUpper.add(this.rightLegLower);
-
-    const rightLowerLegMesh = new THREE.Mesh(lowerLegGeo, monsterMat);
-    rightLowerLegMesh.position.set(0, -0.3, 0);
-    this.rightLegLower.add(rightLowerLegMesh);
-
-    // Cast shadows for all meshes
-    this.group.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        obj.castShadow = true;
-        obj.receiveShadow = true;
+        this.fbxRoot = fbx;
+        this.innerGroup.add(fbx);
+        this.isLoaded = true;
+      },
+      undefined,
+      (err: unknown) => {
+        console.warn('Could not load pocong.fbx, retaining procedural shroud:', err);
       }
-    });
-
-    // Default to sitting posture
-    this.applySittingPosture(0);
+    );
   }
 
-  // SITTING_IDLE: slouched on the floor with bent knees, tucked arms, gentle breathing
+  // 1. IDLE / SLEEPING: Motionless standing upright, eerie slow swaying in the dark
   public applySittingPosture(time: number): void {
-    const breath = Math.sin(time * 2.2) * 0.04;
-    const twitch = (Math.sin(time * 0.7) > 0.95 ? (Math.random() - 0.5) * 0.1 : 0);
+    const sway = Math.sin(time * 1.5) * 0.04;
+    const tilt = Math.cos(time * 1.1) * 0.03;
+    const floatBob = Math.sin(time * 2.0) * 0.02;
 
-    this.pelvis.position.set(0, 0.42 + breath * 0.2, 0);
-    this.pelvis.rotation.set(0.1, 0, 0);
+    this.innerGroup.position.set(0, floatBob, 0);
+    this.innerGroup.rotation.set(tilt, 0, sway);
 
-    this.spine.rotation.set(0.35 + breath, 0, 0);
-    this.torso.rotation.set(0.2, 0, 0);
+    // Subtle scale breathing
+    this.innerGroup.scale.set(1.0, 1.0 + Math.sin(time * 2.2) * 0.015, 1.0);
 
-    this.neck.rotation.set(0.15, twitch, 0);
-    this.head.rotation.set(0.25, twitch * 2, 0);
-    this.jaw.rotation.set(0.08, 0, 0);
-
-    // Legs folded on floor
-    this.leftLegUpper.rotation.set(-1.45, -0.25, 0.15);
-    this.leftLegLower.rotation.set(2.2, 0, 0);
-
-    this.rightLegUpper.rotation.set(-1.45, 0.25, -0.15);
-    this.rightLegLower.rotation.set(2.2, 0, 0);
-
-    // Arms resting limp near knees
-    this.leftArmUpper.rotation.set(0.4, 0, -0.25);
-    this.leftArmLower.rotation.set(-0.8, 0, 0);
-
-    this.rightArmUpper.rotation.set(0.4, 0, 0.25);
-    this.rightArmLower.rotation.set(-0.8, 0, 0);
+    // Dim, menacing eye glow pulse
+    const eyeIntensity = 0.8 + Math.sin(time * 3.0) * 0.4;
+    this.eyeLight.intensity = eyeIntensity;
+    (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xbb0000);
+    (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xbb0000);
   }
 
-  // HIT_REACTION: Head flinches violently forward, arms splay
+  // 2. HIT REACTION: Recoils violently backwards from the bat strike
   public applyHitReaction(progress: number): void {
     const p = Math.min(1, Math.max(0, progress));
     const flinch = Math.sin(p * Math.PI);
+    const shudder = (Math.random() - 0.5) * 0.12 * flinch;
 
-    this.pelvis.position.set(0, 0.32, 0);
-    this.spine.rotation.set(0.35 + flinch * 0.8, 0, 0);
-    this.neck.rotation.set(flinch * 1.2, 0, (Math.random() - 0.5) * 0.3);
-    this.head.rotation.set(flinch * 1.1, 0, 0);
-    this.jaw.rotation.set(flinch * 0.6, 0, 0);
+    // Jerk backwards (~35 degrees)
+    this.innerGroup.position.set(shudder, 0, -flinch * 0.25);
+    this.innerGroup.rotation.set(-flinch * 0.65, shudder * 2, (Math.random() - 0.5) * 0.2);
 
-    this.leftArmUpper.rotation.set(-0.3 - flinch * 0.5, 0, -0.6);
-    this.rightArmUpper.rotation.set(-0.3 - flinch * 0.5, 0, 0.6);
+    this.eyeLight.intensity = 2.5;
   }
 
-  // SCREAM: Torso snaps back, mouth gapes wide, head vibrates
+  // 3. SCREAM: Head snaps back towards night sky, shakes violently, eye flare
   public applyScream(progress: number, time: number): void {
-    const jitter = (Math.random() - 0.5) * 0.12;
+    const p = Math.min(1, Math.max(0, progress));
+    const jitterX = (Math.random() - 0.5) * 0.14;
+    const jitterZ = (Math.random() - 0.5) * 0.14;
 
-    this.pelvis.position.set(0, 0.45, 0);
-    this.spine.rotation.set(-0.3, jitter, 0);
-    this.neck.rotation.set(-0.5, jitter * 2, 0);
-    this.head.rotation.set(-0.6 + jitter, 0, 0);
-    this.jaw.rotation.set(0.85, 0, 0); // Wide gaping scream
+    this.innerGroup.position.set(jitterX, 0.08 * Math.sin(p * Math.PI), jitterZ);
+    this.innerGroup.rotation.set(-0.45, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.15);
 
-    // Arms clawing the air
-    this.leftArmUpper.rotation.set(-0.8 + jitter, 0, -0.7);
-    this.leftArmLower.rotation.set(-1.2, 0, 0);
-
-    this.rightArmUpper.rotation.set(-0.8 - jitter, 0, 0.7);
-    this.rightArmLower.rotation.set(-1.2, 0, 0);
-
-    this.leftLegUpper.rotation.set(-1.1, -0.2, 0);
-    this.leftLegLower.rotation.set(1.5, 0, 0);
-    this.rightLegUpper.rotation.set(-1.1, 0.2, 0);
-    this.rightLegLower.rotation.set(1.5, 0, 0);
+    // Flare glowing red eyes
+    const flare = 2.2 + Math.sin(time * 25) * 1.2;
+    this.eyeLight.intensity = flare;
+    (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff3333);
+    (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff3333);
   }
 
-  // STAND_UP: Unfurls limbs and rises from 0.45 to full height 1.15
+  // 4. STAND UP: Snaps upright, preparing spring-loaded tension for hopping chase
   public applyStandUp(progress: number): void {
     const t = Math.min(1, Math.max(0, progress));
 
-    this.pelvis.position.set(0, THREE.MathUtils.lerp(0.45, 1.15, t), 0);
-    this.spine.rotation.set(THREE.MathUtils.lerp(0.3, 0.15, t), 0, 0);
-    this.neck.rotation.set(THREE.MathUtils.lerp(-0.4, 0.1, t), 0, 0);
-    this.head.rotation.set(THREE.MathUtils.lerp(-0.5, 0.1, t), 0, 0);
-    this.jaw.rotation.set(THREE.MathUtils.lerp(0.8, 0.15, t), 0, 0);
+    this.innerGroup.position.set(0, THREE.MathUtils.lerp(0.08, 0, t), 0);
+    this.innerGroup.rotation.set(THREE.MathUtils.lerp(-0.45, 0, t), 0, 0);
 
-    // Legs straighten
-    this.leftLegUpper.rotation.set(THREE.MathUtils.lerp(-1.1, 0, t), 0, 0);
-    this.leftLegLower.rotation.set(THREE.MathUtils.lerp(1.5, 0, t), 0, 0);
-    this.rightLegUpper.rotation.set(THREE.MathUtils.lerp(-1.1, 0, t), 0, 0);
-    this.rightLegLower.rotation.set(THREE.MathUtils.lerp(1.5, 0, t), 0, 0);
+    // Spring compression squash
+    const squash = Math.sin(t * Math.PI) * 0.1;
+    this.innerGroup.scale.set(1.0 + squash, 1.0 - squash * 1.5, 1.0 + squash);
 
-    // Arms drop into aggressive ready posture
-    this.leftArmUpper.rotation.set(THREE.MathUtils.lerp(-0.8, 0.2, t), 0, -0.2);
-    this.leftArmLower.rotation.set(THREE.MathUtils.lerp(-1.2, -0.4, t), 0, 0);
-    this.rightArmUpper.rotation.set(THREE.MathUtils.lerp(-0.8, 0.2, t), 0, 0.2);
-    this.rightArmLower.rotation.set(THREE.MathUtils.lerp(-1.2, -0.4, t), 0, 0);
+    this.eyeLight.intensity = 2.0;
   }
 
-  // RUN: Unnatural fast gait with flailing arms and lurching torso
+  // 5. HOP (MELONCAT): Pitch forward into air, stretch in air, squash on landing impact
+  public applyHopAnimation(hopPhase: number, isAirborne: boolean): void {
+    if (isAirborne) {
+      // Mid-air: pitch forward into the direction of leap (-18 degrees)
+      const airProgress = hopPhase / 0.7; // 0 to 1
+      const forwardPitch = -0.32 * Math.sin(airProgress * Math.PI);
+      this.innerGroup.rotation.set(forwardPitch, 0, 0);
+
+      // Vertical stretch in flight
+      const stretch = Math.sin(airProgress * Math.PI) * 0.12;
+      this.innerGroup.scale.set(1.0 - stretch * 0.5, 1.0 + stretch, 1.0 - stretch * 0.5);
+    } else {
+      // Ground contact / landing squash impact (rebounding for next hop)
+      const landProgress = (hopPhase - 0.7) / 0.3; // 0 to 1
+      const impactSquash = Math.sin(landProgress * Math.PI) * 0.14;
+
+      this.innerGroup.rotation.set(0.06, 0, 0);
+      this.innerGroup.scale.set(1.0 + impactSquash, 1.0 - impactSquash * 1.4, 1.0 + impactSquash);
+    }
+
+    this.eyeLight.intensity = 1.8 + (isAirborne ? 0.6 : 0);
+  }
+
+  // Legacy applyRun wrapper
   public applyRun(time: number, speed: number): void {
-    const stride = time * speed * 2.2;
-    const sinL = Math.sin(stride);
-    const sinR = Math.sin(stride + Math.PI);
-    const bob = Math.abs(Math.cos(stride)) * 0.12;
-
-    this.pelvis.position.set(0, 1.1 - bob, 0);
-    this.spine.rotation.set(0.3, Math.sin(stride) * 0.15, 0); // Lurching forward
-    this.neck.rotation.set(0.1, 0, 0);
-    this.head.rotation.set(0.15, 0, 0);
-    this.jaw.rotation.set(0.25 + Math.abs(sinL) * 0.2, 0, 0);
-
-    // Legs alternating stride
-    this.leftLegUpper.rotation.set(sinL * 0.85, 0, 0);
-    this.leftLegLower.rotation.set(sinL > 0 ? sinL * 1.2 : 0.1, 0, 0);
-
-    this.rightLegUpper.rotation.set(sinR * 0.85, 0, 0);
-    this.rightLegLower.rotation.set(sinR > 0 ? sinR * 1.2 : 0.1, 0, 0);
-
-    // Arms lunging forward
-    this.leftArmUpper.rotation.set(-sinL * 0.8 - 0.2, 0, -0.3);
-    this.leftArmLower.rotation.set(-0.6 - Math.abs(sinL) * 0.5, 0, 0);
-
-    this.rightArmUpper.rotation.set(-sinR * 0.8 - 0.2, 0, 0.3);
-    this.rightArmLower.rotation.set(-0.6 - Math.abs(sinR) * 0.5, 0, 0);
+    // Handled directly by MonsterController's hopping cycle
+    const cycle = (time * (speed / 2.8)) % 1.0;
+    this.applyHopAnimation(cycle, cycle < 0.7);
   }
 
-  // CATCH_PLAYER: Aggressive grab towards the camera
+  // 6. CATCH PLAYER: Jumpscare leap right into player camera
   public applyCatch(time: number): void {
-    this.pelvis.position.set(0, 1.15, 0.2);
-    this.spine.rotation.set(0.4, 0, 0);
-    this.neck.rotation.set(0.1, 0, 0);
-    this.head.rotation.set(0.2, 0, 0);
-    this.jaw.rotation.set(0.7, 0, 0);
+    this.innerGroup.position.set(0, 0.4, 0.45);
+    this.innerGroup.rotation.set(-0.35, Math.sin(time * 30) * 0.15, 0);
+    this.innerGroup.scale.set(1.25, 1.25, 1.25);
 
-    // Arms lunging forward directly towards camera
-    this.leftArmUpper.rotation.set(-1.4, 0, -0.2);
-    this.leftArmLower.rotation.set(-0.3, 0, 0);
-    this.rightArmUpper.rotation.set(-1.4, 0, 0.2);
-    this.rightArmLower.rotation.set(-0.3, 0, 0);
+    this.eyeLight.intensity = 4.0;
+    (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+    (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
   }
 }

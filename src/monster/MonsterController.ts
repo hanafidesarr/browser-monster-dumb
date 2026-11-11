@@ -36,6 +36,8 @@ export class MonsterController {
   private currentPath: Point2D[] = [];
   private pathRecalcTimer: number = 0;
   private footstepTimer: number = 0;
+  private hopTimer: number = 0;
+  private wasAirborne: boolean = true;
 
   // Latch flag: once in rear striking zone, keep attack button active until player backs far away
   private isPlayerInRearStrikeZone: boolean = false;
@@ -69,6 +71,8 @@ export class MonsterController {
     this.stateTime = 0;
     this.animProgress = 0;
     this.currentPath = [];
+    this.hopTimer = 0;
+    this.wasAirborne = true;
     this.isPlayerInRearStrikeZone = false;
     this.model.applySittingPosture(0);
   }
@@ -238,24 +242,41 @@ export class MonsterController {
     }
   }
 
-  // 6. CHASE (A* corridor navigation tracking player)
+  // 6. CHASE (Pocong Hopping Navigation: leaping in terrifying vertical arcs tracking player)
   private updateChase(dt: number, totalTime: number, playerPos: THREE.Vector3): void {
     const cfg = this.levelDef!.monsterConfig;
 
     // Use 2D horizontal distance on the floor
     const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
 
-    // Footsteps with distance attenuation
-    this.footstepTimer += dt;
-    if (this.footstepTimer >= 0.35) {
-      this.footstepTimer = 0;
-      AudioManager.getInstance().playMonsterFootstep(horizontalDist);
+    // Hopping Rhythm Cycle
+    const hopDuration = 0.52; // each jump cycle takes ~0.52s
+    this.hopTimer += dt;
+    const cycle = (this.hopTimer % hopDuration) / hopDuration; // 0.0 to 1.0
+    const isAirborne = cycle < 0.70;
+
+    // Heavy landing impact thud on ground contact
+    if (this.wasAirborne && !isAirborne) {
+      AudioManager.getInstance().playPocongHop(horizontalDist);
     }
+    this.wasAirborne = isAirborne;
+
+    // Vertical parabolic jump height (up to 0.95m high in air!)
+    if (isAirborne) {
+      const airP = cycle / 0.70;
+      this.position.y = Math.sin(airP * Math.PI) * 0.95;
+    } else {
+      this.position.y = 0;
+    }
+
+    // Animate the pocong body (forward pitch in air, squash on landing)
+    this.model.applyHopAnimation(cycle, isAirborne);
 
     // Check catch distance (monster caught player: trigger Game Over!)
     const catchDist = Math.max(1.6, cfg.catchDistance);
     if (horizontalDist <= catchDist) {
       this.state = 'CATCH_PLAYER';
+      this.position.y = 0.15;
       AudioManager.getInstance().playCaughtStinger();
       if (this.onPlayerCaught) {
         this.onPlayerCaught();
@@ -279,7 +300,7 @@ export class MonsterController {
       }
     }
 
-    // Navigate toward next waypoint
+    // Navigate toward next waypoint with burst speed while airborne
     if (this.currentPath.length > 0) {
       const targetWp = this.currentPath[0];
       const dirX = targetWp.x - this.position.x;
@@ -302,12 +323,14 @@ export class MonsterController {
           Math.min(1, 14 * dt)
         );
 
-        const moveStep = cfg.chaseSpeed * dt;
+        // Movement is concentrated during the jump arc!
+        const speedMultiplier = isAirborne
+          ? Math.sin((cycle / 0.70) * Math.PI) * 1.85
+          : 0.08;
+        const moveStep = cfg.chaseSpeed * speedMultiplier * dt;
         this.position.x += normX * moveStep;
         this.position.z += normZ * moveStep;
       }
     }
-
-    this.model.applyRun(totalTime, cfg.chaseSpeed);
   }
 }

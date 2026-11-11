@@ -138,37 +138,68 @@ export class AudioManager {
     osc.stop(now + 0.1);
   }
 
-  // Monster Footstep with Distance Attenuation
+  // Pocong Hop Landing Thud with Distance Attenuation (Heavy thump on moist earth)
   public playMonsterFootstep(distance: number): void {
+    this.playPocongHop(distance);
+  }
+
+  public playPocongHop(distance: number): void {
     if (!this.ctx || !this.sfxGain) return;
     const now = this.ctx.currentTime;
 
-    // Volume decreases with distance (max hearing distance ~ 25m)
-    const maxDist = 25;
+    // Volume decreases with distance (audible up to 30m in the silent night)
+    const maxDist = 30;
     const factor = Math.max(0, 1 - distance / maxDist);
     if (factor <= 0.01) return;
 
+    // Sub-bass heavy earth impact thud
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     const filter = this.ctx.createBiquadFilter();
 
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(65, now);
-    osc.frequency.exponentialRampToValueAtTime(25, now + 0.18);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(80, now);
+    osc.frequency.exponentialRampToValueAtTime(26, now + 0.22);
 
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(180, now);
+    filter.frequency.setValueAtTime(220, now);
 
-    const vol = factor * 0.45;
+    const vol = factor * 0.75;
     gain.gain.setValueAtTime(vol, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
 
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(this.sfxGain);
 
     osc.start(now);
-    osc.stop(now + 0.22);
+    osc.stop(now + 0.26);
+
+    // Eerie cloth rustle on landing impact
+    const rustleSize = Math.floor(this.ctx.sampleRate * 0.12);
+    const rustleBuf = this.ctx.createBuffer(1, rustleSize, this.ctx.sampleRate);
+    const rData = rustleBuf.getChannelData(0);
+    for (let i = 0; i < rustleSize; i++) {
+      rData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (rustleSize * 0.2));
+    }
+    const rustleSource = this.ctx.createBufferSource();
+    rustleSource.buffer = rustleBuf;
+
+    const rustleFilter = this.ctx.createBiquadFilter();
+    rustleFilter.type = 'bandpass';
+    rustleFilter.frequency.setValueAtTime(600, now);
+    rustleFilter.Q.setValueAtTime(2.0, now);
+
+    const rustleGain = this.ctx.createGain();
+    rustleGain.gain.setValueAtTime(factor * 0.25, now);
+    rustleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+    rustleSource.connect(rustleFilter);
+    rustleFilter.connect(rustleGain);
+    rustleGain.connect(this.sfxGain);
+
+    rustleSource.start(now);
+    rustleSource.stop(now + 0.13);
   }
 
   // Baseball Bat Swing Whoosh

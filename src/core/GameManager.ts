@@ -66,9 +66,9 @@ export class GameManager {
     });
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x181e26);
-    // Atmospheric PS1 Fog (soft depth without obscuring the labyrinth)
-    this.scene.fog = new THREE.Fog(0x181e26, 12, 60);
+    this.scene.background = new THREE.Color(0x071118);
+    // Atmospheric PS1 Jungle Night Fog
+    this.scene.fog = new THREE.Fog(0x071118, 14, 65);
 
     this.currentLevelDef = ALL_LEVELS[0];
 
@@ -208,13 +208,13 @@ export class GameManager {
     };
 
     this.monster.onPlayerCaught = () => {
-      this.triggerGameOver('Monster berhasil menangkapmu!');
+      this.triggerGameOver('Pocong berhasil menangkapmu!');
     };
 
     this.monster.onChaseStarted = () => {
       this.state = 'CHASE';
       ui.switchToChaseControls();
-      ui.setStatusText('MONSTER MENGEJAR! CEPAT LARI KE PINTU EXIT!');
+      ui.setStatusText('POCONG MELONCAT MENGEJAR! CEPAT LARI KE PINTU KELUAR!');
     };
   }
 

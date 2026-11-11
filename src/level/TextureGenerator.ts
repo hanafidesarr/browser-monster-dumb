@@ -280,4 +280,296 @@ export class TextureGenerator {
 
     return this.setPixelated(new THREE.CanvasTexture(canvas));
   }
+
+  // PS1 Forest Ground Texture (Moist dark earth, moss patches, and scattered dry leaves)
+  public static createForestGroundTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Dark damp soil base
+    ctx.fillStyle = '#181d16';
+    ctx.fillRect(0, 0, size, size);
+
+    // Soil grain & noise
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 22;
+        const r = Math.max(16, Math.min(45, 26 + n * 0.8));
+        const g = Math.max(20, Math.min(52, 32 + n));
+        const b = Math.max(14, Math.min(38, 22 + n * 0.6));
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Moss patches
+    for (let i = 0; i < 7; i++) {
+      const mx = Math.random() * size;
+      const my = Math.random() * size;
+      const rad = 8 + Math.random() * 16;
+      const grad = ctx.createRadialGradient(mx, my, 2, mx, my, rad);
+      grad.addColorStop(0, 'rgba(46, 68, 30, 0.65)');
+      grad.addColorStop(1, 'rgba(24, 29, 22, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(mx, my, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Scattered dead banana leaves on forest floor
+    for (let i = 0; i < 10; i++) {
+      const lx = Math.random() * (size - 20) + 10;
+      const ly = Math.random() * (size - 20) + 10;
+      const angle = Math.random() * Math.PI;
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(angle);
+      ctx.fillStyle = Math.random() > 0.4 ? 'rgba(78, 54, 28, 0.75)' : 'rgba(54, 38, 20, 0.8)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 7 + Math.random() * 6, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // PS1 Banana Trunk (Batang / Gedebog Pisang - layered leaf sheaths)
+  public static createBananaTrunkTexture(): THREE.CanvasTexture {
+    const width = 64;
+    const height = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Base olive-green
+    ctx.fillStyle = '#4c5c36';
+    ctx.fillRect(0, 0, width, height);
+
+    // Vertical fiber striations
+    for (let x = 0; x < width; x += 2) {
+      const v = (Math.random() - 0.5) * 24;
+      const r = Math.max(50, Math.min(110, 75 + v * 0.9));
+      const g = Math.max(65, Math.min(130, 95 + v));
+      const b = Math.max(35, Math.min(80, 52 + v * 0.7));
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fillRect(x, 0, 2, height);
+    }
+
+    // Horizontal sheath rings (pelepah boundaries)
+    ctx.strokeStyle = 'rgba(28, 36, 18, 0.7)';
+    ctx.lineWidth = 2;
+    for (let y = 14; y < height; y += 22) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(width * 0.35, y + 4, width * 0.65, y + 4, width, y);
+      ctx.stroke();
+    }
+
+    // Dry weathered base fibers (bottom 25%)
+    for (let y = height - 32; y < height; y += 3) {
+      const shade = 45 + Math.random() * 25;
+      ctx.fillStyle = `rgba(${shade + 20}, ${shade * 0.75}, ${shade * 0.5}, 0.7)`;
+      ctx.fillRect(0, y, width, 2);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // PS1 Banana Leaf (Daun Pisang Segar - broad paddle with parallel venation)
+  public static createBananaLeafTexture(): THREE.CanvasTexture {
+    const width = 64;
+    const height = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Lush tropical green base
+    ctx.fillStyle = '#3a6624';
+    ctx.fillRect(0, 0, width, height);
+
+    // Lateral parallel veins (slanting from center midrib outwards)
+    const midX = width / 2;
+    ctx.strokeStyle = 'rgba(38, 70, 22, 0.75)';
+    ctx.lineWidth = 1.5;
+
+    for (let y = 0; y < height; y += 4) {
+      // Left side veins
+      ctx.beginPath();
+      ctx.moveTo(midX, y);
+      ctx.lineTo(0, Math.max(0, y - 8));
+      ctx.stroke();
+
+      // Right side veins
+      ctx.beginPath();
+      ctx.moveTo(midX, y);
+      ctx.lineTo(width, Math.max(0, y - 8));
+      ctx.stroke();
+    }
+
+    // Central prominent light-green midrib (tulang daun)
+    ctx.fillStyle = '#78a648';
+    ctx.fillRect(midX - 2, 0, 4, height);
+    ctx.fillStyle = '#96c858';
+    ctx.fillRect(midX - 1, 0, 2, height);
+
+    // Weathered notches / splits along edges
+    ctx.fillStyle = '#223c14';
+    for (let y = 12; y < height - 10; y += 18) {
+      if (Math.random() > 0.3) {
+        ctx.fillRect(0, y, 4, 3);
+      }
+      if (Math.random() > 0.3) {
+        ctx.fillRect(width - 4, y + 4, 4, 3);
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // PS1 Dried Banana Leaf (Klaras / Daun Pisang Kering - golden brown withered)
+  public static createDriedLeafTexture(): THREE.CanvasTexture {
+    const width = 64;
+    const height = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Golden brown base
+    ctx.fillStyle = '#5c4020';
+    ctx.fillRect(0, 0, width, height);
+
+    for (let y = 0; y < height; y += 2) {
+      const v = (Math.random() - 0.5) * 20;
+      ctx.fillStyle = `rgb(${88 + v}, ${60 + v * 0.7}, ${30 + v * 0.4})`;
+      ctx.fillRect(0, y, width, 2);
+    }
+
+    // Cracks & dried midrib
+    const midX = width / 2;
+    ctx.fillStyle = '#7a542b';
+    ctx.fillRect(midX - 2, 0, 4, height);
+
+    ctx.strokeStyle = '#281a0b';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 8; i++) {
+      const sy = Math.random() * height;
+      ctx.beginPath();
+      ctx.moveTo(midX, sy);
+      ctx.lineTo(Math.random() > 0.5 ? 4 : width - 4, sy + (Math.random() - 0.5) * 14);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // PS1 Banana Heart / Blossom (Jantung Pisang)
+  public static createBananaBudTexture(): THREE.CanvasTexture {
+    const width = 32;
+    const height = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Burgundy / deep crimson teardrop
+    const grad = ctx.createLinearGradient(0, 0, 0, height);
+    grad.addColorStop(0, '#58182b');
+    grad.addColorStop(0.5, '#7e203c');
+    grad.addColorStop(1, '#3c0e1c');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Overlapping bract scales
+    ctx.strokeStyle = '#2d0a14';
+    ctx.lineWidth = 1.5;
+    for (let y = 8; y < height; y += 10) {
+      ctx.beginPath();
+      ctx.arc(width / 2, y, width * 0.45, 0, Math.PI);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return this.setPixelated(tex);
+  }
+
+  // PS1 Bamboo Texture (Segmented stalks for torches and village gate)
+  public static createBambooTexture(): THREE.CanvasTexture {
+    const width = 32;
+    const height = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Yellowish-green bamboo
+    ctx.fillStyle = '#7a8e48';
+    ctx.fillRect(0, 0, width, height);
+
+    for (let x = 0; x < width; x += 2) {
+      const v = (Math.random() - 0.5) * 15;
+      ctx.fillStyle = `rgb(${118 + v}, ${140 + v}, ${68 + v * 0.8})`;
+      ctx.fillRect(x, 0, 2, height);
+    }
+
+    // Segment nodes (buku-buku bambu)
+    for (let y = 18; y < height; y += 32) {
+      ctx.fillStyle = '#4c5828';
+      ctx.fillRect(0, y, width, 4);
+      ctx.fillStyle = '#9ab25b';
+      ctx.fillRect(0, y + 4, width, 2);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // PS1 Rustic Wood Gate Plank
+  public static createGateWoodTexture(): THREE.CanvasTexture {
+    const width = 64;
+    const height = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Weathered dark wood
+    ctx.fillStyle = '#3a2d20';
+    ctx.fillRect(0, 0, width, height);
+
+    for (let y = 0; y < height; y += 2) {
+      const v = Math.sin(y * 0.2) * 14 + (Math.random() - 0.5) * 12;
+      ctx.fillStyle = `rgb(${55 + v}, ${42 + v * 0.8}, ${28 + v * 0.5})`;
+      ctx.fillRect(0, y, width, 2);
+    }
+
+    ctx.strokeStyle = '#18120b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, width - 2, height - 2);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
 }

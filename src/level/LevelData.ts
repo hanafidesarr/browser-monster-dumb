@@ -50,9 +50,9 @@ const LEVEL_1_GRID: number[][] = [
 export const ALL_LEVELS: LevelDefinition[] = [
   {
     id: 1,
-    title: 'THE LABYRINTH',
-    subtitle: 'UNDERGROUND COMPLEX — SECTOR 01',
-    description: 'A subterranean concrete maze where the specimen is resting. Approach in silence.',
+    title: 'KEBUN PISANG ANGKER',
+    subtitle: 'HUTAN POHON PISANG — ALAM GAIB',
+    description: 'Hutan pohon pisang lebat yang dihuni sesosok Pocong mistis. Dekati dalam kesunyian dan pukul dia!',
     gridWidth: 15,
     gridHeight: 15,
     cellSize: 2.8,
