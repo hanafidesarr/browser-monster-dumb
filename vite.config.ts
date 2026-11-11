@@ -3,8 +3,9 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   base: './',
   server: {
-    port: 3000,
-    host: true
+    port: 3001,
+    host: true,
+    allowedHosts: true
   },
   build: {
     target: 'esnext',

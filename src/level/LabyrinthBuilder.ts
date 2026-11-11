@@ -14,6 +14,8 @@ export interface LevelBuildResult {
   playerWorldSpawn: { x: number; y: number; z: number; rotationY: number };
   monsterWorldSpawn: { x: number; y: number; z: number; rotationY: number };
   exitWorldPos: { x: number; y: number; z: number };
+  treeColliders: Array<{ x: number; z: number; radius: number }>;
+  updatedGrid: number[][];
 }
 
 export class LabyrinthBuilder {
@@ -21,21 +23,21 @@ export class LabyrinthBuilder {
     const rootGroup = new THREE.Group();
     rootGroup.name = 'BananaForestRoot';
 
-    const { grid, gridWidth, gridHeight, cellSize, wallHeight } = level;
+    const { gridWidth, gridHeight, cellSize, wallHeight } = level;
     const halfWidth = (gridWidth * cellSize) / 2;
     const halfHeight = (gridHeight * cellSize) / 2;
 
-    // 1. Forest Ground (Tanah Kebun Pisang)
+    // 1. Forest Ground (Tanah Kebun Pisang Luas)
     const floorTex = TextureGenerator.createForestGroundTexture();
     floorTex.repeat.set(gridWidth * 1.5, gridHeight * 1.5);
 
     const floorMat = new THREE.MeshLambertMaterial({
       map: floorTex,
-      roughness: 0.95,
+      roughness: 0.9,
     });
 
-    const totalW = gridWidth * cellSize + 20; // extend slightly past boundary for endless forest horizon
-    const totalH = gridHeight * cellSize + 20;
+    const totalW = gridWidth * cellSize + 50; // Spacious extended forest terrain
+    const totalH = gridHeight * cellSize + 50;
 
     const floorGeo = new THREE.PlaneGeometry(totalW, totalH);
     floorGeo.rotateX(-Math.PI / 2);
@@ -44,28 +46,49 @@ export class LabyrinthBuilder {
     floorMesh.receiveShadow = true;
     rootGroup.add(floorMesh);
 
-    // 2. Open Night Sky & Moon (Bulan Purnama)
-    // Full Moon Sphere in the night sky
-    const moonGeo = new THREE.SphereGeometry(2.4, 16, 16);
+    // 2. Open Night Sky & Glorious Moonlight (Bulan Purnama Terang & Cahaya Bulan)
+    // Twinkling Starfield in the night sky
+    const starCount = 320;
+    const starGeo = new THREE.BufferGeometry();
+    const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      starPositions[i * 3] = (Math.random() - 0.5) * totalW * 2.5;
+      starPositions[i * 3 + 1] = 28 + Math.random() * 45;
+      starPositions[i * 3 + 2] = (Math.random() - 0.5) * totalH * 2.5;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starMat = new THREE.PointsMaterial({
+      color: 0xe0f2fe,
+      size: 0.28,
+      transparent: true,
+      opacity: 0.9,
+    });
+    const starfield = new THREE.Points(starGeo, starMat);
+    rootGroup.add(starfield);
+
+    // Glowing Full Moon Sphere (Bulan Purnama Besar & Terang)
+    const moonGeo = new THREE.SphereGeometry(4.2, 20, 20);
     const moonMat = new THREE.MeshBasicMaterial({
-      color: 0xecfdf5,
+      color: 0xf8fafc,
     });
     const moonMesh = new THREE.Mesh(moonGeo, moonMat);
-    moonMesh.position.set(halfWidth * 0.9, 32, -halfHeight * 1.1);
+    const moonPos = new THREE.Vector3(halfWidth * 0.8, 50, -halfHeight * 0.85);
+    moonMesh.position.copy(moonPos);
     rootGroup.add(moonMesh);
 
-    // Glowing lunar halo plane
-    const haloGeo = new THREE.PlaneGeometry(9.0, 9.0);
+    // Radiant Lunar Halo (Aura Pendaran Cahaya Bulan Luas)
+    const haloGeo = new THREE.PlaneGeometry(28.0, 28.0);
     const haloCanvas = document.createElement('canvas');
-    haloCanvas.width = 128;
-    haloCanvas.height = 128;
+    haloCanvas.width = 256;
+    haloCanvas.height = 256;
     const hCtx = haloCanvas.getContext('2d')!;
-    const hGrad = hCtx.createRadialGradient(64, 64, 15, 64, 64, 64);
-    hGrad.addColorStop(0, 'rgba(215, 240, 255, 0.65)');
-    hGrad.addColorStop(0.5, 'rgba(150, 200, 240, 0.25)');
-    hGrad.addColorStop(1, 'rgba(10, 20, 30, 0)');
+    const hGrad = hCtx.createRadialGradient(128, 128, 25, 128, 128, 128);
+    hGrad.addColorStop(0, 'rgba(240, 249, 255, 0.95)');
+    hGrad.addColorStop(0.35, 'rgba(186, 230, 253, 0.45)');
+    hGrad.addColorStop(0.7, 'rgba(125, 185, 245, 0.15)');
+    hGrad.addColorStop(1, 'rgba(14, 32, 52, 0)');
     hCtx.fillStyle = hGrad;
-    hCtx.fillRect(0, 0, 128, 128);
+    hCtx.fillRect(0, 0, 256, 256);
 
     const haloTex = new THREE.CanvasTexture(haloCanvas);
     const haloMat = new THREE.MeshBasicMaterial({
@@ -75,20 +98,35 @@ export class LabyrinthBuilder {
       depthWrite: false,
     });
     const haloMesh = new THREE.Mesh(haloGeo, haloMat);
-    haloMesh.position.copy(moonMesh.position);
-    haloMesh.position.z += 0.5;
+    haloMesh.position.copy(moonPos);
+    haloMesh.position.z += 0.8;
     rootGroup.add(haloMesh);
 
-    // Moonlight Directional Light
-    const moonLight = new THREE.DirectionalLight(0x7fa8d4, 1.15);
-    moonLight.position.set(halfWidth * 0.9, 32, -halfHeight * 1.1);
+    // Volumetric Moonbeams / Light Shafts (Berkas Sinar Bulan Menembus Kebun Pisang)
+    const beamGeo = new THREE.CylinderGeometry(2.0, 14.0, 60, 8, 1, true);
+    beamGeo.rotateX(-0.55);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0xa5d4ff,
+      transparent: true,
+      opacity: 0.13,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const moonbeam = new THREE.Mesh(beamGeo, beamMat);
+    moonbeam.position.set(moonPos.x - 4, 25, moonPos.z + 12);
+    rootGroup.add(moonbeam);
+
+    // Bright Moonlight Directional Light (Cahaya Bulan Terang)
+    const moonLight = new THREE.DirectionalLight(0xcfe4ff, 2.8);
+    moonLight.position.copy(moonPos);
     moonLight.target.position.set(0, 0, 0);
     moonLight.castShadow = true;
     moonLight.shadow.mapSize.width = 1024;
     moonLight.shadow.mapSize.height = 1024;
     moonLight.shadow.camera.near = 10;
-    moonLight.shadow.camera.far = 70;
-    const d = Math.max(totalW, totalH) * 0.6;
+    moonLight.shadow.camera.far = 130;
+    const d = Math.max(totalW, totalH) * 0.65;
     moonLight.shadow.camera.left = -d;
     moonLight.shadow.camera.right = d;
     moonLight.shadow.camera.top = d;
@@ -96,33 +134,174 @@ export class LabyrinthBuilder {
     rootGroup.add(moonLight);
     rootGroup.add(moonLight.target);
 
-    // Ambient Night Lighting (Soft dark jungle radiance)
-    const ambientLight = new THREE.AmbientLight(0x1a2e26, 1.35);
+    // Bright Ambient Night Lighting (Jelas, Terang, & Nyaman Dilihat)
+    const ambientLight = new THREE.AmbientLight(0x324858, 2.5);
     rootGroup.add(ambientLight);
 
-    const hemiLight = new THREE.HemisphereLight(0x2d4659, 0x141f17, 1.1);
+    const hemiLight = new THREE.HemisphereLight(0x82a8cc, 0x243a2a, 2.0);
     rootGroup.add(hemiLight);
 
-    // 3. Dense Banana Trees (Pohon Pisang sebagai Penghalang / Obstacle)
+    // 3. Spawns & Clearings Calculation
+    const pSpawnWx = (level.playerSpawn.x + 0.5) * cellSize - halfWidth;
+    const pSpawnWz = (level.playerSpawn.z + 0.5) * cellSize - halfHeight;
+
+    const mSpawnWx = (level.monsterSpawn.x + 0.5) * cellSize - halfWidth;
+    const mSpawnWz = (level.monsterSpawn.z + 0.5) * cellSize - halfHeight;
+
+    const exitWx = (level.exitDoor.x + 0.5) * cellSize - halfWidth;
+    const exitWz = (level.exitDoor.z + 0.5) * cellSize - halfHeight;
+
+    // 4. Randomized, Organic, Lush Banana Tree Placement
     const forestObstaclesGroup = new THREE.Group();
     forestObstaclesGroup.name = 'BananaObstacles';
 
-    // Also build a low-poly merged collider/base mesh for raycasts
-    const mergedGeos: THREE.BufferGeometry[] = [];
-    const unitBox = new THREE.BoxGeometry(cellSize * 0.92, wallHeight, cellSize * 0.92);
+    const treeColliders: Array<{ x: number; z: number; radius: number }> = [];
+    const updatedGrid: number[][] = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(0));
 
+    // Outer boundary walls in grid
     for (let gz = 0; gz < gridHeight; gz++) {
       for (let gx = 0; gx < gridWidth; gx++) {
-        if (grid[gz][gx] === 1) {
+        if (gx === 0 || gx === gridWidth - 1 || gz === 0 || gz === gridHeight - 1) {
+          updatedGrid[gz][gx] = 1;
+        }
+      }
+    }
+
+    // A. Dense Perimeter Boundary Trees (Enclosing the plantation)
+    for (let gx = 0; gx < gridWidth; gx++) {
+      // North and South perimeter trees
+      const nWx = (gx + 0.5) * cellSize - halfWidth;
+      const nWz = 0.5 * cellSize - halfHeight;
+      const sWz = (gridHeight - 0.5) * cellSize - halfHeight;
+
+      const nTree = BananaTreeFactory.createBananaTree({ height: 7.0, trunkRadius: 0.36 });
+      nTree.position.set(nWx, 0, nWz);
+      forestObstaclesGroup.add(nTree);
+
+      const sTree = BananaTreeFactory.createBananaTree({ height: 7.2, trunkRadius: 0.36 });
+      sTree.position.set(nWx, 0, sWz);
+      forestObstaclesGroup.add(sTree);
+    }
+
+    for (let gz = 1; gz < gridHeight - 1; gz++) {
+      // West and East perimeter trees
+      const wWx = 0.5 * cellSize - halfWidth;
+      const eWx = (gridWidth - 0.5) * cellSize - halfWidth;
+      const wWz = (gz + 0.5) * cellSize - halfHeight;
+
+      const wTree = BananaTreeFactory.createBananaTree({ height: 7.1, trunkRadius: 0.36 });
+      wTree.position.set(wWx, 0, wWz);
+      forestObstaclesGroup.add(wTree);
+
+      const eTree = BananaTreeFactory.createBananaTree({ height: 6.9, trunkRadius: 0.36 });
+      eTree.position.set(eWx, 0, wWz);
+      forestObstaclesGroup.add(eTree);
+    }
+
+    // B. Sacred Ancient Banana Tree directly over Pocong Shrine
+    const sacredTree = BananaTreeFactory.createBananaTree({
+      height: 7.8,
+      trunkRadius: 0.45,
+      hasBud: true,
+    });
+    sacredTree.position.set(mSpawnWx + 0.5, 0, mSpawnWz - 0.6);
+    forestObstaclesGroup.add(sacredTree);
+    treeColliders.push({ x: mSpawnWx + 0.5, z: mSpawnWz - 0.6, radius: 0.55 });
+
+    // C. Organic Pseudo-Random Inner Plantation Trees (~55-65 trees)
+    // Seeded generator for consistent organic glade
+    let seed = 9876543;
+    const rnd = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+
+    const isNearClearings = (x: number, z: number): boolean => {
+      // Player spawn clearing (radius 6.0m)
+      if (Math.hypot(x - pSpawnWx, z - pSpawnWz) < 6.0) return true;
+      // Pocong resting clearing (radius 5.0m)
+      if (Math.hypot(x - mSpawnWx, z - mSpawnWz) < 5.0) return true;
+      // Exit gate clearing (radius 6.5m)
+      if (Math.hypot(x - exitWx, z - exitWz) < 6.5) return true;
+      // Perimeter margin
+      if (Math.abs(x) > halfWidth - 3.8 || Math.abs(z) > halfHeight - 3.8) return true;
+      return false;
+    };
+
+    const minTreeSpacing = 4.2; // 4.2m minimum between trunks ensures wide, generous running corridors
+    const candidateAttempts = 900;
+
+    for (let i = 0; i < candidateAttempts; i++) {
+      const tx = (rnd() * 2 - 1) * (halfWidth - 3.5);
+      const tz = (rnd() * 2 - 1) * (halfHeight - 3.5);
+
+      if (isNearClearings(tx, tz)) continue;
+
+      // Check distance to existing trees
+      let tooClose = false;
+      for (let j = 0; j < treeColliders.length; j++) {
+        const ct = treeColliders[j];
+        if (Math.hypot(tx - ct.x, tz - ct.z) < minTreeSpacing) {
+          tooClose = true;
+          break;
+        }
+      }
+
+      if (!tooClose) {
+        // Place tall, lush banana tree
+        const treeHeight = 6.2 + rnd() * 1.6; // 6.2m to 7.8m tall!
+        const trunkR = 0.30 + rnd() * 0.08;
+        const leanX = (rnd() - 0.5) * 0.35;
+        const leanZ = (rnd() - 0.5) * 0.35;
+
+        const tree = BananaTreeFactory.createBananaTree({
+          height: treeHeight,
+          trunkRadius: trunkR,
+          leanX,
+          leanZ,
+          hasBud: rnd() > 0.35,
+        });
+        tree.position.set(tx, 0, tz);
+        tree.rotation.y = rnd() * Math.PI * 2;
+        forestObstaclesGroup.add(tree);
+
+        // Small young shoot at trunk base (40% chance for extra lushness)
+        if (rnd() > 0.6) {
+          const shoot = BananaTreeFactory.createBananaTree({
+            height: 1.8 + rnd() * 0.7,
+            trunkRadius: 0.12,
+            hasBud: false,
+          });
+          shoot.position.set(tx + 0.45, 0, tz + 0.35);
+          shoot.rotation.y = rnd() * Math.PI * 2;
+          forestObstaclesGroup.add(shoot);
+        }
+
+        // Add trunk collider
+        treeColliders.push({ x: tx, z: tz, radius: 0.48 });
+
+        // Mark corresponding grid cell for Pocong A* pathfinding
+        const gx = Math.floor((tx + halfWidth) / cellSize);
+        const gz = Math.floor((tz + halfHeight) / cellSize);
+        if (gx >= 0 && gx < gridWidth && gz >= 0 && gz < gridHeight) {
+          // Never block clearings in grid
+          if (!isNearClearings(tx, tz)) {
+            updatedGrid[gz][gx] = 1;
+          }
+        }
+      }
+    }
+
+    rootGroup.add(forestObstaclesGroup);
+
+    // Build merged boundary collider for wallsMesh
+    const unitBox = new THREE.BoxGeometry(cellSize, wallHeight, cellSize);
+    const mergedGeos: THREE.BufferGeometry[] = [];
+    for (let gz = 0; gz < gridHeight; gz++) {
+      for (let gx = 0; gx < gridWidth; gx++) {
+        if (gx === 0 || gx === gridWidth - 1 || gz === 0 || gz === gridHeight - 1) {
           const wx = (gx + 0.5) * cellSize - halfWidth;
           const wz = (gz + 0.5) * cellSize - halfHeight;
-
-          // Place dense clump of banana trees
-          const cluster = BananaTreeFactory.createObstacleCluster(cellSize, gz * gridWidth + gx);
-          cluster.position.set(wx, 0, wz);
-          forestObstaclesGroup.add(cluster);
-
-          // Add invisible/boundary box for raycasting
           const cloned = unitBox.clone();
           cloned.translate(wx, wallHeight / 2, wz);
           mergedGeos.push(cloned);
@@ -130,9 +309,6 @@ export class LabyrinthBuilder {
       }
     }
 
-    rootGroup.add(forestObstaclesGroup);
-
-    // Merge collision geometry for wallsMesh
     let mergedWallsGeo: THREE.BufferGeometry;
     if (mergedGeos.length > 0) {
       let totalPos = 0;
@@ -185,20 +361,10 @@ export class LabyrinthBuilder {
       mergedWallsGeo = new THREE.BufferGeometry();
     }
 
-    const wallMat = new THREE.MeshBasicMaterial({ visible: false }); // invisible physics collider
+    const wallMat = new THREE.MeshBasicMaterial({ visible: false });
     const wallsMesh = new THREE.Mesh(mergedWallsGeo, wallMat);
     wallsMesh.name = 'BananaGroveColliders';
     rootGroup.add(wallsMesh);
-
-    // 4. Calculate World Positions
-    const pSpawnWx = (level.playerSpawn.x + 0.5) * cellSize - halfWidth;
-    const pSpawnWz = (level.playerSpawn.z + 0.5) * cellSize - halfHeight;
-
-    const mSpawnWx = (level.monsterSpawn.x + 0.5) * cellSize - halfWidth;
-    const mSpawnWz = (level.monsterSpawn.z + 0.5) * cellSize - halfHeight;
-
-    const exitWx = (level.exitDoor.x + 0.5) * cellSize - halfWidth;
-    const exitWz = (level.exitDoor.z + 0.5) * cellSize - halfHeight;
 
     // 5. Village Bamboo Exit Gate (Gapura Bambu Desa / Pintu Keluar)
     const exitDoorGroup = new THREE.Group();
@@ -212,27 +378,27 @@ export class LabyrinthBuilder {
     const woodMat = new THREE.MeshLambertMaterial({ map: woodTex, roughness: 0.85 });
 
     // Gate Left Post
-    const postGeo = new THREE.CylinderGeometry(0.14, 0.16, 3.4, 7);
+    const postGeo = new THREE.CylinderGeometry(0.14, 0.16, 3.8, 7);
     const leftPost = new THREE.Mesh(postGeo, bambooMat);
-    leftPost.position.set(-cellSize * 0.38, 1.7, 0);
+    leftPost.position.set(-cellSize * 0.38, 1.9, 0);
     leftPost.castShadow = true;
     exitDoorGroup.add(leftPost);
 
     // Gate Right Post
     const rightPost = new THREE.Mesh(postGeo, bambooMat);
-    rightPost.position.set(cellSize * 0.38, 1.7, 0);
+    rightPost.position.set(cellSize * 0.38, 1.9, 0);
     rightPost.castShadow = true;
     exitDoorGroup.add(rightPost);
 
-    // Crossbeam lintel (Balok kayu atas)
-    const lintelGeo = new THREE.BoxGeometry(cellSize * 1.05, 0.22, 0.28);
+    // Crossbeam lintel
+    const lintelGeo = new THREE.BoxGeometry(cellSize * 1.05, 0.24, 0.28);
     const lintel = new THREE.Mesh(lintelGeo, woodMat);
-    lintel.position.set(0, 3.1, 0);
+    lintel.position.set(0, 3.5, 0);
     lintel.castShadow = true;
     exitDoorGroup.add(lintel);
 
-    // Wooden sign board: "KELUAR / EXIT"
-    const signGeo = new THREE.BoxGeometry(1.6, 0.45, 0.08);
+    // Sign board: "KELUAR / EXIT"
+    const signGeo = new THREE.BoxGeometry(1.8, 0.5, 0.08);
     const signCanvas = document.createElement('canvas');
     signCanvas.width = 256;
     signCanvas.height = 64;
@@ -251,164 +417,149 @@ export class LabyrinthBuilder {
     const signTex = new THREE.CanvasTexture(signCanvas);
     const signMat = new THREE.MeshBasicMaterial({ map: signTex });
     const signMesh = new THREE.Mesh(signGeo, signMat);
-    signMesh.position.set(0, 2.7, 0.12);
+    signMesh.position.set(0, 3.0, 0.12);
     exitDoorGroup.add(signMesh);
 
-    // Hanging warm kerosene lantern (Lampu Petromak / Teplok)
-    const lanternGeo = new THREE.CylinderGeometry(0.1, 0.12, 0.3, 6);
-    const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffe6aa });
+    // Hanging warm lantern
+    const lanternGeo = new THREE.CylinderGeometry(0.1, 0.12, 0.35, 6);
+    const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffe8aa });
     const lantern = new THREE.Mesh(lanternGeo, lanternMat);
-    lantern.position.set(0, 2.3, 0);
+    lantern.position.set(0, 2.5, 0);
     exitDoorGroup.add(lantern);
 
-    const exitPointLight = new THREE.PointLight(0x22c55e, 1.6, 8, 1.2);
-    exitPointLight.position.set(0, 2.2, 0.4);
+    const exitPointLight = new THREE.PointLight(0x22c55e, 2.0, 10, 1.2);
+    exitPointLight.position.set(0, 2.4, 0.4);
     exitDoorGroup.add(exitPointLight);
 
     rootGroup.add(exitDoorGroup);
 
     // Escape Trigger Box
     const exitTriggerBox = new THREE.Box3(
-      new THREE.Vector3(exitWx - cellSize * 0.7, 0, exitWz - cellSize * 0.7),
-      new THREE.Vector3(exitWx + cellSize * 0.7, wallHeight, exitWz + cellSize * 0.7)
+      new THREE.Vector3(exitWx - cellSize * 0.8, 0, exitWz - cellSize * 0.8),
+      new THREE.Vector3(exitWx + cellSize * 0.8, wallHeight, exitWz + cellSize * 0.8)
     );
 
-    // 6. Bamboo Torches (Obor Bambu) along forest paths
+    // 6. Bamboo Torches (Obor Bambu) placed around open clearings & glades
     const torchPositions = [
-      { gx: 1, gz: 1 },
-      { gx: 3, gz: 1 },
-      { gx: 7, gz: 1 },
-      { gx: 11, gz: 1 },
-      { gx: 13, gz: 1 },
-      { gx: 1, gz: 5 },
-      { gx: 5, gz: 5 },
-      { gx: 9, gz: 5 },
-      { gx: 13, gz: 5 },
-      { gx: 3, gz: 7 },
-      { gx: 11, gz: 7 },
-      { gx: 1, gz: 9 },
-      { gx: 7, gz: 9 },
-      { gx: 13, gz: 9 },
-      { gx: 3, gz: 11 },
-      { gx: 9, gz: 11 },
-      { gx: 13, gz: 11 },
-      { gx: 1, gz: 13 },
-      { gx: 7, gz: 13 },
-      { gx: 13, gz: 13 },
+      { x: pSpawnWx + 3.0, z: pSpawnWz + 1.0 },
+      { x: mSpawnWx - 2.5, z: mSpawnWz + 2.5 },
+      { x: exitWx - 3.0, z: exitWz - 1.0 },
+      { x: -halfWidth * 0.45, z: -halfHeight * 0.45 },
+      { x: halfWidth * 0.45, z: -halfHeight * 0.45 },
+      { x: -halfWidth * 0.45, z: halfHeight * 0.45 },
+      { x: halfWidth * 0.45, z: halfHeight * 0.45 },
+      { x: 0, z: -halfHeight * 0.55 },
+      { x: 0, z: halfHeight * 0.55 },
+      { x: -halfWidth * 0.55, z: 0 },
+      { x: halfWidth * 0.55, z: 0 },
     ];
 
     torchPositions.forEach((pos) => {
-      const lx = (pos.gx + 0.5) * cellSize - halfWidth;
-      const lz = (pos.gz + 0.5) * cellSize - halfHeight;
-
       const torchGroup = new THREE.Group();
-      torchGroup.position.set(lx, 0, lz);
+      torchGroup.position.set(pos.x, 0, pos.z);
 
-      // Bamboo stake stuck in ground
-      const stakeGeo = new THREE.CylinderGeometry(0.045, 0.05, 1.7, 5);
+      const stakeGeo = new THREE.CylinderGeometry(0.05, 0.06, 1.8, 5);
       const stake = new THREE.Mesh(stakeGeo, bambooMat);
-      stake.position.y = 0.85;
+      stake.position.y = 0.9;
       stake.castShadow = true;
       torchGroup.add(stake);
 
-      // Flame diamond
-      const flameGeo = new THREE.OctahedronGeometry(0.12, 0);
-      flameGeo.scale(0.8, 1.4, 0.8);
+      const flameGeo = new THREE.OctahedronGeometry(0.14, 0);
+      flameGeo.scale(0.8, 1.5, 0.8);
       const flameMat = new THREE.MeshBasicMaterial({ color: 0xffaa33 });
       const flame = new THREE.Mesh(flameGeo, flameMat);
-      flame.position.y = 1.75;
+      flame.position.y = 1.85;
       torchGroup.add(flame);
 
-      // Warm torch light
-      const torchLight = new THREE.PointLight(0xff7722, 1.8, 9, 1.3);
-      torchLight.position.set(0, 1.75, 0);
+      const torchLight = new THREE.PointLight(0xff8833, 2.2, 12, 1.2);
+      torchLight.position.set(0, 1.85, 0);
       torchGroup.add(torchLight);
 
       rootGroup.add(torchGroup);
     });
 
-    // 7. Eerie Sinister Light at Pocong Resting Shrine
-    const pocongShrineLight = new THREE.PointLight(0xbb1122, 2.4, 11, 1.2);
+    // 7. Eerie Red Glow at Pocong Resting Shrine
+    const pocongShrineLight = new THREE.PointLight(0xd9162a, 2.5, 12, 1.2);
     pocongShrineLight.position.set(mSpawnWx, 1.8, mSpawnWz);
     rootGroup.add(pocongShrineLight);
 
-    // 8. Kunang-kunang (Fireflies / Glowing Jungle Particles)
-    const fireflyCount = 45;
+    // 8. Fireflies (Kunang-kunang Hutan)
+    const fireflyCount = 80;
     const fireflyGeo = new THREE.BufferGeometry();
     const ffPositions = new Float32Array(fireflyCount * 3);
     for (let i = 0; i < fireflyCount; i++) {
-      ffPositions[i * 3] = (Math.random() - 0.5) * totalW * 0.8;
-      ffPositions[i * 3 + 1] = 0.4 + Math.random() * 2.2;
-      ffPositions[i * 3 + 2] = (Math.random() - 0.5) * totalH * 0.8;
+      ffPositions[i * 3] = (Math.random() - 0.5) * totalW * 0.75;
+      ffPositions[i * 3 + 1] = 0.5 + Math.random() * 2.5;
+      ffPositions[i * 3 + 2] = (Math.random() - 0.5) * totalH * 0.75;
     }
     fireflyGeo.setAttribute('position', new THREE.BufferAttribute(ffPositions, 3));
     const fireflyMat = new THREE.PointsMaterial({
-      color: 0xbbf7d0,
-      size: 0.12,
+      color: 0xc7f9cc,
+      size: 0.14,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.9,
       blending: THREE.AdditiveBlending,
     });
     const fireflies = new THREE.Points(fireflyGeo, fireflyMat);
     rootGroup.add(fireflies);
 
-    // 9. PRE-GAME OVERVIEW 3D MARKERS (Floating cleanly above banana canopy)
-    const markerY = wallHeight + 1.8;
+    // 9. Pre-Game Overview Markers (High in the air)
+    const markerY = wallHeight + 2.2;
 
-    // Marker A: Player Start (Blue Arrow pointing towards initial player view)
+    // Marker A: Player Start
     const playerMarker = new THREE.Group();
     playerMarker.name = 'PlayerOverviewMarker';
     playerMarker.position.set(pSpawnWx, markerY, pSpawnWz);
 
-    const arrowMat = new THREE.MeshBasicMaterial({ color: 0x2a8bf2 });
-    const arrowShaftGeo = new THREE.CylinderGeometry(0.18, 0.18, 1.2, 8);
+    const arrowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const arrowShaftGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.4, 8);
     const arrowShaft = new THREE.Mesh(arrowShaftGeo, arrowMat);
-    arrowShaft.position.set(0, 0.6, 0);
+    arrowShaft.position.set(0, 0.7, 0);
     playerMarker.add(arrowShaft);
 
-    const arrowHeadGeo = new THREE.ConeGeometry(0.5, 0.8, 8);
+    const arrowHeadGeo = new THREE.ConeGeometry(0.55, 0.9, 8);
     const arrowHead = new THREE.Mesh(arrowHeadGeo, arrowMat);
     arrowHead.position.set(0, 0, 0);
     arrowHead.rotateX(Math.PI);
     playerMarker.add(arrowHead);
 
-    const dirConeGeo = new THREE.ConeGeometry(0.35, 0.9, 8);
-    const dirCone = new THREE.Mesh(dirConeGeo, new THREE.MeshBasicMaterial({ color: 0x60a5fa }));
-    dirCone.position.set(0, 0.6, 0.9);
+    const dirConeGeo = new THREE.ConeGeometry(0.4, 1.0, 8);
+    const dirCone = new THREE.Mesh(dirConeGeo, new THREE.MeshBasicMaterial({ color: 0x7dd3fc }));
+    dirCone.position.set(0, 0.7, 1.0);
     dirCone.rotateX(Math.PI / 2);
     playerMarker.add(dirCone);
 
     rootGroup.add(playerMarker);
 
-    // Marker B: Pocong Indicator (Pulsing Red Reticle above resting Pocong)
+    // Marker B: Pocong Indicator
     const monsterMarker = new THREE.Group();
     monsterMarker.name = 'PocongOverviewMarker';
     monsterMarker.position.set(mSpawnWx, markerY, mSpawnWz);
 
     const monsterRingMat = new THREE.MeshBasicMaterial({
-      color: 0xe63946,
+      color: 0xef4444,
       wireframe: true,
     });
-    const monsterRingGeo = new THREE.TorusGeometry(0.9, 0.09, 6, 16);
+    const monsterRingGeo = new THREE.TorusGeometry(1.0, 0.1, 6, 16);
     monsterRingGeo.rotateX(Math.PI / 2);
     const monsterRing = new THREE.Mesh(monsterRingGeo, monsterRingMat);
     monsterMarker.add(monsterRing);
 
     const monsterCenterDot = new THREE.Mesh(
-      new THREE.SphereGeometry(0.28, 8, 8),
+      new THREE.SphereGeometry(0.32, 8, 8),
       new THREE.MeshBasicMaterial({ color: 0xff0000 })
     );
     monsterMarker.add(monsterCenterDot);
 
     rootGroup.add(monsterMarker);
 
-    // Marker C: Exit Gate Marker (Green Beacon above exit gate)
+    // Marker C: Exit Gate Marker
     const exitMarker = new THREE.Group();
     exitMarker.name = 'ExitOverviewMarker';
     exitMarker.position.set(exitWx, markerY, exitWz);
 
     const exitBeaconMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
-    const exitBeaconGeo = new THREE.OctahedronGeometry(0.75, 0);
+    const exitBeaconGeo = new THREE.OctahedronGeometry(0.85, 0);
     const exitBeacon = new THREE.Mesh(exitBeaconGeo, exitBeaconMat);
     exitMarker.add(exitBeacon);
 
@@ -425,6 +576,8 @@ export class LabyrinthBuilder {
       playerWorldSpawn: { x: pSpawnWx, y: 1.5, z: pSpawnWz, rotationY: level.playerSpawn.rotationY },
       monsterWorldSpawn: { x: mSpawnWx, y: 0, z: mSpawnWz, rotationY: level.monsterSpawn.rotationY },
       exitWorldPos: { x: exitWx, y: 0, z: exitWz },
+      treeColliders,
+      updatedGrid,
     };
   }
 }

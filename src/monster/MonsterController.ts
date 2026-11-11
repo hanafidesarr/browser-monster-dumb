@@ -17,12 +17,18 @@ export class MonsterController {
   public model: MonsterModel;
   public group: THREE.Group;
   public state: MonsterState = 'SITTING_IDLE';
+  public isAwake: boolean = false;
 
   public position: THREE.Vector3 = new THREE.Vector3();
   public rotationY: number = 0; // facing direction
 
   private levelDef: LevelDefinition | null = null;
   private pathfinding: GridPathfinding | null = null;
+  public treeColliders: Array<{ x: number; z: number; radius: number }> = [];
+
+  public setTreeColliders(colliders: Array<{ x: number; z: number; radius: number }>): void {
+    this.treeColliders = colliders;
+  }
 
   // Stealth detection tracking
   private detectionTimer: number = 0;
@@ -66,6 +72,7 @@ export class MonsterController {
     this.group.rotation.y = this.rotationY;
 
     this.state = 'SITTING_IDLE';
+    this.isAwake = false;
     this.detectionTimer = 0;
     this.detectionPercent = 0;
     this.stateTime = 0;
@@ -83,39 +90,41 @@ export class MonsterController {
 
   // Check if monster can be attacked (near monster proximity for UI prompt)
   public canBeAttackedFromBehind(playerPos: THREE.Vector3): boolean {
-    if (this.state !== 'SITTING_IDLE') return false;
+    if (this.state !== 'SITTING_IDLE' || this.isAwake) return false;
     const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
-    return horizontalDist <= 4.2;
+    return horizontalDist <= 5.0;
   }
 
   // Check if player's swing hits ANY part of the monster's body
+  // The monster ONLY wakes up and chases when struck by the bat!
   public isHitByPlayerSwing(camera: THREE.Camera, playerPos: THREE.Vector3, playerForward: THREE.Vector3): boolean {
-    if (this.state !== 'SITTING_IDLE') return false;
+    if (this.state !== 'SITTING_IDLE' || this.isAwake) return false;
 
-    // 1. Precise raycast from crosshair against all monster meshes (head, body, arms, legs)
+    // Melee striking range check (within 5.0 meters)
+    const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
+    if (horizontalDist > 5.0) {
+      return false;
+    }
+
+    // 1. Precise raycast from crosshair against all monster meshes (head, body, shroud, face)
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-    raycaster.far = 3.6;
+    raycaster.far = 5.0;
     const hits = raycaster.intersectObjects(this.group.children, true);
     if (hits.length > 0) {
       return true;
     }
 
-    // 2. Proximity strike (within 3.2m and looking generally towards monster)
-    const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
-    if (horizontalDist <= 3.2) {
-      if (this.pathfinding && !this.pathfinding.hasLineOfSight(this.position.x, this.position.z, playerPos.x, playerPos.z)) {
-        return false;
-      }
-      const dirToMonster = new THREE.Vector3(
-        this.position.x - playerPos.x,
-        0,
-        this.position.z - playerPos.z
-      ).normalize();
+    // 2. Proximity strike (within 5.0m and looking generally towards monster)
+    const dirToMonster = new THREE.Vector3(
+      this.position.x - playerPos.x,
+      0,
+      this.position.z - playerPos.z
+    ).normalize();
 
-      if (playerForward.dot(dirToMonster) > -0.1) {
-        return true;
-      }
+    // Generous striking arc facing Pocong
+    if (playerForward.dot(dirToMonster) > -0.25) {
+      return true;
     }
 
     return false;
@@ -123,8 +132,9 @@ export class MonsterController {
 
   // Called when player lands successful bat hit
   public triggerBatHit(): void {
-    if (this.state !== 'SITTING_IDLE') return;
+    if (this.state !== 'SITTING_IDLE' || this.isAwake) return;
 
+    this.isAwake = true;
     this.state = 'HIT_REACTION';
     this.stateTime = 0;
     this.animProgress = 0;
@@ -135,6 +145,15 @@ export class MonsterController {
 
   public update(dt: number, totalTime: number, playerPos: THREE.Vector3): void {
     if (!this.levelDef || !this.pathfinding) return;
+
+    // HARD GUARD: Pocong is asleep and motionless until struck with the bat!
+    if (!this.isAwake) {
+      this.state = 'SITTING_IDLE';
+      this.updateSittingIdle(dt, totalTime, playerPos);
+      this.group.position.copy(this.position);
+      this.group.rotation.y = this.rotationY;
+      return;
+    }
 
     this.stateTime += dt;
 
@@ -180,6 +199,7 @@ export class MonsterController {
     this.model.applySittingPosture(totalTime);
     this.detectionPercent = 0;
     this.detectionTimer = 0;
+    this.position.y = 0;
   }
 
   // 2. DETECT_PLAYER
@@ -201,7 +221,7 @@ export class MonsterController {
 
   // 3. HIT_REACTION (Head snaps forward from bat hit)
   private updateHitReaction(dt: number): void {
-    const hitDuration = 0.35;
+    const hitDuration = 0.18;
     this.animProgress = this.stateTime / hitDuration;
     this.model.applyHitReaction(this.animProgress);
 
@@ -215,7 +235,7 @@ export class MonsterController {
 
   // 4. SCREAM (Unhinged jaw, shriek)
   private updateScream(dt: number, totalTime: number): void {
-    const screamDuration = 0.95;
+    const screamDuration = 0.38;
     this.animProgress = this.stateTime / screamDuration;
     this.model.applyScream(this.animProgress, totalTime);
 
@@ -228,14 +248,15 @@ export class MonsterController {
 
   // 5. STAND_UP (Rises to towering height)
   private updateStandUp(dt: number): void {
-    const standDuration = 0.75;
+    const standDuration = 0.28;
     this.animProgress = this.stateTime / standDuration;
     this.model.applyStandUp(this.animProgress);
 
     if (this.stateTime >= standDuration) {
       this.state = 'CHASE';
       this.stateTime = 0;
-      this.pathRecalcTimer = 0;
+      this.hopTimer = 0;
+      this.pathRecalcTimer = 0.35;
       if (this.onChaseStarted) {
         this.onChaseStarted();
       }
@@ -272,9 +293,9 @@ export class MonsterController {
     // Animate the pocong body (forward pitch in air, squash on landing)
     this.model.applyHopAnimation(cycle, isAirborne);
 
-    // Check catch distance (monster caught player: trigger Game Over!)
-    const catchDist = Math.max(1.6, cfg.catchDistance);
-    if (horizontalDist <= catchDist) {
+    // Check catch distance (grace period: 0.8s after chase begins so player can turn and sprint)
+    const catchDist = Math.max(1.5, cfg.catchDistance);
+    if (this.stateTime > 0.8 && horizontalDist <= catchDist) {
       this.state = 'CATCH_PLAYER';
       this.position.y = 0.15;
       AudioManager.getInstance().playCaughtStinger();
@@ -284,53 +305,82 @@ export class MonsterController {
       return;
     }
 
-    // Recalculate A* path every 0.35 seconds
+    // Recalculate A* path periodically
     this.pathRecalcTimer += dt;
     if (this.pathRecalcTimer >= 0.35 || this.currentPath.length === 0) {
       this.pathRecalcTimer = 0;
-      const path = this.pathfinding!.findPath(
-        { x: this.position.x, z: this.position.z },
-        { x: playerPos.x, z: playerPos.z }
-      );
-      if (path.length > 1) {
-        // Drop the current tile waypoint
-        this.currentPath = path.slice(1);
-      } else {
-        this.currentPath = path;
+      if (this.pathfinding) {
+        const path = this.pathfinding.findPath(
+          { x: this.position.x, z: this.position.z },
+          { x: playerPos.x, z: playerPos.z }
+        );
+        if (path.length > 1) {
+          this.currentPath = path.slice(1);
+        } else {
+          this.currentPath = path;
+        }
       }
     }
 
-    // Navigate toward next waypoint with burst speed while airborne
+    // Determine target position: follow waypoint or pursue player directly!
+    let targetX = playerPos.x;
+    let targetZ = playerPos.z;
+
     if (this.currentPath.length > 0) {
       const targetWp = this.currentPath[0];
-      const dirX = targetWp.x - this.position.x;
-      const dirZ = targetWp.z - this.position.z;
-      const wpDist = Math.hypot(dirX, dirZ);
-
-      if (wpDist < 0.35) {
-        // Waypoint reached, advance
+      const wpDist = Math.hypot(targetWp.x - this.position.x, targetWp.z - this.position.z);
+      if (wpDist < 0.4) {
         this.currentPath.shift();
       } else {
-        // Move toward waypoint
-        const normX = dirX / wpDist;
-        const normZ = dirZ / wpDist;
-
-        // Smooth rotation
-        const targetAngle = Math.atan2(normX, normZ);
-        this.rotationY = THREE.MathUtils.lerp(
-          this.rotationY,
-          targetAngle,
-          Math.min(1, 14 * dt)
-        );
-
-        // Movement is concentrated during the jump arc!
-        const speedMultiplier = isAirborne
-          ? Math.sin((cycle / 0.70) * Math.PI) * 1.85
-          : 0.08;
-        const moveStep = cfg.chaseSpeed * speedMultiplier * dt;
-        this.position.x += normX * moveStep;
-        this.position.z += normZ * moveStep;
+        targetX = targetWp.x;
+        targetZ = targetWp.z;
       }
+    }
+
+    let dirX = targetX - this.position.x;
+    let dirZ = targetZ - this.position.z;
+    const targetDist = Math.hypot(dirX, dirZ);
+
+    if (targetDist > 0.05) {
+      let normX = dirX / targetDist;
+      let normZ = dirZ / targetDist;
+
+      // Soft repulsion against nearby tree trunks to glide around obstacles smoothly
+      if (this.treeColliders && this.treeColliders.length > 0) {
+        for (let i = 0; i < this.treeColliders.length; i++) {
+          const tree = this.treeColliders[i];
+          const tdx = this.position.x - tree.x;
+          const tdz = this.position.z - tree.z;
+          const tdist = Math.hypot(tdx, tdz);
+          const avoidDist = tree.radius + 0.65;
+          if (tdist < avoidDist && tdist > 0.01) {
+            const push = (avoidDist - tdist) / avoidDist;
+            normX += (tdx / tdist) * push * 1.5;
+            normZ += (tdz / tdist) * push * 1.5;
+          }
+        }
+        const newDist = Math.hypot(normX, normZ);
+        if (newDist > 0.01) {
+          normX /= newDist;
+          normZ /= newDist;
+        }
+      }
+
+      // Smooth rotation toward movement heading
+      const targetAngle = Math.atan2(normX, normZ);
+      this.rotationY = THREE.MathUtils.lerp(
+        this.rotationY,
+        targetAngle,
+        Math.min(1, 14 * dt)
+      );
+
+      // Movement bursts forward while airborne in jump arc!
+      const speedMultiplier = isAirborne
+        ? Math.sin((cycle / 0.70) * Math.PI) * 1.85
+        : 0.1;
+      const moveStep = cfg.chaseSpeed * speedMultiplier * dt;
+      this.position.x += normX * moveStep;
+      this.position.z += normZ * moveStep;
     }
   }
 }

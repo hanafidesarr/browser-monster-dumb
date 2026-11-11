@@ -12,30 +12,28 @@ export class BananaTreeFactory {
     if (!this.trunkMat) {
       this.trunkMat = new THREE.MeshLambertMaterial({
         map: TextureGenerator.createBananaTrunkTexture(),
-        roughness: 0.85,
+        roughness: 0.82,
       });
 
       this.leafMat = new THREE.MeshLambertMaterial({
         map: TextureGenerator.createBananaLeafTexture(),
         side: THREE.DoubleSide,
-        roughness: 0.75,
+        roughness: 0.7,
       });
 
       this.driedLeafMat = new THREE.MeshLambertMaterial({
         map: TextureGenerator.createDriedLeafTexture(),
         side: THREE.DoubleSide,
-        roughness: 0.9,
+        roughness: 0.88,
       });
 
       this.budMat = new THREE.MeshLambertMaterial({
         map: TextureGenerator.createBananaBudTexture(),
-        roughness: 0.7,
+        roughness: 0.65,
       });
 
-      // Fern / undergrowth material
-      const fernTex = TextureGenerator.createBananaLeafTexture();
       this.fernMat = new THREE.MeshLambertMaterial({
-        map: fernTex,
+        map: TextureGenerator.createBananaLeafTexture(),
         side: THREE.DoubleSide,
         color: 0x5a883a,
         roughness: 0.8,
@@ -53,11 +51,11 @@ export class BananaTreeFactory {
 
   // Generate an arching, drooping banana leaf geometry
   public static createLeafGeometry(
-    length: number = 2.4,
-    maxWidth: number = 0.65,
-    droopAmount: number = 1.15
+    length: number = 3.6,
+    maxWidth: number = 0.85,
+    droopAmount: number = 1.3
   ): THREE.BufferGeometry {
-    const segments = 7;
+    const segments = 8;
     const vertices: number[] = [];
     const uvs: number[] = [];
     const indices: number[] = [];
@@ -66,7 +64,7 @@ export class BananaTreeFactory {
       const t = i / segments;
       // Arc along +Z (length) and drooping parabolic along -Y
       const z = t * length;
-      const y = -Math.pow(t, 1.8) * droopAmount + Math.sin(t * Math.PI) * 0.22;
+      const y = -Math.pow(t, 1.8) * droopAmount + Math.sin(t * Math.PI) * 0.35;
 
       // Width profile: narrow petiole at base, wide paddle in middle, tapered tip
       let width = 0;
@@ -77,7 +75,7 @@ export class BananaTreeFactory {
       }
 
       // Inverted V-droop (wings droop slightly relative to central midrib)
-      const wingDroop = 0.08 * (width / maxWidth);
+      const wingDroop = 0.1 * (width / maxWidth);
 
       // Vertex 0: Left wing (-X)
       vertices.push(-width * 0.5, y - wingDroop, z);
@@ -113,7 +111,7 @@ export class BananaTreeFactory {
     return geo;
   }
 
-  // Create a single 3D Banana Tree
+  // Create a tall, majestic 3D Banana Tree (Height 5.8m - 7.5m, high umbrella canopy)
   public static createBananaTree(options: {
     height?: number;
     trunkRadius?: number;
@@ -124,18 +122,18 @@ export class BananaTreeFactory {
   } = {}): THREE.Group {
     const mats = this.getMaterials();
     const treeGroup = new THREE.Group();
-    treeGroup.name = 'BananaTree';
+    treeGroup.name = 'TallBananaTree';
 
-    const h = options.height ?? 3.2;
-    const rBase = options.trunkRadius ?? 0.22;
+    // Tall height so player runs freely under the canopy
+    const h = options.height ?? 6.5;
+    const rBase = options.trunkRadius ?? 0.32;
     const rTop = rBase * 0.55;
-    const leanX = options.leanX ?? (Math.random() - 0.5) * 0.15;
-    const leanZ = options.leanZ ?? (Math.random() - 0.5) * 0.15;
-    const hasBud = options.hasBud ?? Math.random() > 0.4;
+    const leanX = options.leanX ?? (Math.random() - 0.5) * 0.25;
+    const leanZ = options.leanZ ?? (Math.random() - 0.5) * 0.25;
+    const hasBud = options.hasBud ?? Math.random() > 0.35;
 
-    // 1. Tapered Trunk (Batang / Gedebog Pisang)
-    const trunkGeo = new THREE.CylinderGeometry(rTop, rBase, h, 7, 3);
-    // Skew trunk slightly for natural lean
+    // 1. Tall Tapered Trunk (Batang Gedebog Pisang)
+    const trunkGeo = new THREE.CylinderGeometry(rTop, rBase, h, 8, 4);
     const posAttr = trunkGeo.attributes.position;
     for (let i = 0; i < posAttr.count; i++) {
       const py = posAttr.getY(i) + h / 2; // 0 to h
@@ -151,14 +149,14 @@ export class BananaTreeFactory {
     trunkMesh.receiveShadow = true;
     treeGroup.add(trunkMesh);
 
-    // Crown position at top of trunk
+    // Crown position at very top of tall trunk
     const crownX = leanX;
-    const crownY = h - 0.15;
+    const crownY = h - 0.2;
     const crownZ = leanZ;
 
-    // 2. Arching Banana Leaves (Crown)
-    const numLeaves = 7 + Math.floor(Math.random() * 3);
-    const leafGeo = this.createLeafGeometry(h * 0.72, rBase * 2.8, 0.95);
+    // 2. High Arching Banana Leaves (Umbrella Canopy)
+    const numLeaves = 8 + Math.floor(Math.random() * 3);
+    const leafGeo = this.createLeafGeometry(h * 0.58, rBase * 2.6, 1.4);
 
     for (let i = 0; i < numLeaves; i++) {
       const leafMesh = new THREE.Mesh(leafGeo, mats.leaf);
@@ -166,10 +164,10 @@ export class BananaTreeFactory {
       leafMesh.receiveShadow = true;
 
       // Evenly distribute azimuth angle with small organic jitter
-      const angle = (i / numLeaves) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-      // Elevation angle: younger leaves stand higher, outer leaves droop more
-      const elev = 0.25 + (i % 3) * 0.15 + (Math.random() - 0.5) * 0.1;
-      const roll = (Math.random() - 0.5) * 0.25;
+      const angle = (i / numLeaves) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
+      // High elevation angle: branches out and gently droops high above player head
+      const elev = 0.22 + (i % 3) * 0.12 + (Math.random() - 0.5) * 0.1;
+      const roll = (Math.random() - 0.5) * 0.2;
 
       leafMesh.position.set(crownX, crownY, crownZ);
       leafMesh.rotation.order = 'YXZ';
@@ -180,16 +178,16 @@ export class BananaTreeFactory {
       treeGroup.add(leafMesh);
     }
 
-    // 3. Dried drooping leaves (Klaras) hanging down along trunk
-    const driedGeo = this.createLeafGeometry(h * 0.55, rBase * 2.2, 1.6);
+    // 3. Dried drooping leaves (Klaras) hanging down along upper trunk
+    const driedGeo = this.createLeafGeometry(h * 0.42, rBase * 2.0, 1.8);
     const numDried = 1 + Math.floor(Math.random() * 2);
     for (let i = 0; i < numDried; i++) {
       const driedMesh = new THREE.Mesh(driedGeo, mats.driedLeaf);
       driedMesh.castShadow = true;
-      driedMesh.position.set(crownX, crownY - 0.25, crownZ);
+      driedMesh.position.set(crownX, crownY - 0.4, crownZ);
       driedMesh.rotation.order = 'YXZ';
       driedMesh.rotation.y = Math.random() * Math.PI * 2;
-      driedMesh.rotation.x = 0.95 + Math.random() * 0.3; // Hanging almost straight down
+      driedMesh.rotation.x = 1.05 + Math.random() * 0.25; // Hanging straight down high up
       treeGroup.add(driedMesh);
     }
 
@@ -200,17 +198,17 @@ export class BananaTreeFactory {
       budStalk.rotation.y = Math.random() * Math.PI * 2;
 
       // Curved stalk
-      const stalkGeo = new THREE.CylinderGeometry(0.04, 0.05, 0.7, 5);
+      const stalkGeo = new THREE.CylinderGeometry(0.05, 0.06, 1.0, 5);
       stalkGeo.rotateX(0.7);
       const stalkMesh = new THREE.Mesh(stalkGeo, mats.trunk);
-      stalkMesh.position.set(0, -0.2, 0.2);
+      stalkMesh.position.set(0, -0.3, 0.3);
       budStalk.add(stalkMesh);
 
       // Teardrop bud
-      const budGeo = new THREE.ConeGeometry(0.12, 0.38, 6);
-      budGeo.rotateX(Math.PI); // Pointing downward
+      const budGeo = new THREE.ConeGeometry(0.16, 0.48, 6);
+      budGeo.rotateX(Math.PI);
       const budMesh = new THREE.Mesh(budGeo, mats.bud);
-      budMesh.position.set(0, -0.5, 0.38);
+      budMesh.position.set(0, -0.75, 0.55);
       budStalk.add(budMesh);
 
       treeGroup.add(budStalk);
@@ -219,65 +217,51 @@ export class BananaTreeFactory {
     return treeGroup;
   }
 
-  // Create a dense clump of banana trees for an obstacle tile
+  // Create a single tall banana tree obstacle (reduced count, open plantation feel)
   public static createObstacleCluster(cellSize: number, seed: number): THREE.Group {
     const cluster = new THREE.Group();
-    cluster.name = 'BananaCluster';
+    cluster.name = 'BananaTreeObstacle';
 
-    // Pseudorandom based on cell seed
     const pseudo = (offset: number) => {
       const s = Math.sin(seed * 997.3 + offset * 113.1);
       return s - Math.floor(s);
     };
 
-    // 1. Tall Mother Tree (center-dominant)
-    const motherTree = this.createBananaTree({
-      height: 3.1 + pseudo(1) * 0.7,
-      trunkRadius: 0.22 + pseudo(2) * 0.05,
-      leanX: (pseudo(3) - 0.5) * 0.2,
-      leanZ: (pseudo(4) - 0.5) * 0.2,
-      hasBud: true,
+    // 1. One Grand Tall Banana Tree per obstacle node (height 6.0m - 7.5m)
+    const tree = this.createBananaTree({
+      height: 6.2 + pseudo(1) * 1.3,
+      trunkRadius: 0.30 + pseudo(2) * 0.08,
+      leanX: (pseudo(3) - 0.5) * 0.35,
+      leanZ: (pseudo(4) - 0.5) * 0.35,
+      hasBud: pseudo(5) > 0.3,
     });
-    motherTree.position.set((pseudo(5) - 0.5) * cellSize * 0.25, 0, (pseudo(6) - 0.5) * cellSize * 0.25);
-    motherTree.rotation.y = pseudo(7) * Math.PI * 2;
-    cluster.add(motherTree);
+    // Slight organic offset within cell
+    tree.position.set((pseudo(6) - 0.5) * cellSize * 0.2, 0, (pseudo(7) - 0.5) * cellSize * 0.2);
+    tree.rotation.y = pseudo(8) * Math.PI * 2;
+    cluster.add(tree);
 
-    // 2. Medium Banana Tree (growing beside mother)
-    const medTree = this.createBananaTree({
-      height: 2.3 + pseudo(8) * 0.5,
-      trunkRadius: 0.17 + pseudo(9) * 0.04,
-      leanX: (pseudo(10) - 0.5) * 0.25,
-      leanZ: (pseudo(11) - 0.5) * 0.25,
-      hasBud: pseudo(12) > 0.5,
-    });
-    const medAngle = pseudo(13) * Math.PI * 2;
-    const medDist = cellSize * 0.24 + pseudo(14) * cellSize * 0.15;
-    medTree.position.set(Math.cos(medAngle) * medDist, 0, Math.sin(medAngle) * medDist);
-    medTree.rotation.y = pseudo(15) * Math.PI * 2;
-    cluster.add(medTree);
+    // 2. Small young shoot at tree base (35% chance)
+    if (pseudo(9) > 0.65) {
+      const shoot = this.createBananaTree({
+        height: 1.6 + pseudo(10) * 0.6,
+        trunkRadius: 0.12,
+        leanX: (pseudo(11) - 0.5) * 0.2,
+        leanZ: (pseudo(12) - 0.5) * 0.2,
+        hasBud: false,
+      });
+      shoot.position.set(tree.position.x + 0.45, 0, tree.position.z + 0.35);
+      shoot.rotation.y = pseudo(13) * Math.PI * 2;
+      cluster.add(shoot);
+    }
 
-    // 3. Small Sapling / Shoot (Anak Pisang)
-    const sapling = this.createBananaTree({
-      height: 1.3 + pseudo(16) * 0.5,
-      trunkRadius: 0.11 + pseudo(17) * 0.03,
-      leanX: (pseudo(18) - 0.5) * 0.2,
-      leanZ: (pseudo(19) - 0.5) * 0.2,
-      hasBud: false,
-    });
-    const sapAngle = medAngle + Math.PI * 0.75 + (pseudo(20) - 0.5) * 0.5;
-    const sapDist = cellSize * 0.26 + pseudo(21) * cellSize * 0.14;
-    sapling.position.set(Math.cos(sapAngle) * sapDist, 0, Math.sin(sapAngle) * sapDist);
-    sapling.rotation.y = pseudo(22) * Math.PI * 2;
-    cluster.add(sapling);
-
-    // 4. Wild jungle ferns at the base
+    // 3. Small fern tuft at the base of the trunk
     const mats = this.getMaterials();
-    const fernGeo = this.createLeafGeometry(0.85, 0.35, 0.45);
-    for (let f = 0; f < 3; f++) {
+    const fernGeo = this.createLeafGeometry(0.9, 0.35, 0.4);
+    for (let f = 0; f < 2; f++) {
       const fern = new THREE.Mesh(fernGeo, mats.fern);
-      fern.position.set((pseudo(23 + f) - 0.5) * cellSize * 0.4, 0.05, (pseudo(26 + f) - 0.5) * cellSize * 0.4);
-      fern.rotation.y = pseudo(29 + f) * Math.PI * 2;
-      fern.rotation.x = 0.45 + pseudo(32 + f) * 0.3;
+      fern.position.set(tree.position.x + (f === 0 ? 0.3 : -0.3), 0.05, tree.position.z + (f === 0 ? 0.2 : -0.2));
+      fern.rotation.y = (f * Math.PI) + pseudo(14 + f) * 0.5;
+      fern.rotation.x = 0.5;
       cluster.add(fern);
     }
 

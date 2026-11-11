@@ -333,14 +333,25 @@ export class UIManager {
     });
 
     // Overview Buttons
-    document.getElementById('btn-start-level')?.addEventListener('click', () => {
-      audio.playUiClick();
-      requestFullScreenAndLandscape();
-      checkShowLandscapePrompt();
-      if (this.onStartLevelRequested) {
-        this.onStartLevelRequested();
-      }
-    });
+    const startBtn = document.getElementById('btn-start-level');
+    if (startBtn) {
+      let startHandled = false;
+      const onStart = (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (startHandled) return;
+        startHandled = true;
+        setTimeout(() => { startHandled = false; }, 350);
+        audio.playUiClick();
+        requestFullScreenAndLandscape();
+        checkShowLandscapePrompt();
+        if (this.onStartLevelRequested) {
+          this.onStartLevelRequested();
+        }
+      };
+      startBtn.addEventListener('click', onStart);
+      startBtn.addEventListener('touchend', onStart);
+    }
 
     document.getElementById('btn-overview-back')?.addEventListener('click', () => {
       audio.playUiClick();

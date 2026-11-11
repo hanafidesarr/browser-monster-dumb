@@ -18,6 +18,12 @@ export class FirstPersonController {
   private monsterObstacle: THREE.Vector3 | null = null;
   private monsterRadius: number = 0.65;
 
+  public treeColliders: Array<{ x: number; z: number; radius: number }> = [];
+
+  public setTreeColliders(colliders: Array<{ x: number; z: number; radius: number }>): void {
+    this.treeColliders = colliders;
+  }
+
   public setMonsterObstacle(pos: THREE.Vector3 | null): void {
     this.monsterObstacle = pos;
   }
@@ -170,11 +176,11 @@ export class FirstPersonController {
     }
   }
 
-  // Circle vs Wall AABBs Collision Test
+  // Circle vs Wall / Tree Cylinders Collision Test
   private collidesWithWalls(wx: number, wz: number): boolean {
-    if (!this.levelDef || !this.pathfinding) return false;
+    if (!this.levelDef) return false;
 
-    // Monster Obstacle Collision (Prevents player from walking through sitting monster into its face)
+    // 1. Monster Obstacle (Prevents player from walking through sitting Pocong)
     if (this.monsterObstacle) {
       const distSq = (wx - this.monsterObstacle.x) ** 2 + (wz - this.monsterObstacle.z) ** 2;
       const combinedRadius = this.playerRadius + this.monsterRadius;
@@ -183,34 +189,29 @@ export class FirstPersonController {
       }
     }
 
-    const { grid, cellSize, gridWidth, gridHeight } = this.levelDef;
+    const { cellSize, gridWidth, gridHeight } = this.levelDef;
     const halfW = (gridWidth * cellSize) / 2;
     const halfH = (gridHeight * cellSize) / 2;
 
-    // Check surrounding 3x3 grid cells
-    const currentGrid = this.pathfinding.worldToGrid(wx, wz);
+    // 2. Outer Perimeter Boundary Walls (Keeps player inside plantation)
+    const margin = 1.2;
+    if (
+      wx < -halfW + margin ||
+      wx > halfW - margin ||
+      wz < -halfH + margin ||
+      wz > halfH - margin
+    ) {
+      return true;
+    }
 
-    for (let dz = -1; dz <= 1; dz++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const gx = currentGrid.gx + dx;
-        const gz = currentGrid.gz + dz;
-
-        if (gx < 0 || gx >= gridWidth || gz < 0 || gz >= gridHeight || grid[gz][gx] === 1) {
-          // Wall cell bounds
-          const wallMinX = gx * cellSize - halfW;
-          const wallMaxX = (gx + 1) * cellSize - halfW;
-          const wallMinZ = gz * cellSize - halfH;
-          const wallMaxZ = (gz + 1) * cellSize - halfH;
-
-          // Closest point on wall box to circle center
-          const closestX = Math.max(wallMinX, Math.min(wx, wallMaxX));
-          const closestZ = Math.max(wallMinZ, Math.min(wz, wallMaxZ));
-
-          const distSq = (wx - closestX) ** 2 + (wz - closestZ) ** 2;
-          if (distSq < this.playerRadius ** 2) {
-            return true;
-          }
-        }
+    // 3. Tree Trunk Cylinders (Player slides smoothly around every tree!)
+    for (let i = 0; i < this.treeColliders.length; i++) {
+      const t = this.treeColliders[i];
+      const dx = wx - t.x;
+      const dz = wz - t.z;
+      const totalR = this.playerRadius + t.radius;
+      if (dx * dx + dz * dz < totalR * totalR) {
+        return true;
       }
     }
 

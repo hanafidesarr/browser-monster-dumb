@@ -29,22 +29,29 @@ export interface LevelDefinition {
 // 1 = Wall, 0 = Floor corridor
 // 15 x 15 Labyrinth Layout for Level 1
 // Clean, carefully tested layout with multiple corridors, loops, intersections, dead ends
+// 21 x 21 Expansive Open Banana Plantation Layout (Luas, lega, player bebas berlari)
 const LEVEL_1_GRID: number[][] = [
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1], // (1,1): Player Spawn, facing +X (East)
-  [1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-  [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1],
-  [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1],
-  [1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1], // Monster at (7, 7), facing North (0, -1) so approach from South (7, 9) is behind it!
-  [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
-  [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1], // Path approaching monster from behind: (7, 9) -> (7, 7)
-  [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1],
-  [1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
-  [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1], // Exit at (13, 13)
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // 0: Boundary
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 1: Outer clearing
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 2
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 3: Player Spawn at (3, 3)
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 4: Open glade
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 5
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 6: Approach to Pocong
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 7
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 8: Broad plantation clearing
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 9
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 10: Pocong resting at (10, 10)
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 11
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 12: Escape run field
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 13
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 14: Sprint path
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 15
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 16: Open sprint corridor
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 17
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 18: Exit Gate at (18, 18)
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 19: Outer border
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // 20: Boundary
 ];
 
 export const ALL_LEVELS: LevelDefinition[] = [
@@ -52,25 +59,25 @@ export const ALL_LEVELS: LevelDefinition[] = [
     id: 1,
     title: 'KEBUN PISANG ANGKER',
     subtitle: 'HUTAN POHON PISANG — ALAM GAIB',
-    description: 'Hutan pohon pisang lebat yang dihuni sesosok Pocong mistis. Dekati dalam kesunyian dan pukul dia!',
-    gridWidth: 15,
-    gridHeight: 15,
-    cellSize: 2.8,
-    wallHeight: 3.2,
+    description: 'Hutan pohon pisang sangat luas bermandikan cahaya bulan. Dekati Pocong dalam kesunyian dan pukul dia!',
+    gridWidth: 21,
+    gridHeight: 21,
+    cellSize: 3.8,
+    wallHeight: 7.2,
     grid: LEVEL_1_GRID,
     playerSpawn: {
-      x: 1,
-      z: 1,
+      x: 3,
+      z: 3,
       rotationY: 0, // facing forward
     },
     monsterSpawn: {
-      x: 7,
-      z: 7,
-      rotationY: Math.PI / 2, // Facing East (+X into wall alcove), back completely turned to corridor (6, 7)
+      x: 10,
+      z: 10,
+      rotationY: 0, // Back facing South (+Z)
     },
     exitDoor: {
-      x: 13,
-      z: 13,
+      x: 18,
+      z: 18,
       normal: { x: 0, z: -1 },
     },
     monsterConfig: {
@@ -78,13 +85,13 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 9.0,    // realistic corridor stealth sight distance
       reactionDelaySeconds: 0.85,// fair warning window with alert meter before detection
       rearAttackAngleDeg: 200,   // generous rear/side stealth attack arc
-      attackDistance: 4.5,       // comfortable bat striking range (full corridor tile reach)
-      chaseSpeed: 4.8,           // monster run speed (faster than player walk, slightly slower than sprint)
+      attackDistance: 4.5,       // comfortable bat striking range
+      chaseSpeed: 5.1,           // monster hop chase speed
       catchDistance: 1.6,        // game over distance
     },
     playerConfig: {
-      walkSpeed: 3.6,
-      sprintSpeed: 5.6,
+      walkSpeed: 3.8,
+      sprintSpeed: 6.0,
     },
   },
   // Scalable placeholders for Levels 2 to 10 as specified in prompt:

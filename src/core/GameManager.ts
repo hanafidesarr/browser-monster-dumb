@@ -66,9 +66,9 @@ export class GameManager {
     });
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x071118);
-    // Atmospheric PS1 Jungle Night Fog
-    this.scene.fog = new THREE.Fog(0x071118, 14, 65);
+    this.scene.background = new THREE.Color(0x1a334d);
+    // Open, bright moonlit night atmosphere (clear long-distance visibility)
+    this.scene.fog = new THREE.Fog(0x1a334d, 50, 140);
 
     this.currentLevelDef = ALL_LEVELS[0];
 
@@ -233,9 +233,10 @@ export class GameManager {
     this.levelBuild = LabyrinthBuilder.buildLevel(this.currentLevelDef);
     this.scene.add(this.levelBuild.rootGroup);
 
-    // Setup Pathfinding
+    // Setup Pathfinding (using updated grid with organic tree nodes)
+    const effectiveGrid = this.levelBuild.updatedGrid || this.currentLevelDef.grid;
     this.pathfinding = new GridPathfinding(
-      this.currentLevelDef.grid,
+      effectiveGrid,
       this.currentLevelDef.cellSize
     );
 
@@ -245,6 +246,7 @@ export class GameManager {
       this.pathfinding,
       this.levelBuild.playerWorldSpawn
     );
+    this.fpController.setTreeColliders(this.levelBuild.treeColliders || []);
     this.fpController.setEnabled(false);
 
     // Setup Monster
@@ -253,6 +255,7 @@ export class GameManager {
       this.pathfinding,
       this.levelBuild.monsterWorldSpawn
     );
+    this.monster.setTreeColliders(this.levelBuild.treeColliders || []);
     this.fpController.setMonsterObstacle(this.monster.position);
 
     // Setup Overview Camera
@@ -264,6 +267,8 @@ export class GameManager {
     this.isTimerRunning = false;
     this.isAttackSuccessful = false;
     this.shakeIntensity = 0;
+    this.state = enterOverview ? 'LEVEL_OVERVIEW' : 'STEALTH';
+    InputManager.getInstance().resetInputs();
 
     if (enterOverview) {
       this.enterOverviewPhase();
@@ -312,13 +317,14 @@ export class GameManager {
         this.activeCamera = this.fpController.camera;
         this.fpController.setEnabled(true);
         InputManager.getInstance().setOverviewMode(false);
+        InputManager.getInstance().resetInputs(); // Clear any buffered clicks or touch events!
         InputManager.getInstance().requestPointerLock(this.canvas);
 
         this.state = 'STEALTH';
         this.isTimerRunning = true;
 
         UIManager.getInstance().showGameplayHUD();
-        UIManager.getInstance().setStatusText('CARI MONSTER DAN PUKUL TUBUHNYA');
+        UIManager.getInstance().setStatusText('CARI POCONG DAN PUKUL TUBUHNYA');
       }
     );
   }
@@ -327,42 +333,51 @@ export class GameManager {
   private performAttack(): void {
     if (this.state !== 'STEALTH') return;
 
-    const forward = this.fpController.getForwardVector();
-    const hitsMonster = this.monster.isHitByPlayerSwing(
-      this.fpController.camera,
-      this.fpController.position,
-      forward
+    // Melee striking range check (within 5.0m)
+    const horizontalDist = Math.hypot(
+      this.monster.position.x - this.fpController.position.x,
+      this.monster.position.z - this.fpController.position.z
     );
 
-    if (hitsMonster) {
-      // Strike connected on monster's body!
-      this.state = 'ATTACK';
-      this.isAttackSuccessful = true;
+    if (horizontalDist <= 5.0) {
+      const forward = this.fpController.getForwardVector();
+      const hitsMonster = this.monster.isHitByPlayerSwing(
+        this.fpController.camera,
+        this.fpController.position,
+        forward
+      );
 
-      // Clear monster obstacle and switch mobile button to SPRINT
-      this.fpController.setMonsterObstacle(null);
-      UIManager.getInstance().switchToChaseControls();
+      if (hitsMonster) {
+        // Strike connected on monster's body!
+        this.state = 'ATTACK';
+        this.isAttackSuccessful = true;
 
-      // 1. Swing baseball bat animation
-      this.fpController.weapon.swing(() => {
-        this.fpController.weapon.disableAttackPermanently();
-      });
+        // Clear monster obstacle and switch mobile button to SPRINT
+        this.fpController.setMonsterObstacle(null);
+        UIManager.getInstance().switchToChaseControls();
 
-      // 2. Immediately trigger Monster hit reaction, scream, and chase!
-      this.monster.triggerBatHit();
-      this.triggerScreenShake(0.4);
-      UIManager.getInstance().setStatusText('MONSTER TERBANGUN & MENGEJAR! LARI KE PINTU EXIT!');
-    } else {
-      // Swung into air - play swing animation and allow player to swing again!
-      const swung = this.fpController.weapon.swing(() => {});
-      if (swung) {
-        UIManager.getInstance().setStatusText('DEKATI MONSTER DAN PUKUL TUBUHNYA!');
-        setTimeout(() => {
-          if (this.state === 'STEALTH') {
-            UIManager.getInstance().setStatusText('CARI MONSTER DAN PUKUL TUBUHNYA');
-          }
-        }, 1800);
+        // 1. Swing baseball bat animation
+        this.fpController.weapon.swing(() => {
+          this.fpController.weapon.disableAttackPermanently();
+        });
+
+        // 2. Immediately trigger Monster hit reaction, scream, and chase!
+        this.monster.triggerBatHit();
+        this.triggerScreenShake(0.4);
+        UIManager.getInstance().setStatusText('POCONG TERBANGUN & MENGEJAR! CEPAT LARI KE PINTU EXIT!');
+        return;
       }
+    }
+
+    // Swung into air (player too far away or missed) - allow swinging again
+    const swung = this.fpController.weapon.swing(() => {});
+    if (swung) {
+      UIManager.getInstance().setStatusText('DEKATI POCONG DAN PUKUL TUBUHNYA!');
+      setTimeout(() => {
+        if (this.state === 'STEALTH') {
+          UIManager.getInstance().setStatusText('CARI POCONG DAN PUKUL TUBUHNYA');
+        }
+      }, 1800);
     }
   }
 
@@ -489,7 +504,7 @@ export class GameManager {
           this.monster.position.x - this.fpController.position.x,
           this.monster.position.z - this.fpController.position.z
         );
-        if (horizontalDist <= 1.6) {
+        if (this.monster.stateTime > 0.8 && horizontalDist <= 1.5) {
           this.triggerGameOver('Monster berhasil menangkapmu!');
           return;
         }
