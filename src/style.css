@@ -58,6 +58,11 @@ html, body {
   image-rendering: crisp-edges;
 }
 
+/* Crystal-clear rendering during Pre-game Map Overview */
+body.in-overview #game-canvas {
+  image-rendering: auto !important;
+}
+
 /* PS1 Scanline and Vignette Effect */
 #ps1-overlay {
   position: absolute;
@@ -70,6 +75,11 @@ html, body {
   background: radial-gradient(circle at center, transparent 60%, rgba(0, 0, 0, 0.35) 100%),
               repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08) 1px, transparent 1px, transparent 3px);
   z-index: 2;
+  transition: opacity 0.4s ease;
+}
+
+body.in-overview #ps1-overlay {
+  opacity: 0 !important;
 }
 
 /* ==========================================================================

@@ -66,79 +66,11 @@ export class LabyrinthBuilder {
     const starfield = new THREE.Points(starGeo, starMat);
     rootGroup.add(starfield);
 
-    // Glowing Full Moon Sphere (Bulan Purnama Besar & Terang)
-    const moonGeo = new THREE.SphereGeometry(4.2, 20, 20);
-    const moonMat = new THREE.MeshBasicMaterial({
-      color: 0xf8fafc,
-    });
-    const moonMesh = new THREE.Mesh(moonGeo, moonMat);
-    const moonPos = new THREE.Vector3(halfWidth * 0.8, 50, -halfHeight * 0.85);
-    moonMesh.position.copy(moonPos);
-    rootGroup.add(moonMesh);
-
-    // Radiant Lunar Halo (Aura Pendaran Cahaya Bulan Luas)
-    const haloGeo = new THREE.PlaneGeometry(28.0, 28.0);
-    const haloCanvas = document.createElement('canvas');
-    haloCanvas.width = 256;
-    haloCanvas.height = 256;
-    const hCtx = haloCanvas.getContext('2d')!;
-    const hGrad = hCtx.createRadialGradient(128, 128, 25, 128, 128, 128);
-    hGrad.addColorStop(0, 'rgba(240, 249, 255, 0.95)');
-    hGrad.addColorStop(0.35, 'rgba(186, 230, 253, 0.45)');
-    hGrad.addColorStop(0.7, 'rgba(125, 185, 245, 0.15)');
-    hGrad.addColorStop(1, 'rgba(14, 32, 52, 0)');
-    hCtx.fillStyle = hGrad;
-    hCtx.fillRect(0, 0, 256, 256);
-
-    const haloTex = new THREE.CanvasTexture(haloCanvas);
-    const haloMat = new THREE.MeshBasicMaterial({
-      map: haloTex,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const haloMesh = new THREE.Mesh(haloGeo, haloMat);
-    haloMesh.position.copy(moonPos);
-    haloMesh.position.z += 0.8;
-    rootGroup.add(haloMesh);
-
-    // Volumetric Moonbeams / Light Shafts (Berkas Sinar Bulan Menembus Kebun Pisang)
-    const beamGeo = new THREE.CylinderGeometry(2.0, 14.0, 60, 8, 1, true);
-    beamGeo.rotateX(-0.55);
-    const beamMat = new THREE.MeshBasicMaterial({
-      color: 0xa5d4ff,
-      transparent: true,
-      opacity: 0.13,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-    const moonbeam = new THREE.Mesh(beamGeo, beamMat);
-    moonbeam.position.set(moonPos.x - 4, 25, moonPos.z + 12);
-    rootGroup.add(moonbeam);
-
-    // Bright Moonlight Directional Light (Cahaya Bulan Terang)
-    const moonLight = new THREE.DirectionalLight(0xcfe4ff, 2.8);
-    moonLight.position.copy(moonPos);
-    moonLight.target.position.set(0, 0, 0);
-    moonLight.castShadow = true;
-    moonLight.shadow.mapSize.width = 1024;
-    moonLight.shadow.mapSize.height = 1024;
-    moonLight.shadow.camera.near = 10;
-    moonLight.shadow.camera.far = 130;
-    const d = Math.max(totalW, totalH) * 0.65;
-    moonLight.shadow.camera.left = -d;
-    moonLight.shadow.camera.right = d;
-    moonLight.shadow.camera.top = d;
-    moonLight.shadow.camera.bottom = -d;
-    rootGroup.add(moonLight);
-    rootGroup.add(moonLight.target);
-
-    // Bright Ambient Night Lighting (Jelas, Terang, & Nyaman Dilihat)
-    const ambientLight = new THREE.AmbientLight(0x324858, 2.5);
+    // Ambient Night Lighting (Suasana malam alami tanpa bulan)
+    const ambientLight = new THREE.AmbientLight(0x283848, 1.5);
     rootGroup.add(ambientLight);
 
-    const hemiLight = new THREE.HemisphereLight(0x82a8cc, 0x243a2a, 2.0);
+    const hemiLight = new THREE.HemisphereLight(0x40556b, 0x18261e, 1.2);
     rootGroup.add(hemiLight);
 
     // 3. Spawns & Clearings Calculation
@@ -503,66 +435,126 @@ export class LabyrinthBuilder {
     const fireflies = new THREE.Points(fireflyGeo, fireflyMat);
     rootGroup.add(fireflies);
 
-    // 9. Pre-Game Overview Markers (High in the air)
-    const markerY = wallHeight + 2.2;
+    // 9. Pre-Game Tactical Overview Markers (Luminous Beacons, Ground Rings & Light Pillars)
+    const markerY = wallHeight + 2.5;
 
-    // Marker A: Player Start
+    // Helper: create a vertical cylindrical light pillar connecting ground to sky
+    const createBeaconPillar = (color: number, radius: number = 0.45, height: number = 16.0) => {
+      const geo = new THREE.CylinderGeometry(radius * 0.7, radius, height, 16, 1, true);
+      const mat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.38,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.y = height / 2;
+      return mesh;
+    };
+
+    // Helper: create concentric glowing holographic ground rings
+    const createGroundRings = (color: number, outerR: number, innerR: number) => {
+      const group = new THREE.Group();
+      const ringMat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+
+      const r1 = new THREE.Mesh(new THREE.TorusGeometry(outerR, 0.12, 8, 32), ringMat);
+      r1.rotateX(Math.PI / 2);
+      r1.position.y = 0.15;
+      group.add(r1);
+
+      const r2 = new THREE.Mesh(new THREE.TorusGeometry(innerR, 0.08, 8, 24), ringMat);
+      r2.rotateX(Math.PI / 2);
+      r2.position.y = 0.15;
+      group.add(r2);
+
+      return group;
+    };
+
+    // Marker A: Player Start (Vibrant Cyan Tactical Beacon)
     const playerMarker = new THREE.Group();
     playerMarker.name = 'PlayerOverviewMarker';
-    playerMarker.position.set(pSpawnWx, markerY, pSpawnWz);
+    playerMarker.position.set(pSpawnWx, 0, pSpawnWz);
 
+    playerMarker.add(createBeaconPillar(0x38bdf8, 0.5, 16.0));
+    playerMarker.add(createGroundRings(0x38bdf8, 2.5, 1.4));
+
+    // Floating overhead chevron indicator
+    const arrowGroup = new THREE.Group();
+    arrowGroup.position.y = markerY;
     const arrowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-    const arrowShaftGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.4, 8);
-    const arrowShaft = new THREE.Mesh(arrowShaftGeo, arrowMat);
-    arrowShaft.position.set(0, 0.7, 0);
-    playerMarker.add(arrowShaft);
+    const arrowShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 1.6, 12), arrowMat);
+    arrowShaft.position.set(0, 0.8, 0);
+    arrowGroup.add(arrowShaft);
 
-    const arrowHeadGeo = new THREE.ConeGeometry(0.55, 0.9, 8);
-    const arrowHead = new THREE.Mesh(arrowHeadGeo, arrowMat);
-    arrowHead.position.set(0, 0, 0);
+    const arrowHead = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.2, 12), arrowMat);
     arrowHead.rotateX(Math.PI);
-    playerMarker.add(arrowHead);
+    arrowHead.position.set(0, 0, 0);
+    arrowGroup.add(arrowHead);
 
-    const dirConeGeo = new THREE.ConeGeometry(0.4, 1.0, 8);
-    const dirCone = new THREE.Mesh(dirConeGeo, new THREE.MeshBasicMaterial({ color: 0x7dd3fc }));
-    dirCone.position.set(0, 0.7, 1.0);
-    dirCone.rotateX(Math.PI / 2);
-    playerMarker.add(dirCone);
-
+    const playerBeaconLight = new THREE.PointLight(0x38bdf8, 3.5, 20, 1.2);
+    playerBeaconLight.position.y = markerY;
+    playerMarker.add(playerBeaconLight);
+    playerMarker.add(arrowGroup);
     rootGroup.add(playerMarker);
 
-    // Marker B: Pocong Indicator
+    // Marker B: Pocong Shrine (Crimson Warning Hologram Beacon)
     const monsterMarker = new THREE.Group();
     monsterMarker.name = 'PocongOverviewMarker';
-    monsterMarker.position.set(mSpawnWx, markerY, mSpawnWz);
+    monsterMarker.position.set(mSpawnWx, 0, mSpawnWz);
 
-    const monsterRingMat = new THREE.MeshBasicMaterial({
-      color: 0xef4444,
-      wireframe: true,
-    });
-    const monsterRingGeo = new THREE.TorusGeometry(1.0, 0.1, 6, 16);
-    monsterRingGeo.rotateX(Math.PI / 2);
-    const monsterRing = new THREE.Mesh(monsterRingGeo, monsterRingMat);
-    monsterMarker.add(monsterRing);
+    monsterMarker.add(createBeaconPillar(0xef4444, 0.55, 16.0));
+    monsterMarker.add(createGroundRings(0xef4444, 2.8, 1.6));
 
-    const monsterCenterDot = new THREE.Mesh(
-      new THREE.SphereGeometry(0.32, 8, 8),
-      new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    // Floating danger core
+    const dangerCore = new THREE.Group();
+    dangerCore.position.y = markerY;
+    const dangerOrb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.65, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xff1111 })
     );
-    monsterMarker.add(monsterCenterDot);
+    dangerCore.add(dangerOrb);
 
+    const dangerRing1 = new THREE.Mesh(
+      new THREE.TorusGeometry(1.4, 0.1, 8, 24),
+      new THREE.MeshBasicMaterial({ color: 0xff3333, wireframe: true })
+    );
+    dangerRing1.rotateX(Math.PI / 2);
+    dangerCore.add(dangerRing1);
+
+    const monsterBeaconLight = new THREE.PointLight(0xff0000, 4.0, 22, 1.2);
+    monsterBeaconLight.position.y = markerY;
+    monsterMarker.add(monsterBeaconLight);
+    monsterMarker.add(dangerCore);
     rootGroup.add(monsterMarker);
 
-    // Marker C: Exit Gate Marker
+    // Marker C: Exit Gate (Emerald Escape Gateway Beacon)
     const exitMarker = new THREE.Group();
     exitMarker.name = 'ExitOverviewMarker';
-    exitMarker.position.set(exitWx, markerY, exitWz);
+    exitMarker.position.set(exitWx, 0, exitWz);
 
-    const exitBeaconMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
-    const exitBeaconGeo = new THREE.OctahedronGeometry(0.85, 0);
-    const exitBeacon = new THREE.Mesh(exitBeaconGeo, exitBeaconMat);
-    exitMarker.add(exitBeacon);
+    exitMarker.add(createBeaconPillar(0x22c55e, 0.6, 16.0));
+    exitMarker.add(createGroundRings(0x22c55e, 3.0, 1.8));
 
+    // Floating green gateway star
+    const exitDiamond = new THREE.Mesh(
+      new THREE.OctahedronGeometry(1.2, 0),
+      new THREE.MeshBasicMaterial({ color: 0x4ade80 })
+    );
+    exitDiamond.position.y = markerY;
+    exitMarker.add(exitDiamond);
+
+    const exitBeaconLight = new THREE.PointLight(0x22c55e, 4.0, 24, 1.2);
+    exitBeaconLight.position.y = markerY;
+    exitMarker.add(exitBeaconLight);
     rootGroup.add(exitMarker);
 
     return {

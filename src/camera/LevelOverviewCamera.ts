@@ -50,8 +50,8 @@ export class LevelOverviewCamera {
   public setLevel(level: LevelDefinition): void {
     this.levelDef = level;
     this.target.set(0, 0, 0);
-    this.distance = Math.max(40, (level.gridWidth * level.cellSize) * 0.75);
-    this.polarAngle = (55 * Math.PI) / 180;
+    this.distance = Math.max(45, (level.gridWidth * level.cellSize) * 0.70);
+    this.polarAngle = (48 * Math.PI) / 180;
     this.azimuthAngle = 0;
     this.updateCameraTransform();
   }

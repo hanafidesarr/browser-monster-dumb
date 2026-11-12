@@ -41,6 +41,7 @@ export class GameManager {
   private levelBuild: LevelBuildResult | null = null;
   private pathfinding: GridPathfinding | null = null;
   private monster: MonsterController;
+  private overviewTopLight: THREE.DirectionalLight | null = null;
 
   // Game State
   public state: GameState = 'MAIN_MENU';
@@ -67,7 +68,7 @@ export class GameManager {
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x1a334d);
-    // Open, bright moonlit night atmosphere (clear long-distance visibility)
+    // Night atmosphere without moon
     this.scene.fog = new THREE.Fog(0x1a334d, 50, 140);
 
     this.currentLevelDef = ALL_LEVELS[0];
@@ -79,6 +80,14 @@ export class GameManager {
 
     this.monster = new MonsterController();
     this.scene.add(this.monster.group);
+
+    // Dedicated overhead tactical lighting for crisp pre-game map overview
+    this.overviewTopLight = new THREE.DirectionalLight(0xe8f4ff, 2.2);
+    this.overviewTopLight.position.set(0, 85, 0);
+    this.overviewTopLight.target.position.set(0, 0, 0);
+    this.overviewTopLight.visible = true;
+    this.scene.add(this.overviewTopLight);
+    this.scene.add(this.overviewTopLight.target);
 
     this.activeCamera = this.overviewCam.camera;
 
@@ -131,7 +140,52 @@ export class GameManager {
     });
   }
 
+  // Toggle crystal-clear high-definition rendering during map overview
+  private setOverviewClarity(inOverview: boolean): void {
+    const dpr = window.devicePixelRatio || 1;
+    const canvas = this.canvas;
+    const ps1Overlay = document.getElementById('ps1-overlay');
+
+    if (inOverview) {
+      document.body.classList.add('in-overview');
+      // Maximum crisp resolution for tactical map overview (retina/sharp 100%)
+      this.renderer.setPixelRatio(Math.min(dpr, 2.0));
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      if (canvas) {
+        canvas.style.imageRendering = 'auto';
+      }
+      if (ps1Overlay) {
+        ps1Overlay.style.opacity = '0';
+      }
+      // Push fog way back (160m to 360m) so entire 80m plantation and all paths are crystal clear
+      this.scene.fog = new THREE.Fog(0x1a334d, 160, 360);
+      if (this.overviewTopLight) {
+        this.overviewTopLight.visible = true;
+      }
+    } else {
+      document.body.classList.remove('in-overview');
+      // In first-person gameplay: restore selected retro resolution
+      this.applyGraphicsQuality(SettingsManager.getInstance().settings.graphicsQuality);
+      if (canvas) {
+        canvas.style.imageRendering = 'pixelated';
+      }
+      if (ps1Overlay) {
+        ps1Overlay.style.opacity = '1';
+      }
+      // Atmospheric horror fog for gameplay
+      this.scene.fog = new THREE.Fog(0x1a334d, 50, 140);
+      if (this.overviewTopLight) {
+        this.overviewTopLight.visible = false;
+      }
+    }
+  }
+
   private applyGraphicsQuality(quality: 'low' | 'med' | 'high'): void {
+    if (this.state === 'LEVEL_OVERVIEW' || this.state === 'MAIN_MENU') {
+      this.setOverviewClarity(true);
+      return;
+    }
+
     const dpr = window.devicePixelRatio || 1;
     let pixelScale = 1.0;
 
@@ -157,7 +211,11 @@ export class GameManager {
     this.fpController.camera.aspect = width / height;
     this.fpController.camera.updateProjectionMatrix();
 
-    this.renderer.setSize(width, height);
+    if (this.state === 'LEVEL_OVERVIEW' || this.state === 'MAIN_MENU') {
+      this.setOverviewClarity(true);
+    } else {
+      this.applyGraphicsQuality(SettingsManager.getInstance().settings.graphicsQuality);
+    }
   }
 
   private setupUICallbacks(): void {
@@ -278,6 +336,7 @@ export class GameManager {
   // PRE-GAME OVERVIEW PHASE (CRITICAL FEATURE)
   private enterOverviewPhase(): void {
     this.state = 'LEVEL_OVERVIEW';
+    this.setOverviewClarity(true);
     this.activeCamera = this.overviewCam.camera;
     this.overviewCam.setEnabled(true);
     InputManager.getInstance().setOverviewMode(true);
@@ -314,6 +373,7 @@ export class GameManager {
       targetPitch,
       () => {
         // Transition complete: handover to First Person Controller!
+        this.setOverviewClarity(false);
         this.activeCamera = this.fpController.camera;
         this.fpController.setEnabled(true);
         InputManager.getInstance().setOverviewMode(false);
@@ -446,6 +506,7 @@ export class GameManager {
   // Exit to Main Menu
   private exitToMainMenu(): void {
     this.state = 'MAIN_MENU';
+    this.setOverviewClarity(true);
     this.isTimerRunning = false;
     this.fpController.setEnabled(false);
     InputManager.getInstance().exitPointerLock();
@@ -477,6 +538,20 @@ export class GameManager {
     // State Updates
     if (this.state === 'LEVEL_OVERVIEW') {
       this.overviewCam.update(dt);
+
+      // Animate tactical beacons (rotation & pulsing hovering)
+      if (this.levelBuild) {
+        const t = this.totalTime;
+        if (this.levelBuild.playerMarker.visible) {
+          this.levelBuild.playerMarker.rotation.y = t * 1.2;
+        }
+        if (this.levelBuild.monsterMarker.visible) {
+          this.levelBuild.monsterMarker.rotation.y = -t * 1.5;
+        }
+        if (this.levelBuild.exitMarker.visible) {
+          this.levelBuild.exitMarker.rotation.y = t * 1.8;
+        }
+      }
     } else if (this.state === 'STEALTH' || this.state === 'ATTACK' || this.state === 'CHASE') {
       // 1. Update Player
       this.fpController.update(dt, this.totalTime);
