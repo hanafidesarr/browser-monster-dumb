@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ALL_LEVELS, LevelDefinition } from '../level/LevelData.ts';
-import { LabyrinthBuilder, LevelBuildResult } from '../level/LabyrinthBuilder.ts';
+import { LabyrinthBuilder, LevelBuildResult, WorldWeaponPickup, WorldInteractiveSwitch } from '../level/LabyrinthBuilder.ts';
 import { GridPathfinding } from '../pathfinding/GridPathfinding.ts';
 import { LevelOverviewCamera } from '../camera/LevelOverviewCamera.ts';
 import { FirstPersonController } from '../player/FirstPersonController.ts';
@@ -10,6 +10,7 @@ import { InputManager } from './InputManager.ts';
 import { SaveManager } from './SaveManager.ts';
 import { SettingsManager } from './SettingsManager.ts';
 import { UIManager } from '../ui/UIManager.ts';
+import { WeaponId, WEAPON_MAP } from '../weapon/WeaponData.ts';
 
 export type GameState =
   | 'MAIN_MENU'
@@ -41,7 +42,6 @@ export class GameManager {
   private levelBuild: LevelBuildResult | null = null;
   private pathfinding: GridPathfinding | null = null;
   private monster: MonsterController;
-  private overviewTopLight: THREE.DirectionalLight | null = null;
 
   // Game State
   public state: GameState = 'MAIN_MENU';
@@ -49,6 +49,7 @@ export class GameManager {
   private gameplayTimer: number = 0;
   private isTimerRunning: boolean = false;
   private isAttackSuccessful: boolean = false;
+  private isExitUnlocked: boolean = true; // Special objective flag (Level 9)
 
   // Screen Shake
   private shakeIntensity: number = 0;
@@ -80,14 +81,6 @@ export class GameManager {
 
     this.monster = new MonsterController();
     this.scene.add(this.monster.group);
-
-    // Dedicated overhead tactical lighting for crisp pre-game map overview
-    this.overviewTopLight = new THREE.DirectionalLight(0xe8f4ff, 2.2);
-    this.overviewTopLight.position.set(0, 85, 0);
-    this.overviewTopLight.target.position.set(0, 0, 0);
-    this.overviewTopLight.visible = true;
-    this.scene.add(this.overviewTopLight);
-    this.scene.add(this.overviewTopLight.target);
 
     this.activeCamera = this.overviewCam.camera;
 
@@ -124,12 +117,27 @@ export class GameManager {
   }
 
   public init(): void {
-    // Show Main Menu by default
-    this.state = 'MAIN_MENU';
-    UIManager.getInstance().showMainMenu();
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const qLevel = params ? parseInt(params.get('level') || '1', 10) : 1;
+    const qView = params ? params.get('view') : null;
+    const hideUi = params ? params.get('hide_ui') === 'true' : false;
 
-    // Start in Overview level 1 preview in background
-    this.loadLevel(1, false);
+    // Show Main Menu by default unless audit hideUi requested
+    this.state = 'MAIN_MENU';
+    if (!hideUi) {
+      UIManager.getInstance().showMainMenu();
+    } else {
+      const uiRoot = document.getElementById('ui-root');
+      if (uiRoot) uiRoot.style.display = 'none';
+    }
+
+    // Start in level preview in background
+    const targetLevel = (qLevel >= 1 && qLevel <= ALL_LEVELS.length) ? qLevel : 1;
+    this.loadLevel(targetLevel, false);
+
+    if (qView) {
+      this.applyAuditView(qView);
+    }
 
     // Canvas click requests pointer lock when playing
     this.canvas.addEventListener('click', () => {
@@ -140,61 +148,51 @@ export class GameManager {
     });
   }
 
-  // Toggle crystal-clear high-definition rendering during map overview
-  private setOverviewClarity(inOverview: boolean): void {
-    const dpr = window.devicePixelRatio || 1;
-    const canvas = this.canvas;
-    const ps1Overlay = document.getElementById('ps1-overlay');
+  private applyAuditView(view: string): void {
+    if (!this.levelBuild) return;
+    const level = this.currentLevelDef;
+    const { cellSize, gridWidth, gridHeight } = level;
+    const halfW = (gridWidth * cellSize) / 2;
+    const halfH = (gridHeight * cellSize) / 2;
+    const totalHeight = (level.floorCount || 1) * (level.floorHeight || 3.8);
 
-    if (inOverview) {
-      document.body.classList.add('in-overview');
-      // Maximum crisp resolution for tactical map overview (retina/sharp 100%)
-      this.renderer.setPixelRatio(Math.min(dpr, 2.0));
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
-      if (canvas) {
-        canvas.style.imageRendering = 'auto';
-      }
-      if (ps1Overlay) {
-        ps1Overlay.style.opacity = '0';
-      }
-      // Push fog way back (160m to 360m) so entire 80m plantation and all paths are crystal clear
-      this.scene.fog = new THREE.Fog(0x1a334d, 160, 360);
-      if (this.overviewTopLight) {
-        this.overviewTopLight.visible = true;
-      }
+    this.activeCamera = this.overviewCam.camera;
+    this.overviewCam.setEnabled(false);
+
+    if (view === 'stairs' && this.levelBuild.collisionConfig.ramps.length > 0) {
+      const ramp = this.levelBuild.collisionConfig.ramps[0];
+      const rx = (ramp.startWorld.x + ramp.endWorld.x) / 2;
+      const ry = (ramp.startWorld.y + ramp.endWorld.y) / 2;
+      const rz = (ramp.startWorld.z + ramp.endWorld.z) / 2;
+      this.overviewCam.camera.position.set(rx + 8, ry + 5, rz + 8);
+      this.overviewCam.camera.lookAt(rx, ry + 1.2, rz);
+    } else if (view === 'bridge' && this.levelBuild.collisionConfig.bridges.length > 0) {
+      const b = this.levelBuild.collisionConfig.bridges[0];
+      const bx = (b.box.min.x + b.box.max.x) / 2;
+      const by = b.height;
+      const bz = (b.box.min.z + b.box.max.z) / 2;
+      this.overviewCam.camera.position.set(bx + 7, by + 4, bz + 7);
+      this.overviewCam.camera.lookAt(bx, by - 0.5, bz);
+    } else if (view === 'multifloor') {
+      this.overviewCam.camera.position.set(-halfW * 0.75, totalHeight + 12, halfH * 0.85);
+      this.overviewCam.camera.lookAt(0, totalHeight * 0.4, 0);
     } else {
-      document.body.classList.remove('in-overview');
-      // In first-person gameplay: restore selected retro resolution
-      this.applyGraphicsQuality(SettingsManager.getInstance().settings.graphicsQuality);
-      if (canvas) {
-        canvas.style.imageRendering = 'pixelated';
-      }
-      if (ps1Overlay) {
-        ps1Overlay.style.opacity = '1';
-      }
-      // Atmospheric horror fog for gameplay
-      this.scene.fog = new THREE.Fog(0x1a334d, 50, 140);
-      if (this.overviewTopLight) {
-        this.overviewTopLight.visible = false;
-      }
+      this.overviewCam.camera.position.set(-halfW * 0.85, totalHeight + 22, halfH * 1.05);
+      this.overviewCam.camera.lookAt(0, totalHeight * 0.35, 0);
     }
+    this.overviewCam.camera.updateProjectionMatrix();
   }
 
   private applyGraphicsQuality(quality: 'low' | 'med' | 'high'): void {
-    if (this.state === 'LEVEL_OVERVIEW' || this.state === 'MAIN_MENU') {
-      this.setOverviewClarity(true);
-      return;
-    }
-
     const dpr = window.devicePixelRatio || 1;
     let pixelScale = 1.0;
 
     if (quality === 'low') {
-      pixelScale = 0.45; // Authentic PS1 240p downsample
+      pixelScale = 0.45; // Authentic PS1 240p downsample (super light)
     } else if (quality === 'med') {
       pixelScale = 0.75; // PS1 480p
     } else {
-      pixelScale = Math.min(dpr, 1.5); // High
+      pixelScale = Math.min(dpr, 1.25); // High (lightweight and sharp)
     }
 
     this.renderer.setPixelRatio(pixelScale);
@@ -211,11 +209,8 @@ export class GameManager {
     this.fpController.camera.aspect = width / height;
     this.fpController.camera.updateProjectionMatrix();
 
-    if (this.state === 'LEVEL_OVERVIEW' || this.state === 'MAIN_MENU') {
-      this.setOverviewClarity(true);
-    } else {
-      this.applyGraphicsQuality(SettingsManager.getInstance().settings.graphicsQuality);
-    }
+    this.renderer.setSize(width, height);
+    this.applyGraphicsQuality(SettingsManager.getInstance().settings.graphicsQuality);
   }
 
   private setupUICallbacks(): void {
@@ -254,6 +249,10 @@ export class GameManager {
     ui.onGraphicsChanged = (q) => {
       this.applyGraphicsQuality(q);
     };
+
+    ui.onWeaponSelected = (weaponId) => {
+      this.fpController.weapon.setWeapon(weaponId);
+    };
   }
 
   private setupMonsterCallbacks(): void {
@@ -282,38 +281,47 @@ export class GameManager {
     this.currentLevelIndex = levelIndex >= 0 ? levelIndex : 0;
     this.currentLevelDef = ALL_LEVELS[this.currentLevelIndex];
 
-    // Remove existing level meshes
+    // Remove existing level meshes and dispose hierarchy completely to prevent any collider or memory leaks
     if (this.levelBuild) {
       this.scene.remove(this.levelBuild.rootGroup);
+      this.disposeHierarchy(this.levelBuild.rootGroup);
+      this.levelBuild = null as any;
     }
 
     // Build Labyrinth
     this.levelBuild = LabyrinthBuilder.buildLevel(this.currentLevelDef);
     this.scene.add(this.levelBuild.rootGroup);
 
-    // Setup Pathfinding (using updated grid with organic tree nodes)
-    const effectiveGrid = this.levelBuild.updatedGrid || this.currentLevelDef.grid;
+    // Setup Pathfinding (using isolated navigation grid per level)
+    const navGrid = this.levelBuild.navigationGrid || this.levelBuild.updatedGrid || this.currentLevelDef.grid;
     this.pathfinding = new GridPathfinding(
-      effectiveGrid,
+      navGrid,
       this.currentLevelDef.cellSize
     );
 
-    // Setup Player
+    // Setup Player with isolated level-specific collision configuration
     this.fpController.setLevel(
       this.currentLevelDef,
       this.pathfinding,
-      this.levelBuild.playerWorldSpawn
+      this.levelBuild.playerWorldSpawn,
+      this.levelBuild.collisionConfig
     );
-    this.fpController.setTreeColliders(this.levelBuild.treeColliders || []);
+    this.fpController.onFatalFall = () => {
+      this.triggerGameOver('Jatuh ke dalam jurang kegelapan!');
+    };
     this.fpController.setEnabled(false);
 
-    // Setup Monster
+    // Equip currently selected comedy weapon from persistent save
+    const savedWeaponId = SaveManager.getInstance().getSelectedWeapon() as WeaponId;
+    this.fpController.weapon.setWeapon(savedWeaponId);
+
+    // Setup Monster with isolated level-specific collision configuration
     this.monster.setLevel(
       this.currentLevelDef,
       this.pathfinding,
-      this.levelBuild.monsterWorldSpawn
+      this.levelBuild.monsterWorldSpawn,
+      this.levelBuild.collisionConfig
     );
-    this.monster.setTreeColliders(this.levelBuild.treeColliders || []);
     this.fpController.setMonsterObstacle(this.monster.position);
 
     // Setup Overview Camera
@@ -324,6 +332,7 @@ export class GameManager {
     this.gameplayTimer = 0;
     this.isTimerRunning = false;
     this.isAttackSuccessful = false;
+    this.isExitUnlocked = !this.currentLevelDef.exitLockedInitially;
     this.shakeIntensity = 0;
     this.state = enterOverview ? 'LEVEL_OVERVIEW' : 'STEALTH';
     InputManager.getInstance().resetInputs();
@@ -333,10 +342,28 @@ export class GameManager {
     }
   }
 
+  private getThemeFogColor(): number {
+    switch (this.currentLevelDef.theme) {
+      case 'banana_garden': return 0x1a334d;
+      case 'school': return 0x242e29;
+      case 'labyrinth': return 0x1c2126;
+      case 'hospital': return 0x1f2e29;
+      case 'sewer': return 0x142116;
+      case 'factory': return 0x261e16;
+      case 'hotel': return 0x2b171a;
+      case 'subway': return 0x182026;
+      case 'research_facility': return 0x15222b;
+      case 'nightmare': return 0x21060c;
+      default: return 0x1a334d;
+    }
+  }
+
   // PRE-GAME OVERVIEW PHASE (CRITICAL FEATURE)
   private enterOverviewPhase(): void {
     this.state = 'LEVEL_OVERVIEW';
-    this.setOverviewClarity(true);
+    const fogColor = this.getThemeFogColor();
+    this.scene.background = new THREE.Color(fogColor);
+    this.scene.fog = new THREE.Fog(fogColor, 100, 240);
     this.activeCamera = this.overviewCam.camera;
     this.overviewCam.setEnabled(true);
     InputManager.getInstance().setOverviewMode(true);
@@ -373,7 +400,9 @@ export class GameManager {
       targetPitch,
       () => {
         // Transition complete: handover to First Person Controller!
-        this.setOverviewClarity(false);
+        const fogColor = this.getThemeFogColor();
+        this.scene.background = new THREE.Color(fogColor);
+        this.scene.fog = new THREE.Fog(fogColor, 40, 130);
         this.activeCamera = this.fpController.camera;
         this.fpController.setEnabled(true);
         InputManager.getInstance().setOverviewMode(false);
@@ -384,52 +413,52 @@ export class GameManager {
         this.isTimerRunning = true;
 
         UIManager.getInstance().showGameplayHUD();
-        UIManager.getInstance().setStatusText('CARI POCONG DAN PUKUL TUBUHNYA');
+        if (this.currentLevelDef.exitLockedInitially) {
+          UIManager.getInstance().setStatusText('PUKUL POCONG & AKTIFKAN 2 TERMINAL UNTUK BUKA EXIT!');
+        } else {
+          UIManager.getInstance().setStatusText('CARI POCONG DAN PUKUL TUBUHNYA');
+        }
       }
     );
   }
 
   // Execute Baseball Bat Attack on Monster
   private performAttack(): void {
-    if (this.state !== 'STEALTH') return;
+    if (this.state !== 'STEALTH' || this.isAttackSuccessful) return;
 
-    // Melee striking range check (within 5.0m)
-    const horizontalDist = Math.hypot(
-      this.monster.position.x - this.fpController.position.x,
-      this.monster.position.z - this.fpController.position.z
+    const blocking = this.levelBuild ? this.levelBuild.blockingMeshes : [];
+    const forward = this.fpController.getForwardVector();
+    const hitsMonster = this.monster.isHitByPlayerSwing(
+      this.fpController.camera,
+      this.fpController.position,
+      forward,
+      blocking,
+      this.fpController.currentFloor
     );
 
-    if (horizontalDist <= 5.0) {
-      const forward = this.fpController.getForwardVector();
-      const hitsMonster = this.monster.isHitByPlayerSwing(
-        this.fpController.camera,
-        this.fpController.position,
-        forward
-      );
+    if (hitsMonster) {
+      // Strike connected on monster's body!
+      this.state = 'ATTACK';
+      this.isAttackSuccessful = true;
 
-      if (hitsMonster) {
-        // Strike connected on monster's body!
-        this.state = 'ATTACK';
-        this.isAttackSuccessful = true;
+      // Clear monster obstacle and switch mobile button to SPRINT
+      this.fpController.setMonsterObstacle(null);
+      UIManager.getInstance().switchToChaseControls();
 
-        // Clear monster obstacle and switch mobile button to SPRINT
-        this.fpController.setMonsterObstacle(null);
-        UIManager.getInstance().switchToChaseControls();
+      // 1. Swing weapon animation
+      const weaponDef = this.fpController.weapon.getWeaponDef();
+      this.fpController.weapon.swing(() => {
+        this.fpController.weapon.disableAttackPermanently();
+      });
 
-        // 1. Swing baseball bat animation
-        this.fpController.weapon.swing(() => {
-          this.fpController.weapon.disableAttackPermanently();
-        });
-
-        // 2. Immediately trigger Monster hit reaction, scream, and chase!
-        this.monster.triggerBatHit();
-        this.triggerScreenShake(0.4);
-        UIManager.getInstance().setStatusText('POCONG TERBANGUN & MENGEJAR! CEPAT LARI KE PINTU EXIT!');
-        return;
-      }
+      // 2. Immediately trigger Monster hit reaction with weapon characteristics, scream, and chase!
+      this.monster.triggerWeaponHit(weaponDef);
+      this.triggerScreenShake(0.4);
+      UIManager.getInstance().setStatusText('POCONG TERBANGUN & MENGEJAR! CEPAT LARI KE PINTU EXIT!');
+      return;
     }
 
-    // Swung into air (player too far away or missed) - allow swinging again
+    // Swung into air or obstructed/different floor - allow swinging again
     const swung = this.fpController.weapon.swing(() => {});
     if (swung) {
       UIManager.getInstance().setStatusText('DEKATI POCONG DAN PUKUL TUBUHNYA!');
@@ -506,7 +535,7 @@ export class GameManager {
   // Exit to Main Menu
   private exitToMainMenu(): void {
     this.state = 'MAIN_MENU';
-    this.setOverviewClarity(true);
+    this.scene.fog = new THREE.Fog(0x1a334d, 100, 240);
     this.isTimerRunning = false;
     this.fpController.setEnabled(false);
     InputManager.getInstance().exitPointerLock();
@@ -539,19 +568,22 @@ export class GameManager {
     if (this.state === 'LEVEL_OVERVIEW') {
       this.overviewCam.update(dt);
 
-      // Animate tactical beacons (rotation & pulsing hovering)
+      // Animate overview markers (lightweight rotation)
       if (this.levelBuild) {
         const t = this.totalTime;
         if (this.levelBuild.playerMarker.visible) {
-          this.levelBuild.playerMarker.rotation.y = t * 1.2;
+          this.levelBuild.playerMarker.rotation.y = t * 1.5;
         }
         if (this.levelBuild.monsterMarker.visible) {
-          this.levelBuild.monsterMarker.rotation.y = -t * 1.5;
+          this.levelBuild.monsterMarker.rotation.y = -t * 2.0;
         }
         if (this.levelBuild.exitMarker.visible) {
-          this.levelBuild.exitMarker.rotation.y = t * 1.8;
+          this.levelBuild.exitMarker.rotation.y = t * 2.0;
         }
       }
+
+      // Animate world weapon pickups
+      this.animateWorldPickups(this.totalTime);
     } else if (this.state === 'STEALTH' || this.state === 'ATTACK' || this.state === 'CHASE') {
       // 1. Update Player
       this.fpController.update(dt, this.totalTime);
@@ -559,18 +591,30 @@ export class GameManager {
       // 2. Update Monster
       this.monster.update(dt, this.totalTime, this.fpController.position);
 
-      // 3. Attack Check (When bat strikes any part of monster's body, triggers chase)
+      // Animate world weapon pickups
+      this.animateWorldPickups(this.totalTime);
+
+      // 3. Attack Check & Weapon Pickup Discovery (during STEALTH phase)
       if (this.state === 'STEALTH') {
-        const nearMonster = this.monster.canBeAttackedFromBehind(this.fpController.position);
+        const blocking = this.levelBuild ? this.levelBuild.blockingMeshes : [];
+        const nearMonster = this.monster.canBeAttackedFromBehind(
+          this.fpController.position,
+          blocking,
+          this.fpController.currentFloor
+        );
         UIManager.getInstance().setAttackPromptVisible(nearMonster);
-        UIManager.getInstance().setDetectionMeter(0);
+        UIManager.getInstance().setDetectionMeter(this.monster.detectionPercent);
 
         if (inputMgr.consumeAttackRequest()) {
           this.performAttack();
         }
+
+        // Check weapon pickup discovery in level environment
+        this.updateWeaponPickups();
       } else {
         UIManager.getInstance().setAttackPromptVisible(false);
         UIManager.getInstance().setDetectionMeter(0);
+        UIManager.getInstance().hidePickupPrompt();
       }
 
       // 4. Escape Door Trigger Check & Catch Check (during CHASE phase!)
@@ -585,7 +629,11 @@ export class GameManager {
         }
 
         if (this.levelBuild && this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)) {
-          this.triggerLevelComplete();
+          if (this.currentLevelDef.exitLockedInitially && !this.isExitUnlocked) {
+            UIManager.getInstance().setStatusText('PINTU EXIT MASIH TERKUNCI! AKTIFKAN SEMUA TERMINAL!');
+          } else {
+            this.triggerLevelComplete();
+          }
         }
       }
 
@@ -605,4 +653,202 @@ export class GameManager {
     // Render Active Camera
     this.renderer.render(this.scene, this.activeCamera);
   };
+
+  private animateWorldPickups(totalTime: number): void {
+    if (!this.levelBuild?.weaponPickups) return;
+    for (let i = 0; i < this.levelBuild.weaponPickups.length; i++) {
+      const pickup = this.levelBuild.weaponPickups[i];
+      if (!pickup.collected) {
+        pickup.group.rotation.y = totalTime * 1.5;
+        const bobY = Math.sin(totalTime * 3.0 + i) * 0.08;
+        const wMesh = pickup.group.getObjectByName('PickupWeaponMesh');
+        if (wMesh) {
+          wMesh.position.y = 0.75 + bobY;
+        }
+      }
+    }
+  }
+
+  // Helper: World-Space to Screen-Space Projection for Contextual Prompts
+  private projectWorldToScreen(worldPos: THREE.Vector3): { x: number; y: number } | null {
+    const p = worldPos.clone().project(this.fpController.camera);
+    // If behind the camera (p.z > 1.0), return null to hide
+    if (p.z > 1.0) return null;
+
+    const x = (p.x * 0.5 + 0.5) * window.innerWidth;
+    const y = (-p.y * 0.5 + 0.5) * window.innerHeight;
+
+    // Viewport padding clamping (ensures prompt stays within screen bounds & safe areas)
+    const pad = 30;
+    const clampedX = Math.max(pad, Math.min(window.innerWidth - pad, x));
+    const clampedY = Math.max(pad, Math.min(window.innerHeight - pad, y));
+    return { x: clampedX, y: clampedY };
+  }
+
+  // Helper: Line-of-sight raycast against solid walls, floors, and ceilings
+  private isObstructedByGeometry(from: THREE.Vector3, to: THREE.Vector3): boolean {
+    if (!this.levelBuild || !this.levelBuild.blockingMeshes || this.levelBuild.blockingMeshes.length === 0) return false;
+    const dir = new THREE.Vector3().subVectors(to, from);
+    const dist = dir.length();
+    if (dist <= 0.05) return false;
+    dir.normalize();
+
+    const ray = new THREE.Raycaster(from, dir, 0.05, dist);
+    const hits = ray.intersectObjects(this.levelBuild.blockingMeshes, true);
+    return hits.length > 0 && hits[0].distance < dist - 0.25;
+  }
+
+  private updateWeaponPickups(): void {
+    if (this.state !== 'STEALTH' && this.state !== 'CHASE') {
+      UIManager.getInstance().hidePickupPrompt();
+      return;
+    }
+
+    const playerPos = this.fpController.position;
+    const inputMgr = InputManager.getInstance();
+    let nearPickup: WorldWeaponPickup | null = null;
+    let minDist = 2.6; // 2.6m interaction pickup range
+
+    if (this.levelBuild?.weaponPickups) {
+      for (const pickup of this.levelBuild.weaponPickups) {
+        if (!pickup.collected) {
+          // Reject cross-floor prompts (must be on compatible height threshold <= 1.75m)
+          const verticalDiff = Math.abs(pickup.position.y - (playerPos.y - 1.65));
+          if (verticalDiff <= 1.75) {
+            const pickupAnchor = new THREE.Vector3(pickup.position.x, pickup.position.y + 0.75, pickup.position.z);
+            const dist3D = playerPos.distanceTo(pickupAnchor);
+            if (dist3D <= minDist) {
+              // Line-of-sight raycast: reject if behind walls, floors, or ceilings
+              if (!this.isObstructedByGeometry(playerPos, pickupAnchor)) {
+                minDist = dist3D;
+                nearPickup = pickup;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (nearPickup) {
+      const def = WEAPON_MAP[nearPickup.weaponId];
+      const anchor = new THREE.Vector3(nearPickup.position.x, nearPickup.position.y + 0.85, nearPickup.position.z);
+      const screenPos = this.projectWorldToScreen(anchor);
+      UIManager.getInstance().showPickupPrompt(def.nameId, () => {
+        this.collectWeapon(nearPickup!);
+      }, screenPos || undefined);
+
+      if (inputMgr.consumeInteractRequest()) {
+        this.collectWeapon(nearPickup);
+      }
+      return;
+    }
+
+    // Check Interactive Switches (Level 9 Special Objective)
+    const switchHandled = this.updateInteractiveSwitches();
+    if (!switchHandled) {
+      UIManager.getInstance().hidePickupPrompt();
+    }
+  }
+
+  private updateInteractiveSwitches(): boolean {
+    if (!this.levelBuild?.interactiveSwitches) return false;
+
+    const playerPos = this.fpController.position;
+    const inputMgr = InputManager.getInstance();
+    let nearSwitch: WorldInteractiveSwitch | null = null;
+    let minDist = 2.6;
+
+    for (const sw of this.levelBuild.interactiveSwitches) {
+      if (!sw.activated) {
+        const verticalDiff = Math.abs(sw.position.y - (playerPos.y - 1.65));
+        if (verticalDiff <= 1.75) {
+          const switchCenter = new THREE.Vector3(sw.position.x, sw.position.y + 1.1, sw.position.z);
+          const dist3D = playerPos.distanceTo(switchCenter);
+          if (dist3D <= minDist) {
+            if (!this.isObstructedByGeometry(playerPos, switchCenter)) {
+              minDist = dist3D;
+              nearSwitch = sw;
+            }
+          }
+        }
+      }
+    }
+
+    if (nearSwitch) {
+      const switchCenter = new THREE.Vector3(nearSwitch.position.x, nearSwitch.position.y + 1.25, nearSwitch.position.z);
+      const screenPos = this.projectWorldToScreen(switchCenter);
+      UIManager.getInstance().showPickupPrompt(nearSwitch.name, () => {
+        this.activateSwitch(nearSwitch!);
+      }, screenPos || undefined);
+
+      if (inputMgr.consumeInteractRequest()) {
+        this.activateSwitch(nearSwitch);
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  private activateSwitch(sw: WorldInteractiveSwitch): void {
+    if (sw.activated) return;
+    sw.activated = true;
+
+    // Green beacon and light indicating activation
+    (sw.beaconMesh.material as THREE.MeshBasicMaterial).color.setHex(0x22c55e);
+    sw.light.color.setHex(0x22c55e);
+
+    AudioManager.getInstance().playUiClick();
+    AudioManager.getInstance().playPickupWeapon();
+
+    const allSwitches = this.levelBuild?.interactiveSwitches || [];
+    const allActivated = allSwitches.every((s) => s.activated);
+
+    if (allActivated) {
+      this.isExitUnlocked = true;
+      if (this.levelBuild?.exitDoorMesh) {
+        const doorPointLight = this.levelBuild.exitDoorMesh.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
+        if (doorPointLight) {
+          doorPointLight.color.setHex(0x22c55e);
+        }
+      }
+      UIManager.getInstance().setStatusText('SEMUA TERMINAL AKTIF! PINTU EXIT TERBUKA! LARI KE KELUAR!');
+    } else {
+      const remaining = allSwitches.filter((s) => !s.activated).length;
+      UIManager.getInstance().setStatusText(`${sw.name} DIAKTIFKAN! TERSISA ${remaining} TERMINAL LAGI!`);
+    }
+  }
+
+  private collectWeapon(pickup: WorldWeaponPickup): void {
+    if (pickup.collected) return;
+    pickup.collected = true;
+    pickup.group.visible = false;
+
+    AudioManager.getInstance().playPickupWeapon();
+    SaveManager.getInstance().unlockWeapon(pickup.weaponId);
+    SaveManager.getInstance().setSelectedWeapon(pickup.weaponId);
+    this.fpController.weapon.setWeapon(pickup.weaponId);
+
+    const def = WEAPON_MAP[pickup.weaponId];
+    UIManager.getInstance().showWeaponDiscoveryToast(def.nameId, def.description);
+    UIManager.getInstance().setStatusText(`SENJATA DIPAKAI: ${def.nameId.toUpperCase()}!`);
+  }
+
+  private disposeHierarchy(obj: THREE.Object3D): void {
+    obj.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        if (mesh.geometry) {
+          mesh.geometry.dispose();
+        }
+        if (mesh.material) {
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((m) => m.dispose());
+          } else {
+            mesh.material.dispose();
+          }
+        }
+      }
+    });
+  }
 }

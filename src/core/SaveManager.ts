@@ -1,6 +1,8 @@
 export interface SaveData {
   unlockedLevel: number;
   completedLevels: Record<number, { time: number; date: string }>;
+  unlockedWeapons: string[];
+  selectedWeapon: string;
   settings: {
     masterVolume: number;
     sfxVolume: number;
@@ -17,6 +19,8 @@ const STORAGE_KEY = 'monster_dumb_save_v1';
 const DEFAULT_SAVE: SaveData = {
   unlockedLevel: 1,
   completedLevels: {},
+  unlockedWeapons: ['baseball_bat'],
+  selectedWeapon: 'baseball_bat',
   settings: {
     masterVolume: 80,
     sfxVolume: 90,
@@ -105,5 +109,35 @@ export class SaveManager {
 
   public isLevelCompleted(levelNumber: number): boolean {
     return !!this.data.completedLevels[levelNumber];
+  }
+
+  public isWeaponUnlocked(weaponId: string): boolean {
+    if (!this.data.unlockedWeapons) {
+      this.data.unlockedWeapons = ['baseball_bat'];
+    }
+    return this.data.unlockedWeapons.includes(weaponId);
+  }
+
+  public unlockWeapon(weaponId: string): boolean {
+    if (!this.data.unlockedWeapons) {
+      this.data.unlockedWeapons = ['baseball_bat'];
+    }
+    if (!this.data.unlockedWeapons.includes(weaponId)) {
+      this.data.unlockedWeapons.push(weaponId);
+      this.save();
+      return true;
+    }
+    return false;
+  }
+
+  public getSelectedWeapon(): string {
+    return this.data.selectedWeapon || 'baseball_bat';
+  }
+
+  public setSelectedWeapon(weaponId: string): void {
+    if (this.isWeaponUnlocked(weaponId)) {
+      this.data.selectedWeapon = weaponId;
+      this.save();
+    }
   }
 }

@@ -572,4 +572,539 @@ export class TextureGenerator {
     tex.wrapT = THREE.RepeatWrapping;
     return this.setPixelated(tex);
   }
+
+  // =========================================================================
+  // ENVIRONMENT THEME TEXTURES (LEVELS 2 - 10)
+  // =========================================================================
+
+  // LEVEL 2 — ABANDONED SCHOOL
+  public static createSchoolWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Upper pale yellowish plaster (60%)
+    ctx.fillStyle = '#b8b29c';
+    ctx.fillRect(0, 0, size, size * 0.6);
+
+    // Lower dark green school wainscoting (40%)
+    ctx.fillStyle = '#2d4a3e';
+    ctx.fillRect(0, size * 0.6, size, size * 0.4);
+
+    // Dividing wood molding trim
+    ctx.fillStyle = '#4a3520';
+    ctx.fillRect(0, size * 0.6 - 3, size, 5);
+
+    // Dirt noise & peeling paint
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        if (Math.random() > 0.45) {
+          const v = (Math.random() - 0.5) * 22;
+          ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.15})`;
+          ctx.fillRect(x, y, 2, 2);
+        }
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  public static createSchoolFloorTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    const tileSize = 32;
+    for (let y = 0; y < size; y += tileSize) {
+      for (let x = 0; x < size; x += tileSize) {
+        const isChecker = ((x + y) / tileSize) % 2 === 0;
+        ctx.fillStyle = isChecker ? '#8c8574' : '#6b6659';
+        ctx.fillRect(x, y, tileSize, tileSize);
+        ctx.strokeStyle = '#3a362e';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, tileSize, tileSize);
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // LEVEL 4 — THE HOSPITAL
+  public static createHospitalWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Pale sterile mint green plaster
+    ctx.fillStyle = '#8fad9e';
+    ctx.fillRect(0, 0, size, size);
+
+    // Lower hospital protective bumper guard
+    ctx.fillStyle = '#547565';
+    ctx.fillRect(0, size - 28, size, 28);
+    ctx.fillStyle = '#3a5447';
+    ctx.fillRect(0, size - 28, size, 4);
+
+    // Green medical cross icon stencil (random chance)
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.4)';
+    ctx.fillRect(size / 2 - 4, size / 3 - 14, 8, 28);
+    ctx.fillRect(size / 2 - 14, size / 3 - 4, 28, 8);
+
+    // Water stains
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = 'rgba(40, 50, 45, 0.25)';
+      ctx.beginPath();
+      ctx.arc(Math.random() * size, Math.random() * size, 8 + Math.random() * 12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  public static createHospitalFloorTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Dull linoleum floor with directional tiles
+    ctx.fillStyle = '#4a5e55';
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.strokeStyle = '#283831';
+    ctx.lineWidth = 2;
+    for (let x = 0; x <= size; x += 32) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, size);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= size; y += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(size, y);
+      ctx.stroke();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // LEVEL 5 — THE SEWER
+  public static createSewerWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Damp slimy brown/green brickwork
+    ctx.fillStyle = '#302820';
+    ctx.fillRect(0, 0, size, size);
+
+    const bh = 16;
+    const bw = 32;
+    for (let row = 0; row < size / bh; row++) {
+      const offset = (row % 2) * (bw / 2);
+      for (let col = -1; col < size / bw + 1; col++) {
+        const x = col * bw + offset;
+        const y = row * bh;
+        const moss = Math.random() > 0.4 ? 'rgba(30, 70, 30, 0.4)' : 'rgba(10, 10, 10, 0.3)';
+        ctx.fillStyle = moss;
+        ctx.fillRect(x + 1, y + 1, bw - 2, bh - 2);
+        ctx.strokeStyle = '#181410';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, bw, bh);
+      }
+    }
+
+    // Slimy drip streaks
+    ctx.fillStyle = 'rgba(46, 125, 50, 0.35)';
+    ctx.fillRect(20, 0, 8, size);
+    ctx.fillRect(75, 10, 12, size - 10);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  public static createSewerWaterTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Murky toxic green-brown sewer effluent
+    ctx.fillStyle = '#1b2d18';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let y = 0; y < size; y += 4) {
+      const wave = Math.sin(y * 0.2) * 6;
+      ctx.fillStyle = 'rgba(60, 100, 45, 0.4)';
+      ctx.fillRect(0, y + wave, size, 2);
+    }
+
+    // Scum patches
+    ctx.fillStyle = 'rgba(90, 140, 60, 0.3)';
+    ctx.beginPath();
+    ctx.arc(35, 45, 18, 0, Math.PI * 2);
+    ctx.arc(95, 80, 14, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // LEVEL 6 — THE FACTORY
+  public static createFactoryWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Weathered industrial red brick with soot
+    ctx.fillStyle = '#5c2c20';
+    ctx.fillRect(0, 0, size, size);
+
+    const bh = 14;
+    const bw = 28;
+    for (let r = 0; r < size / bh; r++) {
+      const off = (r % 2) * (bw / 2);
+      for (let c = -1; c < size / bw + 1; c++) {
+        const x = c * bw + off;
+        const y = r * bh;
+        const tone = (Math.random() - 0.5) * 20;
+        ctx.fillStyle = `rgb(${85 + tone}, ${38 + tone * 0.5}, ${26 + tone * 0.5})`;
+        ctx.fillRect(x + 1, y + 1, bw - 2, bh - 2);
+        ctx.strokeStyle = '#2b140e';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, bw, bh);
+      }
+    }
+
+    // Black soot overlay
+    ctx.fillStyle = 'rgba(15, 15, 15, 0.45)';
+    ctx.fillRect(0, 0, size, 24);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  public static createFactoryFloorTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Steel diamond tread plate / industrial metal
+    ctx.fillStyle = '#3a4048';
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.fillStyle = '#606a75';
+    for (let y = 4; y < size; y += 12) {
+      for (let x = 4; x < size; x += 12) {
+        ctx.fillRect(x, y, 4, 2);
+        ctx.fillRect(x + 6, y + 6, 4, 2);
+      }
+    }
+
+    ctx.strokeStyle = '#202428';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(0, 0, size, size);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // LEVEL 7 — THE HOTEL
+  public static createHotelWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Faded vintage floral / damask wallpaper (Gold & Burgundy)
+    ctx.fillStyle = '#4a151b';
+    ctx.fillRect(0, 0, size, size);
+
+    // Damask diamond pattern
+    ctx.strokeStyle = '#b89243';
+    ctx.lineWidth = 2;
+    const step = 32;
+    for (let y = 0; y <= size; y += step) {
+      for (let x = 0; x <= size; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x + step / 2, y);
+        ctx.lineTo(x + step, y + step / 2);
+        ctx.lineTo(x + step / 2, y + step);
+        ctx.lineTo(x, y + step / 2);
+        ctx.closePath();
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(184, 146, 67, 0.25)';
+        ctx.fill();
+      }
+    }
+
+    // Wood baseboard
+    ctx.fillStyle = '#261208';
+    ctx.fillRect(0, size - 22, size, 22);
+    ctx.fillStyle = '#452310';
+    ctx.fillRect(0, size - 22, size, 4);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  public static createHotelCarpetTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Deep red luxury vintage carpet with ornate border
+    ctx.fillStyle = '#611218';
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.strokeStyle = '#a87a2d';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(6, 6, size - 12, size - 12);
+    ctx.strokeRect(14, 14, size - 28, size - 28);
+
+    // Center rosette
+    ctx.fillStyle = '#8f2029';
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, 22, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // LEVEL 8 — THE SUBWAY
+  public static createSubwayWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // White metro subway tile grid
+    ctx.fillStyle = '#d6dedc';
+    ctx.fillRect(0, 0, size, size);
+
+    const th = 16;
+    const tw = 32;
+    for (let r = 0; r < size / th; r++) {
+      const off = (r % 2) * (tw / 2);
+      for (let c = -1; c < size / tw + 1; c++) {
+        ctx.strokeStyle = '#54615e';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(c * tw + off, r * th, tw, th);
+      }
+    }
+
+    // Classic blue metro station stripe band
+    ctx.fillStyle = '#0f4c81';
+    ctx.fillRect(0, 38, size, 16);
+    ctx.fillStyle = '#ffd166';
+    ctx.fillRect(0, 54, size, 4);
+
+    // Grime & brake dust along bottom
+    ctx.fillStyle = 'rgba(25, 20, 15, 0.4)';
+    ctx.fillRect(0, size - 24, size, 24);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  public static createSubwayPlatformTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Concrete platform with tactile hazard yellow warning edge
+    ctx.fillStyle = '#656d73';
+    ctx.fillRect(0, 0, size, size);
+
+    // Yellow platform safety edge line
+    ctx.fillStyle = '#eab308';
+    ctx.fillRect(0, 0, size, 20);
+
+    // Tactile bumps on yellow edge
+    ctx.fillStyle = '#a16207';
+    for (let x = 4; x < size; x += 10) {
+      ctx.beginPath();
+      ctx.arc(x, 10, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // LEVEL 9 — RESEARCH FACILITY
+  public static createLabWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Futuristic retro metallic composite panels
+    ctx.fillStyle = '#8291a1';
+    ctx.fillRect(0, 0, size, size);
+
+    // Panel border rivets
+    ctx.strokeStyle = '#323c47';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(4, 4, size - 8, size - 8);
+
+    // Hazard caution diagonal stripes
+    ctx.fillStyle = '#ffd166';
+    ctx.fillRect(0, size - 20, size, 20);
+    ctx.fillStyle = '#1a1f26';
+    for (let x = -20; x < size + 20; x += 16) {
+      ctx.beginPath();
+      ctx.moveTo(x, size - 20);
+      ctx.lineTo(x + 10, size - 20);
+      ctx.lineTo(x + 2, size);
+      ctx.lineTo(x - 8, size);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  public static createLabFloorTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Clean white/cyan laboratory tiles
+    ctx.fillStyle = '#d1dbe3';
+    ctx.fillRect(0, 0, size, size);
+
+    const ts = 64;
+    for (let y = 0; y < size; y += ts) {
+      for (let x = 0; x < size; x += ts) {
+        ctx.strokeStyle = '#627282';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, ts, ts);
+        // Subtle cyber circuit line in center
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.strokeRect(x + 14, y + 14, ts - 28, ts - 28);
+      }
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  // LEVEL 10 — THE NIGHTMARE
+  public static createNightmareWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Surreal abyss black and deep crimson blood veins
+    ctx.fillStyle = '#100609';
+    ctx.fillRect(0, 0, size, size);
+
+    // Pulsing blood vein streaks
+    ctx.strokeStyle = '#b81424';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 15);
+    ctx.bezierCurveTo(45, 60, 80, 20, size, 90);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#e63946';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(size, 35);
+    ctx.bezierCurveTo(70, 80, 40, 110, 15, size);
+    ctx.stroke();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  public static createNightmareFloorTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Distorted abyss floor with glowing occult glyphs
+    ctx.fillStyle = '#080509';
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.strokeStyle = 'rgba(230, 57, 70, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(8, 8, size - 16, size - 16);
+
+    ctx.strokeStyle = '#991b1b';
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, 35, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
 }

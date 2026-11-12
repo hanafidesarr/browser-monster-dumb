@@ -134,6 +134,17 @@
         <div class="legend-item"><span class="legend-dot exit-dot"></span> Pintu Keluar (Gapura)</div>
       </div>
 
+      <!-- COMEDY WEAPON SELECTION & COLLECTION BAR -->
+      <div class="overview-weapon-section">
+        <div class="weapon-section-header">
+          <div class="weapon-section-title">&#9876; PILIH SENJATA KOMEDI</div>
+          <div class="weapon-section-subtitle">Pilih benda konyol untuk membangunkan Pocong</div>
+        </div>
+        <div id="overview-weapon-list" class="overview-weapon-grid">
+          <!-- Populated dynamically by UIManager -->
+        </div>
+      </div>
+
       <div class="overview-actions">
         <button id="btn-start-level" class="retro-btn action-btn pulse-glow">START LEVEL</button>
         <button id="btn-overview-back" class="retro-btn small-btn">ABORT</button>
@@ -153,6 +164,24 @@
         <div class="hud-top-right">
           <button id="btn-toggle-fullscreen" class="hud-fs-btn" aria-label="Toggle Fullscreen" title="Full Screen">&#x26F6;</button>
           <button id="btn-hud-pause" class="retro-btn hud-pause-btn" aria-label="Pause">||</button>
+        </div>
+      </div>
+
+      <!-- Contextual Weapon Pickup Prompt -->
+      <div id="hud-pickup-prompt" class="pickup-prompt-banner hidden">
+        <div class="pickup-icon">&#127873;</div>
+        <div class="pickup-info">
+          <div class="pickup-title" id="hud-pickup-title">TEMUKAN SENJATA</div>
+          <div class="pickup-hint">[E / KLIK DISINI] AMBIL SENJATA</div>
+        </div>
+      </div>
+
+      <!-- Weapon Discovery Notification Toast -->
+      <div id="hud-weapon-toast" class="weapon-toast hidden">
+        <div class="toast-icon">&#10024;</div>
+        <div class="toast-body">
+          <div class="toast-title" id="toast-weapon-name">SENJATA BARU DITEMUKAN!</div>
+          <div class="toast-desc" id="toast-weapon-desc">Ditambahkan ke koleksi senjatamu.</div>
         </div>
       </div>
 

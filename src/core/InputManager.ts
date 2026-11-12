@@ -26,6 +26,7 @@ export class InputManager {
   // Attack Action Trigger with Input Buffer
   public attackRequested: boolean = false;
   private attackRequestedTime: number = 0;
+  public interactRequested: boolean = false;
 
   // Pause Action Trigger
   public pauseRequested: boolean = false;
@@ -35,6 +36,9 @@ export class InputManager {
   private lastTouchLookPos: { x: number; y: number } = { x: 0, y: 0 };
 
   private activeJoystickTouchId: number | null = null;
+  private isJoystickPointerDown: boolean = false;
+  private activeJoystickKnob: HTMLElement | null = null;
+  private joystickKnobs: (HTMLElement | null)[] = [];
   private joystickCenter: { x: number; y: number } = { x: 0, y: 0 };
   private joystickRadius: number = 55;
 
@@ -64,11 +68,23 @@ export class InputManager {
     }
   }
 
+  public resetJoystick(): void {
+    this.activeJoystickTouchId = null;
+    this.isJoystickPointerDown = false;
+    this.activeJoystickKnob = null;
+    this.joystickVector = { x: 0, y: 0 };
+    for (const knob of this.joystickKnobs) {
+      if (knob) {
+        knob.style.transform = 'translate(-50%, -50%)';
+      }
+    }
+  }
+
   public resetInputs(): void {
     this.keys = {};
     this.mouseDeltaX = 0;
     this.mouseDeltaY = 0;
-    this.joystickVector = { x: 0, y: 0 };
+    this.resetJoystick();
     this.touchLookDeltaX = 0;
     this.touchLookDeltaY = 0;
     this.attackRequested = false;
@@ -91,11 +107,26 @@ export class InputManager {
     return false;
   }
 
+  public requestInteract(): void {
+    this.interactRequested = true;
+  }
+
+  public consumeInteractRequest(): boolean {
+    if (this.interactRequested) {
+      this.interactRequested = false;
+      return true;
+    }
+    return false;
+  }
+
   private setupDesktopListeners(): void {
     window.addEventListener('keydown', (e: KeyboardEvent) => {
       this.keys[e.code] = true;
       if (e.code === 'Escape') {
         this.pauseRequested = true;
+      }
+      if (e.code === 'KeyE') {
+        this.requestInteract();
       }
       // Spacebar, E, F, Enter attack triggering with comprehensive layout & key compatibility
       const isAttackKey =
@@ -208,53 +239,111 @@ export class InputManager {
       sprintBtn.addEventListener('mouseup', endSprint);
     }
 
-    // Generic Joystick touch binding helper
-    const bindJoystick = (base: HTMLElement | null, knob: HTMLElement | null) => {
+    // Store joystick knobs for unified reset handling
+    this.joystickKnobs = [joystickKnobCenter, joystickKnobLeft];
+
+    // Unified Mobile Joystick System
+    const setupJoystickElement = (base: HTMLElement | null, knob: HTMLElement | null) => {
       if (!base || !knob) return;
 
-      const handleTouchStart = (e: TouchEvent) => {
+      const onTouchStart = (e: TouchEvent) => {
         if (this.activeJoystickTouchId !== null) return;
         const touch = e.changedTouches[0];
         this.activeJoystickTouchId = touch.identifier;
+        this.activeJoystickKnob = knob;
 
         const rect = base.getBoundingClientRect();
         this.joystickCenter = {
           x: rect.left + rect.width / 2,
           y: rect.top + rect.height / 2,
         };
-        this.updateJoystickPosition(touch.clientX, touch.clientY, knob);
+        this.updateJoystickPosition(touch.clientX, touch.clientY);
       };
 
-      const handleTouchMove = (e: TouchEvent) => {
-        for (let i = 0; i < e.changedTouches.length; i++) {
-          const touch = e.changedTouches[i];
-          if (touch.identifier === this.activeJoystickTouchId) {
-            this.updateJoystickPosition(touch.clientX, touch.clientY, knob);
-            break;
-          }
-        }
+      const onPointerDown = (e: PointerEvent) => {
+        if (e.pointerType === 'touch') return; // Handled by touch events
+        this.isJoystickPointerDown = true;
+        this.activeJoystickKnob = knob;
+
+        const rect = base.getBoundingClientRect();
+        this.joystickCenter = {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        };
+        this.updateJoystickPosition(e.clientX, e.clientY);
       };
 
-      const handleTouchEnd = (e: TouchEvent) => {
-        for (let i = 0; i < e.changedTouches.length; i++) {
-          const touch = e.changedTouches[i];
-          if (touch.identifier === this.activeJoystickTouchId) {
-            this.activeJoystickTouchId = null;
-            this.joystickVector = { x: 0, y: 0 };
-            knob.style.transform = `translate(-50%, -50%)`;
-            break;
-          }
-        }
-      };
-
-      base.addEventListener('touchstart', handleTouchStart, { passive: false });
-      window.addEventListener('touchmove', handleTouchMove, { passive: false });
-      window.addEventListener('touchend', handleTouchEnd, { passive: false });
-      window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+      base.addEventListener('touchstart', onTouchStart, { passive: false });
+      base.addEventListener('pointerdown', onPointerDown, { passive: false });
+      base.addEventListener('mousedown', (e: MouseEvent) => {
+        this.isJoystickPointerDown = true;
+        this.activeJoystickKnob = knob;
+        const rect = base.getBoundingClientRect();
+        this.joystickCenter = {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        };
+        this.updateJoystickPosition(e.clientX, e.clientY);
+      });
     };
 
-    bindJoystick(joystickBaseCenter, joystickKnobCenter);
-    bindJoystick(joystickBaseLeft, joystickKnobLeft);
+    setupJoystickElement(joystickBaseCenter, joystickKnobCenter);
+    setupJoystickElement(joystickBaseLeft, joystickKnobLeft);
+
+    // Global touch movement & release listeners for seamless control
+    window.addEventListener('touchmove', (e: TouchEvent) => {
+      if (this.activeJoystickTouchId === null) return;
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === this.activeJoystickTouchId) {
+          this.updateJoystickPosition(touch.clientX, touch.clientY);
+          break;
+        }
+      }
+    }, { passive: false });
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length === 0) {
+        this.resetJoystick();
+        return;
+      }
+      if (this.activeJoystickTouchId !== null) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === this.activeJoystickTouchId) {
+            this.resetJoystick();
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    // Pointer / Mouse Move & Release
+    window.addEventListener('pointermove', (e: PointerEvent) => {
+      if (e.pointerType !== 'touch' && this.isJoystickPointerDown) {
+        this.updateJoystickPosition(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mousemove', (e: MouseEvent) => {
+      if (this.isJoystickPointerDown) {
+        this.updateJoystickPosition(e.clientX, e.clientY);
+      }
+    });
+
+    const handlePointerRelease = () => {
+      if (this.isJoystickPointerDown) {
+        this.resetJoystick();
+      }
+    };
+
+    window.addEventListener('pointerup', handlePointerRelease);
+    window.addEventListener('pointercancel', handlePointerRelease);
+    window.addEventListener('mouseup', handlePointerRelease);
+    window.addEventListener('blur', () => this.resetJoystick());
+    window.addEventListener('orientationchange', () => this.resetJoystick());
 
     // Look Area Touch (Right side of screen, avoiding the movement joystick and attack button)
     if (lookZone) {
@@ -310,7 +399,8 @@ export class InputManager {
     }
   }
 
-  private updateJoystickPosition(touchX: number, touchY: number, knob: HTMLElement): void {
+  private updateJoystickPosition(touchX: number, touchY: number, knob?: HTMLElement | null): void {
+    const targetKnob = knob || this.activeJoystickKnob;
     const dx = touchX - this.joystickCenter.x;
     const dy = touchY - this.joystickCenter.y;
     const distance = Math.hypot(dx, dy);
@@ -321,7 +411,9 @@ export class InputManager {
     const knobX = Math.cos(angle) * clampedDist;
     const knobY = Math.sin(angle) * clampedDist;
 
-    knob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
+    if (targetKnob) {
+      targetKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
+    }
 
     // Dead zone check (10%)
     if (clampedDist < 6) {

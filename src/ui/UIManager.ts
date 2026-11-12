@@ -2,6 +2,7 @@ import { SaveManager } from '../core/SaveManager.ts';
 import { SettingsManager } from '../core/SettingsManager.ts';
 import { AudioManager } from '../core/AudioManager.ts';
 import { ALL_LEVELS, LevelDefinition } from '../level/LevelData.ts';
+import { ALL_WEAPONS, WeaponId, WEAPON_MAP } from '../weapon/WeaponData.ts';
 
 export class UIManager {
   private static instance: UIManager;
@@ -29,6 +30,16 @@ export class UIManager {
 
   // Overview Elements
   private overviewLevelTitle = document.getElementById('overview-level-title')!;
+  private overviewWeaponList = document.getElementById('overview-weapon-list');
+
+  // In-Game Pickup & Discovery HUD Elements
+  private hudPickupPrompt = document.getElementById('hud-pickup-prompt');
+  private hudPickupTitle = document.getElementById('hud-pickup-title');
+  private hudWeaponToast = document.getElementById('hud-weapon-toast');
+  private toastWeaponName = document.getElementById('toast-weapon-name');
+  private toastWeaponDesc = document.getElementById('toast-weapon-desc');
+  private currentPickupAction: (() => void) | null = null;
+  private toastTimeout: any = null;
 
   // Game Over & Complete Elements
   private gameOverReason = document.getElementById('game-over-reason')!;
@@ -47,6 +58,7 @@ export class UIManager {
   public onExitToMenuRequested: () => void = null as unknown as () => void;
   public onNextLevelRequested: () => void = null as unknown as () => void;
   public onGraphicsChanged: ((quality: 'low' | 'med' | 'high') => void) | null = null;
+  public onWeaponSelected: ((weaponId: WeaponId) => void) | null = null;
 
   private constructor() {
     this.setupMenuNavigation();
@@ -95,7 +107,118 @@ export class UIManager {
   public showOverview(level: LevelDefinition): void {
     this.hideAllScreens();
     this.overviewLevelTitle.textContent = `LEVEL ${level.id} — ${level.title}`;
+    this.populateWeaponSelection();
     this.screenOverview.classList.add('active');
+  }
+
+  // Populate dynamic 9-weapon comedic arsenal with unlocked & locked state
+  public populateWeaponSelection(): void {
+    if (!this.overviewWeaponList) return;
+    this.overviewWeaponList.innerHTML = '';
+
+    const save = SaveManager.getInstance();
+    const audio = AudioManager.getInstance();
+    const selectedWeaponId = save.getSelectedWeapon();
+
+    const weaponIcons: Record<string, string> = {
+      baseball_bat: '&#9876;',
+      signboard: '&#129534;',
+      frying_pan: '&#127859;',
+      slipper: '&#128094;',
+      chair: '&#129681;',
+      broom: '&#129529;',
+      spatula: '&#127860;',
+      toy_hammer: '&#128296;',
+      electric_fan: '&#127744;',
+    };
+
+    ALL_WEAPONS.forEach((w) => {
+      const isUnlocked = save.isWeaponUnlocked(w.id);
+      const isSelected = selectedWeaponId === w.id;
+
+      const card = document.createElement('div');
+      card.className = `weapon-card ${isUnlocked ? 'unlocked' : 'locked'} ${isSelected ? 'selected' : ''}`;
+
+      card.innerHTML = `
+        <div class="weapon-card-top">
+          <span class="weapon-badge">${isSelected ? 'DIPAKAI' : (isUnlocked ? 'TERSEDIA' : 'TERKUNCI')}</span>
+          <span>${isUnlocked ? (isSelected ? '&#10004;' : '') : '&#128274;'}</span>
+        </div>
+        <div class="weapon-card-icon">${weaponIcons[w.id] || '&#9876;'}</div>
+        <div class="weapon-card-name">${w.nameId}</div>
+        <div class="weapon-card-desc">${isUnlocked ? w.description : 'Temukan di dalam level'}</div>
+      `;
+
+      if (isUnlocked) {
+        card.addEventListener('click', () => {
+          audio.playUiClick();
+          save.setSelectedWeapon(w.id);
+          this.populateWeaponSelection();
+          if (this.onWeaponSelected) {
+            this.onWeaponSelected(w.id);
+          }
+        });
+      }
+
+      this.overviewWeaponList!.appendChild(card);
+    });
+  }
+
+  // Show In-Game Contextual Weapon Pickup Prompt (Anchored in world/screen space)
+  public showPickupPrompt(weaponName: string, onPickup: () => void, screenPos?: { x: number; y: number }): void {
+    if (!this.hudPickupPrompt || !this.hudPickupTitle) return;
+    this.currentPickupAction = onPickup;
+    this.hudPickupTitle.textContent = `TEMUKAN: ${weaponName.toUpperCase()}`;
+    this.hudPickupPrompt.classList.remove('hidden');
+
+    if (screenPos) {
+      this.hudPickupPrompt.style.position = 'fixed';
+      this.hudPickupPrompt.style.left = `${screenPos.x}px`;
+      this.hudPickupPrompt.style.top = `${screenPos.y}px`;
+      this.hudPickupPrompt.style.bottom = 'auto';
+      this.hudPickupPrompt.style.transform = 'translate(-50%, -100%)';
+    } else {
+      this.hudPickupPrompt.style.position = '';
+      this.hudPickupPrompt.style.left = '';
+      this.hudPickupPrompt.style.top = '';
+      this.hudPickupPrompt.style.bottom = '';
+      this.hudPickupPrompt.style.transform = '';
+    }
+  }
+
+  public hidePickupPrompt(): void {
+    if (!this.hudPickupPrompt) return;
+    this.currentPickupAction = null;
+    this.hudPickupPrompt.classList.add('hidden');
+    this.hudPickupPrompt.style.position = '';
+    this.hudPickupPrompt.style.left = '';
+    this.hudPickupPrompt.style.top = '';
+    this.hudPickupPrompt.style.bottom = '';
+    this.hudPickupPrompt.style.transform = '';
+  }
+
+  public triggerPickup(): void {
+    if (this.currentPickupAction) {
+      const action = this.currentPickupAction;
+      this.currentPickupAction = null;
+      this.hidePickupPrompt();
+      action();
+    }
+  }
+
+  // Show Discovery Celebration Toast
+  public showWeaponDiscoveryToast(weaponName: string, description: string): void {
+    if (!this.hudWeaponToast || !this.toastWeaponName || !this.toastWeaponDesc) return;
+    if (this.toastTimeout) {
+      clearTimeout(this.toastTimeout);
+    }
+    this.toastWeaponName.textContent = `SENJATA BARU: ${weaponName.toUpperCase()}!`;
+    this.toastWeaponDesc.textContent = `${description} Sekarang tersimpan di koleksi senjatamu.`;
+    this.hudWeaponToast.classList.remove('hidden');
+
+    this.toastTimeout = setTimeout(() => {
+      this.hudWeaponToast?.classList.add('hidden');
+    }, 4500);
   }
 
   public showGameplayHUD(): void {
@@ -325,6 +448,21 @@ export class UIManager {
       audio.playUiClick();
       this.showMainMenu();
     });
+
+    // HUD Pickup Button Touch / Click
+    const pickupPrompt = document.getElementById('hud-pickup-prompt');
+    if (pickupPrompt) {
+      pickupPrompt.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.triggerPickup();
+      });
+      pickupPrompt.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.triggerPickup();
+      });
+    }
 
     // Settings Back
     document.getElementById('btn-settings-back')?.addEventListener('click', () => {

@@ -210,17 +210,55 @@ export class MonsterModel {
     (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xbb0000);
   }
 
-  // 2. HIT REACTION: Recoils violently backwards from the bat strike
-  public applyHitReaction(progress: number): void {
+  // 2. HIT REACTION: Recoils based on weapon reaction type
+  public applyHitReaction(progress: number, reactionType: string = 'snap'): void {
     const p = Math.min(1, Math.max(0, progress));
     const flinch = Math.sin(p * Math.PI);
-    const shudder = (Math.random() - 0.5) * 0.12 * flinch;
 
-    // Jerk backwards (~35 degrees)
-    this.innerGroup.position.set(shudder, 0, -flinch * 0.25);
-    this.innerGroup.rotation.set(-flinch * 0.65, shudder * 2, (Math.random() - 0.5) * 0.2);
+    switch (reactionType) {
+      case 'surprise': {
+        // Frying pan / Spatula: sudden high upward jerk and shudder
+        this.innerGroup.position.set(0, flinch * 0.22, -flinch * 0.18);
+        this.innerGroup.rotation.set(-flinch * 0.45, (Math.random() - 0.5) * 0.15, 0);
+        this.innerGroup.scale.set(1.0 + flinch * 0.15, 1.0 + flinch * 0.25, 1.0 + flinch * 0.15);
+        break;
+      }
 
-    this.eyeLight.intensity = 2.5;
+      case 'stagger': {
+        // Billboard / Chair / Fan: heavy backward stagger and sideways stumble
+        const stumbleX = Math.sin(p * Math.PI * 1.5) * 0.25;
+        this.innerGroup.position.set(stumbleX, 0, -flinch * 0.38);
+        this.innerGroup.rotation.set(-flinch * 0.75, stumbleX * 1.8, stumbleX * 0.8);
+        break;
+      }
+
+      case 'slap': {
+        // Giant Slipper: sharp sideways slap snap
+        const slapRoll = Math.sin(p * Math.PI) * 0.55;
+        this.innerGroup.position.set(flinch * 0.18, 0, -flinch * 0.15);
+        this.innerGroup.rotation.set(-flinch * 0.35, flinch * 0.4, -slapRoll);
+        break;
+      }
+
+      case 'wobble': {
+        // Toy Hammer: cartoon spring vibration wobble
+        const wobbleX = Math.sin(p * Math.PI * 6) * 0.12 * (1 - p);
+        this.innerGroup.position.set(wobbleX, 0, -flinch * 0.2);
+        this.innerGroup.rotation.set(-flinch * 0.5, wobbleX * 3.5, wobbleX * 2);
+        break;
+      }
+
+      case 'snap':
+      default: {
+        // Standard bat hit: jerk backwards
+        const shudder = (Math.random() - 0.5) * 0.12 * flinch;
+        this.innerGroup.position.set(shudder, 0, -flinch * 0.25);
+        this.innerGroup.rotation.set(-flinch * 0.65, shudder * 2, (Math.random() - 0.5) * 0.2);
+        break;
+      }
+    }
+
+    this.eyeLight.intensity = 2.8;
   }
 
   // 3. SCREAM: Head snaps back towards night sky, shakes violently, eye flare

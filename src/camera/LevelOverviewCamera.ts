@@ -49,9 +49,14 @@ export class LevelOverviewCamera {
 
   public setLevel(level: LevelDefinition): void {
     this.levelDef = level;
-    this.target.set(0, 0, 0);
-    this.distance = Math.max(45, (level.gridWidth * level.cellSize) * 0.70);
-    this.polarAngle = (48 * Math.PI) / 180;
+    const floorCount = level.floorCount || 1;
+    const floorHeight = level.floorHeight || 3.8;
+    const totalLevelHeight = floorCount > 1 ? floorCount * floorHeight : 0;
+
+    this.target.set(0, totalLevelHeight * 0.35, 0);
+    this.distance = Math.max(42, (level.gridWidth * level.cellSize) * 0.75 + totalLevelHeight * 0.45);
+    this.maxDistance = Math.max(65, totalLevelHeight * 1.5 + 45);
+    this.polarAngle = (55 * Math.PI) / 180;
     this.azimuthAngle = 0;
     this.updateCameraTransform();
   }

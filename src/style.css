@@ -58,11 +58,6 @@ html, body {
   image-rendering: crisp-edges;
 }
 
-/* Crystal-clear rendering during Pre-game Map Overview */
-body.in-overview #game-canvas {
-  image-rendering: auto !important;
-}
-
 /* PS1 Scanline and Vignette Effect */
 #ps1-overlay {
   position: absolute;
@@ -75,11 +70,6 @@ body.in-overview #game-canvas {
   background: radial-gradient(circle at center, transparent 60%, rgba(0, 0, 0, 0.35) 100%),
               repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08) 1px, transparent 1px, transparent 3px);
   z-index: 2;
-  transition: opacity 0.4s ease;
-}
-
-body.in-overview #ps1-overlay {
-  opacity: 0 !important;
 }
 
 /* ==========================================================================
@@ -395,8 +385,32 @@ body.in-overview #ps1-overlay {
 .setting-row input[type="range"] {
   flex-grow: 1;
   accent-color: var(--ps1-red-glow);
-  height: 6px;
+  height: 8px;
   background: #252b33;
+  border-radius: 4px;
+  outline: none;
+  touch-action: pan-x;
+}
+
+.setting-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ps1-red-glow);
+  border: 2px solid #fff;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(230, 57, 70, 0.8);
+}
+
+.setting-row input[type="range"]::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--ps1-red-glow);
+  border: 2px solid #fff;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(230, 57, 70, 0.8);
 }
 
 .setting-row span {
@@ -497,6 +511,267 @@ body.in-overview #ps1-overlay {
 .player-dot { background-color: #2a8bf2; box-shadow: 0 0 6px #2a8bf2; }
 .monster-dot { background-color: #e63946; box-shadow: 0 0 6px #e63946; }
 .exit-dot { background-color: #2a9d4a; box-shadow: 0 0 6px #2a9d4a; }
+
+.overview-weapon-section {
+  pointer-events: auto;
+  max-width: 900px;
+  width: 96%;
+  background: rgba(10, 16, 26, 0.88);
+  border: 2px solid #2a3a4e;
+  border-radius: 4px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  margin-bottom: 6px;
+}
+
+.weapon-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #1e293b;
+  padding-bottom: 4px;
+}
+
+.weapon-section-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #38bdf8;
+  letter-spacing: 1px;
+}
+
+.weapon-section-subtitle {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.overview-weapon-grid {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  align-items: stretch;
+  padding: 4px 4px 10px 4px;
+  scrollbar-width: thin;
+  scrollbar-color: #38bdf8 #0f172a;
+  -webkit-overflow-scrolling: touch;
+}
+
+.overview-weapon-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.overview-weapon-grid::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
+.overview-weapon-grid::-webkit-scrollbar-thumb {
+  background: #38bdf8;
+  border-radius: 3px;
+}
+
+.weapon-card {
+  flex: 0 0 124px;
+  min-height: 106px;
+  height: auto;
+  background: #111827;
+  border: 2px solid #374151;
+  border-radius: 4px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.weapon-card.unlocked:hover {
+  border-color: #38bdf8;
+  transform: translateY(-2px);
+  background: #1e293b;
+}
+
+.weapon-card.selected {
+  border-color: #22c55e !important;
+  background: rgba(34, 197, 94, 0.12) !important;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+}
+
+.weapon-card.locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.85);
+  border-style: dashed;
+}
+
+.weapon-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.weapon-badge {
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 2px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.weapon-card.selected .weapon-badge {
+  background: #22c55e;
+  color: #052e16;
+}
+
+.weapon-card.unlocked:not(.selected) .weapon-badge {
+  background: #1e293b;
+  color: #38bdf8;
+  border: 1px solid #38bdf8;
+}
+
+.weapon-card.locked .weapon-badge {
+  background: #374151;
+  color: #9ca3af;
+}
+
+.weapon-card-icon {
+  font-size: 22px;
+  text-align: center;
+  margin: 2px 0;
+  line-height: 1;
+}
+
+.weapon-card-name {
+  font-size: 11px;
+  font-weight: bold;
+  color: #f1f5f9;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+  text-align: center;
+  line-height: 1.25;
+  width: 100%;
+  min-height: 2.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.weapon-card-desc {
+  font-size: 9px;
+  color: #94a3b8;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.2;
+  width: 100%;
+}
+
+/* Pickup In-game HUD Prompt */
+.pickup-prompt-banner {
+  pointer-events: auto;
+  position: absolute;
+  bottom: 85px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14, 23, 42, 0.92);
+  border: 2px solid #38bdf8;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+  border-radius: 6px;
+  padding: 10px 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  animation: pulse-border 1.5s infinite;
+  z-index: 20;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+}
+
+.pickup-icon {
+  font-size: 26px;
+}
+
+.pickup-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #38bdf8;
+  letter-spacing: 1px;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.pickup-hint {
+  font-size: 11px;
+  color: #e2e8f0;
+  white-space: normal;
+}
+
+/* Discovery Toast */
+.weapon-toast {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 2px solid #22c55e;
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+  border-radius: 6px;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 50;
+  pointer-events: none;
+  animation: slideDownToast 0.4s ease;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+}
+
+@keyframes slideDownToast {
+  from { opacity: 0; transform: translate(-50%, -20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.toast-icon {
+  font-size: 28px;
+}
+
+.toast-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #4ade80;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.toast-desc {
+  font-size: 12px;
+  color: #cbd5e1;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.toast-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #4ade80;
+}
+
+.toast-desc {
+  font-size: 12px;
+  color: #cbd5e1;
+}
 
 .overview-actions {
   pointer-events: auto;
@@ -1026,51 +1301,136 @@ body.in-overview #ps1-overlay {
    COMPREHENSIVE MOBILE RESPONSIVENESS (PORTRAIT & LANDSCAPE)
    ========================================================================== */
 
-/* Mobile Portrait & Small Screens (max-width: 650px) */
+/* --- Mobile Portrait & Narrow Screens (max-width: 650px) --- */
 @media (max-width: 650px) {
+  .menu-content {
+    gap: 16px;
+    padding: 0 10px;
+    width: 100%;
+    max-width: 360px;
+  }
+
   .glitch-title {
-    font-size: clamp(38px, 12vw, 64px);
-    letter-spacing: 3px;
+    font-size: clamp(34px, 11vw, 56px);
+    letter-spacing: 2px;
   }
 
   .subtitle {
     font-size: 11px;
-    letter-spacing: 1.5px;
+    letter-spacing: 1px;
+  }
+
+  .menu-buttons {
+    width: 100%;
+    gap: 12px;
   }
 
   .retro-btn {
     font-size: 20px;
     padding: 10px 18px;
     letter-spacing: 1.5px;
+    min-height: 44px;
   }
 
-  .menu-content {
-    gap: 18px;
+  .screen-header {
+    padding-bottom: 10px;
+    margin-bottom: 14px;
   }
 
+  .screen-header h2 {
+    font-size: 26px;
+    letter-spacing: 2px;
+  }
+
+  /* Level Select Grid: single column on narrow mobile portrait */
+  .levels-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .level-card {
+    padding: 12px 14px;
+    gap: 6px;
+  }
+
+  .level-name {
+    font-size: 22px;
+  }
+
+  /* Settings Screen on Mobile */
+  .settings-content {
+    gap: 16px;
+    padding-bottom: 60px;
+  }
+
+  .settings-group {
+    padding: 14px 14px;
+    gap: 12px;
+  }
+
+  .settings-group h3 {
+    font-size: 20px;
+    letter-spacing: 1.5px;
+  }
+
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .setting-row label {
+    min-width: unset;
+    width: 100%;
+    font-size: 13px;
+  }
+
+  .setting-row input[type="range"] {
+    width: 100%;
+  }
+
+  .setting-row span {
+    align-self: flex-end;
+    font-size: 18px;
+    margin-top: -20px;
+  }
+
+  .segmented-control {
+    width: 100%;
+    display: flex;
+  }
+
+  .segment-btn {
+    flex: 1;
+    text-align: center;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  /* HUD Top Bar */
   .hud-top {
-    top: max(env(safe-area-inset-top), 10px);
-    left: max(env(safe-area-inset-left), 10px);
-    right: max(env(safe-area-inset-right), 10px);
+    top: max(env(safe-area-inset-top), 8px);
+    left: max(env(safe-area-inset-left), 8px);
+    right: max(env(safe-area-inset-right), 8px);
   }
 
   .hud-status {
-    font-size: 15px;
+    font-size: 14px;
     padding: 4px 10px;
-    max-width: calc(100% - 64px);
+    max-width: calc(100% - 100px);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .hud-pause-btn {
-    padding: 6px 14px;
+  .hud-fs-btn, .hud-pause-btn {
+    padding: 4px 10px;
     font-size: 16px;
     min-width: 44px;
     min-height: 44px;
   }
 
-  /* Responsive Center-Bottom Joystick */
+  /* Movement Joystick in Portrait */
   .joystick-zone {
     width: 130px;
     height: 130px;
@@ -1090,19 +1450,19 @@ body.in-overview #ps1-overlay {
     bottom: max(calc(env(safe-area-inset-bottom, 16px) + 12px), 24px);
   }
 
-  /* Contextual Attack Button (Positioned at Bottom-Right for Right Thumb on Mobile) */
+  /* Contextual Attack Button (Right Thumb Position) */
   #contextual-attack-wrapper {
     top: auto !important;
     left: auto !important;
-    right: max(env(safe-area-inset-right), 20px) !important;
-    bottom: max(env(safe-area-inset-bottom), 24px) !important;
+    right: max(env(safe-area-inset-right), 18px) !important;
+    bottom: max(env(safe-area-inset-bottom), 20px) !important;
     transform: none !important;
     z-index: 25;
   }
 
   .attack-button {
-    width: 94px;
-    height: 94px;
+    width: 86px;
+    height: 86px;
     border-radius: 50% !important;
     padding: 0 !important;
     display: flex;
@@ -1115,98 +1475,440 @@ body.in-overview #ps1-overlay {
   }
 
   .attack-button .attack-icon {
-    font-size: 28px;
+    font-size: 26px;
     line-height: 1;
   }
 
   .attack-button .attack-text {
-    font-size: 14px;
+    font-size: 13px;
     letter-spacing: 1px;
     line-height: 1;
     font-family: var(--font-title);
   }
 
   .attack-key-hint {
-    display: none; /* Hide key hint on touch */
+    display: none;
   }
 
-  /* Overview & Level Screens */
+  /* Overview & Pre-Game Screens */
   .overview-header {
     max-width: 100%;
-    padding: 10px 14px;
+    padding: 8px 12px;
+    gap: 4px;
   }
 
   .level-badge {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .overview-legend {
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .overview-weapon-section {
+    width: 100%;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+  }
+
+  .overview-weapon-grid {
+    gap: 8px;
+    padding: 2px 2px 8px 2px;
+  }
+
+  .weapon-card {
+    flex: 0 0 120px;
+    min-height: 100px;
+    height: auto;
+    padding: 6px 6px;
+  }
+
+  .weapon-badge {
+    font-size: 8.5px;
+    padding: 1px 4px;
+  }
+
+  .weapon-card-icon {
+    font-size: 20px;
+    margin: 2px 0;
+  }
+
+  .weapon-card-name {
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 1.25;
+    min-height: 2.5em;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    text-align: center;
+  }
+
+  .weapon-card-desc {
+    font-size: 8.5px;
+    line-height: 1.15;
+    white-space: normal;
+    word-break: normal;
+  }
+
+  .overview-actions {
+    gap: 10px;
+    padding-bottom: 6px;
   }
 
   .action-btn {
-    padding: 12px 28px;
-    font-size: 22px;
+    padding: 10px 24px;
+    font-size: 20px;
   }
 
-  .levels-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
+  /* Modal Cards */
   .modal-card {
-    padding: 20px;
-    gap: 14px;
+    padding: 18px;
+    gap: 12px;
+    width: 92%;
+    max-width: 380px;
   }
 
   .modal-card h2 {
-    font-size: 30px;
+    font-size: 28px;
+  }
+
+  .modal-buttons {
+    gap: 10px;
   }
 }
 
-/* Mobile Landscape (max-height: 520px) */
+/* --- Mobile Landscape (max-height: 520px) — Primary Mobile Gameplay Orientation --- */
 @media (max-height: 520px) and (orientation: landscape) {
+  /* Main Menu */
   .menu-content {
-    gap: 10px;
-    max-width: 500px;
+    gap: 8px;
+    max-width: 540px;
+    padding: 0 16px;
   }
 
   .glitch-title {
-    font-size: 38px;
-    letter-spacing: 3px;
+    font-size: 34px;
+    letter-spacing: 2px;
+    margin-bottom: 0;
+  }
+
+  .subtitle {
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+
+  .ps1-badge {
+    font-size: 9px;
+    padding: 1px 6px;
   }
 
   .menu-buttons {
     flex-direction: row;
+    flex-wrap: wrap;
     max-width: 100%;
-    gap: 10px;
+    gap: 8px;
     justify-content: center;
   }
 
   .retro-btn {
-    padding: 8px 16px;
+    padding: 6px 14px;
+    font-size: 16px;
+    min-height: 38px;
+  }
+
+  .menu-footer {
+    display: none; /* Hide footer in short landscape to prevent overflow */
+  }
+
+  /* Level Selection */
+  .screen-header {
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+
+  .screen-header h2 {
+    font-size: 22px;
+    letter-spacing: 2px;
+  }
+
+  .levels-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+    padding-bottom: 20px;
+  }
+
+  .level-card {
+    padding: 8px 10px;
+    gap: 4px;
+  }
+
+  .level-number {
+    font-size: 15px;
+  }
+
+  .level-name {
     font-size: 18px;
   }
 
-  .modal-card {
-    padding: 14px 20px;
+  .level-status-row {
+    font-size: 11px;
+  }
+
+  /* Settings Screen */
+  .settings-content {
     gap: 10px;
-    max-width: 440px;
+    padding-bottom: 30px;
   }
 
-  .modal-card h2 {
-    font-size: 26px;
-  }
-
-  .modal-buttons {
-    flex-direction: row;
-    flex-wrap: wrap;
-    justify-content: center;
+  .settings-group {
+    padding: 10px 14px;
     gap: 8px;
   }
 
+  .settings-group h3 {
+    font-size: 18px;
+    padding-bottom: 2px;
+  }
+
+  .setting-row {
+    gap: 8px;
+  }
+
+  .setting-row label {
+    font-size: 12px;
+    min-width: 120px;
+  }
+
+  .setting-row span {
+    font-size: 16px;
+  }
+
+  .segment-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  /* =========================================================================
+     LEVEL OVERVIEW SCREEN (Optimized for 3D Camera Map Visibility)
+     ========================================================================= */
+  #screen-overview {
+    padding: max(env(safe-area-inset-top), 6px) max(env(safe-area-inset-right), 12px) max(env(safe-area-inset-bottom), 4px) max(env(safe-area-inset-left), 12px);
+    position: relative;
+    justify-content: space-between;
+  }
+
+  /* Header anchored top-left */
+  .overview-header {
+    position: absolute;
+    top: max(env(safe-area-inset-top), 6px);
+    left: max(env(safe-area-inset-left), 12px);
+    padding: 4px 10px;
+    gap: 2px;
+    max-width: 48%;
+    background: rgba(12, 13, 15, 0.85);
+    z-index: 35;
+  }
+
+  .level-badge {
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+
+  .overview-instructions {
+    font-size: 10px;
+  }
+
+  /* Legend anchored top-right */
+  .overview-legend {
+    position: absolute;
+    top: max(env(safe-area-inset-top), 6px);
+    right: max(env(safe-area-inset-right), 12px);
+    flex-direction: row;
+    gap: 10px;
+    padding: 4px 10px;
+    font-size: 10px;
+    background: rgba(12, 13, 15, 0.85);
+    z-index: 35;
+  }
+
+  /* Weapon Selector Ribbon anchored at bottom center */
+  .overview-weapon-section {
+    margin-top: auto;
+    margin-bottom: 2px;
+    padding: 4px 8px;
+    max-width: 620px;
+    width: 96%;
+    align-self: center;
+    z-index: 35;
+  }
+
+  .overview-weapon-grid {
+    gap: 6px;
+    padding: 2px 2px 6px 2px;
+  }
+
+  .weapon-section-header {
+    margin-bottom: 3px;
+    padding-bottom: 2px;
+  }
+
+  .weapon-section-title {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+
+  .weapon-section-subtitle {
+    display: none; /* Hide subtitle to preserve vertical space for map */
+  }
+
+  .weapon-card {
+    flex: 0 0 112px;
+    min-height: 68px;
+    height: auto;
+    padding: 3px 5px;
+  }
+
+  .weapon-badge {
+    font-size: 8.5px;
+    padding: 1px 4px;
+  }
+
+  .weapon-card-icon {
+    font-size: 16px;
+    margin: 1px 0;
+    line-height: 1;
+  }
+
+  .weapon-card-name {
+    font-size: 10.5px;
+    font-weight: bold;
+    line-height: 1.18;
+    min-height: 2.4em;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    text-align: center;
+  }
+
+  .weapon-card-desc {
+    display: none; /* Hide card description in compact mobile ribbon */
+  }
+
+  /* Action Buttons (START LEVEL & ABORT) */
+  .overview-actions {
+    padding-bottom: 2px;
+    gap: 8px;
+    z-index: 35;
+  }
+
+  .action-btn {
+    padding: 6px 18px;
+    font-size: 18px;
+  }
+
+  /* =========================================================================
+     GAMEPLAY HUD (Ergonomic Touch Targets & Safe Placement)
+     ========================================================================= */
+  .hud-top {
+    top: max(env(safe-area-inset-top), 6px);
+    left: max(env(safe-area-inset-left), 8px);
+    right: max(env(safe-area-inset-right), 8px);
+  }
+
+  .hud-status {
+    font-size: 14px;
+    padding: 3px 8px;
+    max-width: calc(100% - 100px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hud-fs-btn, .hud-pause-btn {
+    padding: 3px 8px;
+    font-size: 15px;
+    min-width: 42px;
+    min-height: 42px;
+  }
+
+  /* Contextual Pickup Prompt (Anchored at TOP in Mobile Landscape to Avoid Controls) */
+  .pickup-prompt-banner {
+    top: max(calc(env(safe-area-inset-top) + 48px), 50px);
+    bottom: auto;
+    padding: 6px 14px;
+    gap: 8px;
+  }
+
+  .pickup-icon {
+    font-size: 20px;
+  }
+
+  .pickup-title {
+    font-size: 12px;
+  }
+
+  .pickup-hint {
+    font-size: 10px;
+  }
+
+  /* Discovery Toast */
+  .weapon-toast {
+    top: max(calc(env(safe-area-inset-top) + 50px), 52px);
+    padding: 6px 14px;
+    max-width: 90vw;
+    gap: 8px;
+  }
+
+  .toast-icon {
+    font-size: 20px;
+  }
+
+  .toast-title {
+    font-size: 12px;
+  }
+
+  .toast-desc {
+    font-size: 11px;
+  }
+
+  /* Detection Meter */
+  #detection-meter-container {
+    top: 50px;
+    padding: 2px 8px;
+  }
+
+  .meter-label {
+    font-size: 14px;
+  }
+
+  .meter-bar {
+    width: 90px;
+    height: 6px;
+  }
+
+  /* Desktop Attack Prompt Banner (Centered) */
+  .attack-prompt-banner {
+    top: 50%;
+    padding: 8px 16px;
+  }
+
+  .attack-prompt-banner .prompt-icon {
+    font-size: 20px;
+  }
+
+  .attack-prompt-banner .prompt-title {
+    font-size: 18px;
+  }
+
+  .attack-prompt-banner .prompt-key {
+    font-size: 11px;
+  }
+
+  /* Touch Controls (Joystick & Buttons) */
   .joystick-zone {
     width: 110px;
     height: 110px;
@@ -1224,20 +1926,21 @@ body.in-overview #ps1-overlay {
 
   #joystick-container-center {
     bottom: max(env(safe-area-inset-bottom, 8px), 10px);
+    left: max(env(safe-area-inset-left, 8px), 12px);
   }
 
   #contextual-attack-wrapper {
     top: auto !important;
     left: auto !important;
-    right: max(env(safe-area-inset-right), 24px) !important;
-    bottom: max(env(safe-area-inset-bottom), 18px) !important;
+    right: max(env(safe-area-inset-right), 22px) !important;
+    bottom: max(env(safe-area-inset-bottom), 14px) !important;
     transform: none !important;
     z-index: 25;
   }
 
   .attack-button {
-    width: 82px;
-    height: 82px;
+    width: 80px;
+    height: 80px;
     border-radius: 50% !important;
     padding: 0 !important;
     display: flex;
@@ -1248,12 +1951,12 @@ body.in-overview #ps1-overlay {
   }
 
   .attack-button .attack-icon {
-    font-size: 26px;
+    font-size: 24px;
     line-height: 1;
   }
 
   .attack-button .attack-text {
-    font-size: 13px;
+    font-size: 12px;
     letter-spacing: 1px;
     line-height: 1;
     font-family: var(--font-title);
@@ -1292,31 +1995,37 @@ body.in-overview #ps1-overlay {
     letter-spacing: 1px;
   }
 
-  .hud-fs-btn, .hud-pause-btn {
-    padding: 3px 8px;
-    font-size: 15px;
-    min-width: 36px;
-    min-height: 36px;
+  /* Modal Cards (Pause, Game Over, Level Complete) */
+  .modal-card {
+    padding: 12px 18px;
+    gap: 8px;
+    max-width: 440px;
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
   }
 
-  .hud-status {
-    font-size: 14px;
-    padding: 3px 8px;
-    max-width: calc(100% - 96px);
+  .modal-card h2 {
+    font-size: 24px;
+    margin-bottom: 0;
   }
 
-  .overview-actions {
-    padding-bottom: 2px;
+  .modal-buttons {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
   }
 
-  .action-btn {
-    padding: 8px 20px;
-    font-size: 20px;
-  }
-
-  .hud-status {
+  .modal-buttons .retro-btn {
+    padding: 6px 14px;
     font-size: 16px;
-    padding: 3px 10px;
+    flex: 1 1 40%;
+  }
+
+  .level-stats {
+    padding: 6px 10px;
+    gap: 4px;
+    font-size: 12px;
   }
 }
 
@@ -1338,8 +2047,8 @@ body.in-overview #ps1-overlay {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 24px;
-  gap: 16px;
+  padding: 20px;
+  gap: 14px;
   pointer-events: auto;
 }
 
@@ -1350,7 +2059,7 @@ body.in-overview #ps1-overlay {
 }
 
 .rotate-phone-icon {
-  font-size: 48px;
+  font-size: 44px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1365,14 +2074,24 @@ body.in-overview #ps1-overlay {
 
 .rotate-title {
   font-family: var(--font-title);
-  font-size: 32px;
+  font-size: clamp(22px, 6vw, 30px);
   color: var(--ps1-red-glow);
   letter-spacing: 2px;
 }
 
 .rotate-desc {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--ps1-light);
-  max-width: 320px;
-  line-height: 1.5;
+  max-width: 300px;
+  line-height: 1.4;
+}
+
+#btn-enter-fullscreen-landscape {
+  font-size: 18px;
+  padding: 10px 18px;
+}
+
+#btn-dismiss-landscape {
+  font-size: 14px;
+  padding: 6px 14px;
 }
