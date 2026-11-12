@@ -172,8 +172,11 @@ export function runFullVerification() {
     let crossFloorAttackRejected = true;
     if (floorCount > 1) {
       const fh = level.floorHeight || 3.8;
-      const playerUpperPos = new THREE.Vector3(mSpawn.x + 0.5, fh + 1.65, mSpawn.z + 0.5);
-      const crossHit = resetMonster.canInteractWithMonster(playerUpperPos, build.blockingMeshes, 1);
+      const mFloor = mSpawn.floor || 0;
+      const otherFloor = mFloor === 0 ? 1 : 0;
+      const otherFloorY = otherFloor * fh + 1.65;
+      const playerOtherFloorPos = new THREE.Vector3(mSpawn.x + 0.5, otherFloorY, mSpawn.z + 0.5);
+      const crossHit = resetMonster.canInteractWithMonster(playerOtherFloorPos, build.blockingMeshes, otherFloor);
       crossFloorAttackRejected = (crossHit === false);
       console.log(`  9. Cross-Floor Attack Rejection: ${crossFloorAttackRejected ? 'PASS (REJECTED)' : 'FAIL (UNEXPECTED HIT)'}`);
     } else {
@@ -181,8 +184,9 @@ export function runFullVerification() {
     }
 
     // Same-floor hit check
+    const monsterFloor = mSpawn.floor || 0;
     const playerSameFloorPos = new THREE.Vector3(mSpawn.x, (mSpawn.y || 0) + 1.65, mSpawn.z + 1.5);
-    const sameFloorAttackAccepted = resetMonster.canInteractWithMonster(playerSameFloorPos, [], 0);
+    const sameFloorAttackAccepted = resetMonster.canInteractWithMonster(playerSameFloorPos, [], monsterFloor);
     console.log(`  9b. Same-Floor Attack Accepted: ${sameFloorAttackAccepted ? 'PASS' : 'FAIL'}`);
 
     // 10. Weapon pickup works

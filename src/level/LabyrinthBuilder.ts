@@ -14,8 +14,9 @@ import {
   BoxCollider,
   FallZoneConfig,
 } from './LevelCollisionConfig.ts';
+import { SpawnManager, SelectedSpawns } from './SpawnManager.ts';
 
-export type { WorldRamp, WorldBridge, StairwellOpening };
+export type { WorldRamp, WorldBridge, StairwellOpening, SelectedSpawns };
 
 export interface WorldWeaponPickup {
   weaponId: WeaponId;
@@ -41,10 +42,13 @@ export interface LevelBuildResult {
   exitTriggerBox: THREE.Box3;
   playerMarker: THREE.Group;
   monsterMarker: THREE.Group;
+  monsterMarkers: THREE.Group[];
   exitMarker: THREE.Group;
-  playerWorldSpawn: { x: number; y: number; z: number; rotationY: number };
-  monsterWorldSpawn: { x: number; y: number; z: number; rotationY: number };
-  exitWorldPos: { x: number; y: number; z: number };
+  playerWorldSpawn: { x: number; y: number; z: number; rotationY: number; floor?: number };
+  monsterWorldSpawn: { x: number; y: number; z: number; rotationY: number; floor?: number };
+  monsterWorldSpawns: Array<{ x: number; y: number; z: number; rotationY: number; floor?: number }>;
+  exitWorldPos: { x: number; y: number; z: number; floor?: number };
+  selectedSpawns?: SelectedSpawns;
   treeColliders: Array<{ x: number; z: number; radius: number }>;
   updatedGrid: number[][];
   navigationGrid: number[][];
@@ -60,20 +64,20 @@ export interface LevelBuildResult {
 }
 
 export class LabyrinthBuilder {
-  public static buildLevel(level: LevelDefinition): LevelBuildResult {
+  public static buildLevel(level: LevelDefinition, spawns?: SelectedSpawns): LevelBuildResult {
     // PRESERVE LEVEL 1: If Level 1 or Banana Garden, use the original lush banana plantation builder
     if (level.theme === 'banana_garden' || level.id === 1) {
-      return this.buildBananaGardenLevel(level);
+      return this.buildBananaGardenLevel(level, spawns);
     }
 
     // For Levels 2 to 10: Build distinct themed 3D environments
-    return this.buildThemedLevel(level);
+    return this.buildThemedLevel(level, spawns);
   }
 
   // =========================================================================
   // LEVEL 1 — HAUNTED BANANA GARDEN (100% PRESERVED EXISTING LEVEL)
   // =========================================================================
-  private static buildBananaGardenLevel(level: LevelDefinition): LevelBuildResult {
+  private static buildBananaGardenLevel(level: LevelDefinition, spawns?: SelectedSpawns): LevelBuildResult {
     const rootGroup = new THREE.Group();
     rootGroup.name = 'BananaForestRoot';
 
@@ -133,14 +137,19 @@ export class LabyrinthBuilder {
     rootGroup.add(hemiLight);
 
     // 3. Spawns & Clearings Calculation
-    const pSpawnWx = (level.playerSpawn.x + 0.5) * cellSize - halfWidth;
-    const pSpawnWz = (level.playerSpawn.z + 0.5) * cellSize - halfHeight;
+    const selectedSpawns = spawns || SpawnManager.generateSpawns(level);
+    const pSpawnWx = selectedSpawns.player.x;
+    const pSpawnWy = selectedSpawns.player.y;
+    const pSpawnWz = selectedSpawns.player.z;
 
-    const mSpawnWx = (level.monsterSpawn.x + 0.5) * cellSize - halfWidth;
-    const mSpawnWz = (level.monsterSpawn.z + 0.5) * cellSize - halfHeight;
+    const monsterSpawns = selectedSpawns.monsters;
+    const mSpawnWx = monsterSpawns[0].x;
+    const mSpawnWy = monsterSpawns[0].y;
+    const mSpawnWz = monsterSpawns[0].z;
 
-    const exitWx = (level.exitDoor.x + 0.5) * cellSize - halfWidth;
-    const exitWz = (level.exitDoor.z + 0.5) * cellSize - halfHeight;
+    const exitWx = selectedSpawns.exit.x;
+    const exitWy = selectedSpawns.exit.y;
+    const exitWz = selectedSpawns.exit.z;
 
     // 4. Randomized, Organic Banana Tree Placement
     const forestObstaclesGroup = new THREE.Group();
@@ -204,7 +213,9 @@ export class LabyrinthBuilder {
 
     const isNearClearings = (x: number, z: number): boolean => {
       if (Math.hypot(x - pSpawnWx, z - pSpawnWz) < 6.0) return true;
-      if (Math.hypot(x - mSpawnWx, z - mSpawnWz) < 5.0) return true;
+      for (let i = 0; i < monsterSpawns.length; i++) {
+        if (Math.hypot(x - monsterSpawns[i].x, z - monsterSpawns[i].z) < 5.0) return true;
+      }
       if (Math.hypot(x - exitWx, z - exitWz) < 6.5) return true;
       if (Math.abs(x) > halfWidth - 3.8 || Math.abs(z) > halfHeight - 3.8) return true;
       return false;
@@ -278,7 +289,7 @@ export class LabyrinthBuilder {
     // Bamboo Exit Gate
     const exitDoorGroup = new THREE.Group();
     exitDoorGroup.name = 'VillageExitGate';
-    exitDoorGroup.position.set(exitWx, 0, exitWz);
+    exitDoorGroup.position.set(exitWx, exitWy, exitWz);
 
     const bambooTex = TextureGenerator.createBambooTexture();
     const woodTex = TextureGenerator.createGateWoodTexture();
@@ -325,14 +336,14 @@ export class LabyrinthBuilder {
     rootGroup.add(exitDoorGroup);
 
     const exitTriggerBox = new THREE.Box3(
-      new THREE.Vector3(exitWx - cellSize * 0.8, 0, exitWz - cellSize * 0.8),
-      new THREE.Vector3(exitWx + cellSize * 0.8, wallHeight, exitWz + cellSize * 0.8)
+      new THREE.Vector3(exitWx - cellSize * 0.8, exitWy, exitWz - cellSize * 0.8),
+      new THREE.Vector3(exitWx + cellSize * 0.8, exitWy + wallHeight, exitWz + cellSize * 0.8)
     );
 
     // Markers for Overview Camera
-    const markers = this.createOverviewMarkers(pSpawnWx, mSpawnWx, mSpawnWz, exitWx, exitWz, wallHeight, pSpawnWz);
+    const markers = this.createOverviewMarkers(pSpawnWx, monsterSpawns, exitWx, exitWz, wallHeight, pSpawnWz);
     rootGroup.add(markers.playerMarker);
-    rootGroup.add(markers.monsterMarker);
+    markers.monsterMarkers.forEach((m) => rootGroup.add(m));
     rootGroup.add(markers.exitMarker);
 
     // Pickups
@@ -363,11 +374,14 @@ export class LabyrinthBuilder {
       exitDoorMesh: exitDoorGroup,
       exitTriggerBox,
       playerMarker: markers.playerMarker,
-      monsterMarker: markers.monsterMarker,
+      monsterMarker: markers.monsterMarkers[0],
+      monsterMarkers: markers.monsterMarkers,
       exitMarker: markers.exitMarker,
-      playerWorldSpawn: { x: pSpawnWx, y: 1.5, z: pSpawnWz, rotationY: level.playerSpawn.rotationY },
-      monsterWorldSpawn: { x: mSpawnWx, y: 0, z: mSpawnWz, rotationY: level.monsterSpawn.rotationY },
-      exitWorldPos: { x: exitWx, y: 0, z: exitWz },
+      playerWorldSpawn: { x: pSpawnWx, y: pSpawnWy, z: pSpawnWz, rotationY: selectedSpawns.player.rotationY, floor: selectedSpawns.player.floor },
+      monsterWorldSpawn: { x: mSpawnWx, y: mSpawnWy, z: mSpawnWz, rotationY: monsterSpawns[0].rotationY, floor: monsterSpawns[0].floor },
+      monsterWorldSpawns: monsterSpawns,
+      exitWorldPos: { x: exitWx, y: exitWy, z: exitWz, floor: selectedSpawns.exit.floor },
+      selectedSpawns,
       treeColliders,
       updatedGrid,
       navigationGrid: updatedGrid,
@@ -385,7 +399,7 @@ export class LabyrinthBuilder {
   // =========================================================================
   // THEMED LEVELS BUILDER (LEVELS 2 TO 10)
   // =========================================================================
-  private static buildThemedLevel(level: LevelDefinition): LevelBuildResult {
+  private static buildThemedLevel(level: LevelDefinition, spawns?: SelectedSpawns): LevelBuildResult {
     const rootGroup = new THREE.Group();
     rootGroup.name = `${level.theme}_Root`;
 
@@ -740,23 +754,28 @@ export class LabyrinthBuilder {
     blockingMeshes.push(wallsMesh);
 
     // 5. Spawns & World Coordinates
-    const pSpawnWx = (level.playerSpawn.x + 0.5) * cellSize - halfWidth;
-    const pSpawnWz = (level.playerSpawn.z + 0.5) * cellSize - halfHeight;
+    const selectedSpawns = spawns || SpawnManager.generateSpawns(level);
+    const pSpawnWx = selectedSpawns.player.x;
+    const pSpawnWy = selectedSpawns.player.y;
+    const pSpawnWz = selectedSpawns.player.z;
 
-    const mSpawnWx = (level.monsterSpawn.x + 0.5) * cellSize - halfWidth;
-    const mSpawnWz = (level.monsterSpawn.z + 0.5) * cellSize - halfHeight;
+    const monsterSpawns = selectedSpawns.monsters;
+    const mSpawnWx = monsterSpawns[0].x;
+    const mSpawnWy = monsterSpawns[0].y;
+    const mSpawnWz = monsterSpawns[0].z;
 
-    const exitWx = (level.exitDoor.x + 0.5) * cellSize - halfWidth;
-    const exitWz = (level.exitDoor.z + 0.5) * cellSize - halfHeight;
+    const exitWx = selectedSpawns.exit.x;
+    const exitWy = selectedSpawns.exit.y;
+    const exitWz = selectedSpawns.exit.z;
 
     // 6. Themed Props & Navigation Obstacles
     const propColliders: Array<{ x: number; z: number; radius: number }> = [];
-    this.spawnThemedProps(level, halfWidth, halfHeight, cellSize, rootGroup, propColliders);
+    this.spawnThemedProps(level, halfWidth, halfHeight, cellSize, rootGroup, propColliders, selectedSpawns);
 
     // 7. Themed Exit Door
     const exitDoorGroup = new THREE.Group();
     exitDoorGroup.name = 'ThemedExitDoor';
-    exitDoorGroup.position.set(exitWx, 0, exitWz);
+    exitDoorGroup.position.set(exitWx, exitWy, exitWz);
 
     const doorTex = TextureGenerator.createExitDoorTexture(level.exitLockedInitially || false);
     const doorMat = new THREE.MeshBasicMaterial({ map: doorTex });
@@ -776,17 +795,17 @@ export class LabyrinthBuilder {
     rootGroup.add(exitDoorGroup);
 
     const exitTriggerBox = new THREE.Box3(
-      new THREE.Vector3(exitWx - cellSize * 0.8, 0, exitWz - cellSize * 0.8),
-      new THREE.Vector3(exitWx + cellSize * 0.8, wallHeight, exitWz + cellSize * 0.8)
+      new THREE.Vector3(exitWx - cellSize * 0.8, exitWy, exitWz - cellSize * 0.8),
+      new THREE.Vector3(exitWx + cellSize * 0.8, exitWy + wallHeight, exitWz + cellSize * 0.8)
     );
 
     // 8. Corridors Atmospheric Lights
     this.spawnCorridorLights(level, halfWidth, halfHeight, cellSize, wallHeight, rootGroup);
 
     // 9. Overview Markers (Anchored safely above topmost roof in multi-floor environments)
-    const markers = this.createOverviewMarkers(pSpawnWx, mSpawnWx, mSpawnWz, exitWx, exitWz, totalLevelHeight, pSpawnWz);
+    const markers = this.createOverviewMarkers(pSpawnWx, monsterSpawns, exitWx, exitWz, totalLevelHeight, pSpawnWz);
     rootGroup.add(markers.playerMarker);
-    rootGroup.add(markers.monsterMarker);
+    markers.monsterMarkers.forEach((m) => rootGroup.add(m));
     rootGroup.add(markers.exitMarker);
 
     // 10. Weapon Pickups
@@ -1111,11 +1130,14 @@ export class LabyrinthBuilder {
       exitDoorMesh: exitDoorGroup,
       exitTriggerBox,
       playerMarker: markers.playerMarker,
-      monsterMarker: markers.monsterMarker,
+      monsterMarker: markers.monsterMarkers[0],
+      monsterMarkers: markers.monsterMarkers,
       exitMarker: markers.exitMarker,
-      playerWorldSpawn: { x: pSpawnWx, y: 1.5, z: pSpawnWz, rotationY: level.playerSpawn.rotationY },
-      monsterWorldSpawn: { x: mSpawnWx, y: 0, z: mSpawnWz, rotationY: level.monsterSpawn.rotationY },
-      exitWorldPos: { x: exitWx, y: 0, z: exitWz },
+      playerWorldSpawn: { x: pSpawnWx, y: pSpawnWy, z: pSpawnWz, rotationY: selectedSpawns.player.rotationY, floor: selectedSpawns.player.floor },
+      monsterWorldSpawn: { x: mSpawnWx, y: mSpawnWy, z: mSpawnWz, rotationY: monsterSpawns[0].rotationY, floor: monsterSpawns[0].floor },
+      monsterWorldSpawns: monsterSpawns,
+      exitWorldPos: { x: exitWx, y: exitWy, z: exitWz, floor: selectedSpawns.exit.floor },
+      selectedSpawns,
       treeColliders: propColliders,
       updatedGrid: grid,
       navigationGrid: grid,
@@ -1140,7 +1162,8 @@ export class LabyrinthBuilder {
     halfHeight: number,
     cellSize: number,
     rootGroup: THREE.Group,
-    colliders: Array<{ x: number; z: number; radius: number }>
+    colliders: Array<{ x: number; z: number; radius: number }>,
+    selectedSpawns?: SelectedSpawns
   ): void {
     const { grid, gridWidth, gridHeight, theme } = level;
 
@@ -1149,6 +1172,19 @@ export class LabyrinthBuilder {
       if (Math.abs(gx - level.playerSpawn.x) <= 1 && Math.abs(gz - level.playerSpawn.z) <= 1) return true;
       if (Math.abs(gx - level.monsterSpawn.x) <= 1 && Math.abs(gz - level.monsterSpawn.z) <= 1) return true;
       if (Math.abs(gx - level.exitDoor.x) <= 1 && Math.abs(gz - level.exitDoor.z) <= 1) return true;
+      if (selectedSpawns) {
+        const pCellX = Math.floor((selectedSpawns.player.x + halfWidth) / cellSize);
+        const pCellZ = Math.floor((selectedSpawns.player.z + halfHeight) / cellSize);
+        if (Math.abs(gx - pCellX) <= 1 && Math.abs(gz - pCellZ) <= 1) return true;
+        for (const m of selectedSpawns.monsters) {
+          const mCellX = Math.floor((m.x + halfWidth) / cellSize);
+          const mCellZ = Math.floor((m.z + halfHeight) / cellSize);
+          if (Math.abs(gx - mCellX) <= 1 && Math.abs(gz - mCellZ) <= 1) return true;
+        }
+        const eCellX = Math.floor((selectedSpawns.exit.x + halfWidth) / cellSize);
+        const eCellZ = Math.floor((selectedSpawns.exit.z + halfHeight) / cellSize);
+        if (Math.abs(gx - eCellX) <= 1 && Math.abs(gz - eCellZ) <= 1) return true;
+      }
       return false;
     };
 
@@ -1313,8 +1349,7 @@ export class LabyrinthBuilder {
   // =========================================================================
   private static createOverviewMarkers(
     pSpawnWx: number,
-    mSpawnWx: number,
-    mSpawnWz: number,
+    monsterSpawns: Array<{ x: number; y: number; z: number }>,
     exitWx: number,
     exitWz: number,
     wallHeight: number,
@@ -1341,18 +1376,23 @@ export class LabyrinthBuilder {
     dirCone.rotateX(Math.PI / 2);
     playerMarker.add(dirCone);
 
-    // Monster Marker (Red Warning Torus)
-    const monsterMarker = new THREE.Group();
-    monsterMarker.name = 'PocongOverviewMarker';
-    monsterMarker.position.set(mSpawnWx, markerY, mSpawnWz);
+    // Monster Markers (Red Warning Toruses)
+    const monsterMarkers: THREE.Group[] = [];
+    monsterSpawns.forEach((m, idx) => {
+      const monsterMarker = new THREE.Group();
+      monsterMarker.name = `PocongOverviewMarker_${idx + 1}`;
+      monsterMarker.position.set(m.x, markerY, m.z);
 
-    const monsterRingGeo = new THREE.TorusGeometry(1.2, 0.12, 6, 16);
-    monsterRingGeo.rotateX(Math.PI / 2);
-    const monsterRing = new THREE.Mesh(monsterRingGeo, new THREE.MeshBasicMaterial({ color: 0xef4444, wireframe: true }));
-    monsterMarker.add(monsterRing);
+      const monsterRingGeo = new THREE.TorusGeometry(1.2, 0.12, 6, 16);
+      monsterRingGeo.rotateX(Math.PI / 2);
+      const monsterRing = new THREE.Mesh(monsterRingGeo, new THREE.MeshBasicMaterial({ color: 0xef4444, wireframe: true }));
+      monsterMarker.add(monsterRing);
 
-    const centerDot = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-    monsterMarker.add(centerDot);
+      const centerDot = new THREE.Mesh(new THREE.SphereGeometry(0.45, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
+      monsterMarker.add(centerDot);
+
+      monsterMarkers.push(monsterMarker);
+    });
 
     // Exit Marker (Green Diamond)
     const exitMarker = new THREE.Group();
@@ -1362,7 +1402,12 @@ export class LabyrinthBuilder {
     const exitBeacon = new THREE.Mesh(new THREE.OctahedronGeometry(1.1, 0), new THREE.MeshBasicMaterial({ color: 0x22c55e }));
     exitMarker.add(exitBeacon);
 
-    return { playerMarker, monsterMarker, exitMarker };
+    return {
+      playerMarker,
+      monsterMarker: monsterMarkers[0],
+      monsterMarkers,
+      exitMarker,
+    };
   }
 
   // =========================================================================

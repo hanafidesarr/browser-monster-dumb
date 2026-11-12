@@ -61,6 +61,7 @@ export interface LevelDefinition {
   exitLockedInitially?: boolean; // Level 9 requires switches before exit opens
   floorCount?: number;          // Multi-floor: 1 up to 10 floors
   floorHeight?: number;         // Height separation between floors
+  monsterCount?: number;        // Total monsters for this level (Part 3.6)
   ramps?: FloorRamp[];          // Stairs / Ramps connecting floors
   bridges?: WoodenBridge[];     // Wooden bridges across gaps
   monsterConfig: {
@@ -262,6 +263,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
     floorCount: 1,
     floorHeight: 0,
+    monsterCount: 1,
     weaponPickups: [
       { weaponId: 'signboard', x: 16, z: 4 },
       { weaponId: 'slipper', x: 4, z: 16 },
@@ -299,6 +301,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
     floorCount: 2,
     floorHeight: 3.8,
+    monsterCount: 1,
     ramps: [
       { fromFloor: 0, toFloor: 1, startCell: { x: 7, z: 9 }, endCell: { x: 9, z: 9 }, isStair: true },
     ],
@@ -338,6 +341,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
     floorCount: 2,
     floorHeight: 3.8,
+    monsterCount: 1,
     ramps: [
       { fromFloor: 0, toFloor: 1, startCell: { x: 9, z: 10 }, endCell: { x: 11, z: 10 }, isStair: true },
     ],
@@ -377,6 +381,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
     floorCount: 3,
     floorHeight: 3.8,
+    monsterCount: 2,
     ramps: [
       { fromFloor: 0, toFloor: 1, startCell: { x: 10, z: 7 }, endCell: { x: 10, z: 9 }, isStair: true },
       { fromFloor: 1, toFloor: 2, startCell: { x: 10, z: 11 }, endCell: { x: 10, z: 13 }, isStair: true },
@@ -417,6 +422,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
     floorCount: 2,
     floorHeight: 3.8,
+    monsterCount: 2,
     ramps: [
       { fromFloor: 0, toFloor: 1, startCell: { x: 8, z: 10 }, endCell: { x: 10, z: 10 }, isStair: true },
     ],
@@ -457,6 +463,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
     floorCount: 3,
     floorHeight: 3.8,
+    monsterCount: 3,
     ramps: [
       { fromFloor: 0, toFloor: 1, startCell: { x: 8, z: 8 }, endCell: { x: 10, z: 8 }, isStair: true },
       { fromFloor: 1, toFloor: 2, startCell: { x: 10, z: 12 }, endCell: { x: 10, z: 14 }, isStair: true },
@@ -497,6 +504,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
     floorCount: 5,
     floorHeight: 3.4,
+    monsterCount: 3,
     ramps: [
       { fromFloor: 0, toFloor: 1, startCell: { x: 7, z: 8 }, endCell: { x: 9, z: 8 }, isStair: true },
       { fromFloor: 1, toFloor: 2, startCell: { x: 11, z: 8 }, endCell: { x: 13, z: 8 }, isStair: true },
@@ -540,6 +548,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
     floorCount: 3,
     floorHeight: 3.8,
+    monsterCount: 3,
     ramps: [
       { fromFloor: 0, toFloor: 1, startCell: { x: 6, z: 10 }, endCell: { x: 8, z: 10 }, isStair: true },
       { fromFloor: 1, toFloor: 2, startCell: { x: 12, z: 10 }, endCell: { x: 14, z: 10 }, isStair: true },
@@ -582,6 +591,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     exitLockedInitially: true,
     floorCount: 5,
     floorHeight: 3.6,
+    monsterCount: 4,
     ramps: [
       { fromFloor: 0, toFloor: 1, startCell: { x: 8, z: 10 }, endCell: { x: 10, z: 10 }, isStair: true },
       { fromFloor: 1, toFloor: 2, startCell: { x: 10, z: 11 }, endCell: { x: 10, z: 13 }, isStair: true },
@@ -629,6 +639,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
     floorCount: 10,
     floorHeight: 3.2,
+    monsterCount: 4,
     ramps: [
       { fromFloor: 0, toFloor: 1, startCell: { x: 3, z: 6 }, endCell: { x: 5, z: 6 }, isStair: true },
       { fromFloor: 1, toFloor: 2, startCell: { x: 6, z: 6 }, endCell: { x: 8, z: 6 }, isStair: true },

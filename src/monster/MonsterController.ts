@@ -16,6 +16,8 @@ export type MonsterState =
   | 'CATCH_PLAYER';
 
 export class MonsterController {
+  public id: string = 'pocong_1';
+  public otherMonsters: MonsterController[] = [];
   public model: MonsterModel;
   public group: THREE.Group;
   public state: MonsterState = 'SITTING_IDLE';
@@ -44,7 +46,7 @@ export class MonsterController {
   public detectionPercent: number = 0; // 0 to 1 for HUD alert meter
 
   // State timers
-  private stateTime: number = 0;
+  public stateTime: number = 0;
   private animProgress: number = 0;
   private currentHitReaction: MonsterReactionType = 'snap';
 
@@ -237,6 +239,17 @@ export class MonsterController {
     AudioManager.getInstance().playWeaponImpact(weaponDef.impactSound);
   }
 
+  // Awakened by scream or alert of another monster
+  public wakeUpAndChase(): void {
+    if (this.state !== 'SITTING_IDLE' || this.isAwake) return;
+
+    this.isAwake = true;
+    this.state = 'STAND_UP';
+    this.stateTime = 0;
+    this.animProgress = 0;
+    this.detectionPercent = 0;
+  }
+
   // Legacy wrapper for baseball bat strike
   public triggerBatHit(): void {
     this.triggerWeaponHit(WEAPON_MAP['baseball_bat']);
@@ -295,36 +308,40 @@ export class MonsterController {
   // Can be awakened either by being struck with a weapon OR if player steps directly in front / touches it!
   private updateSittingIdle(dt: number, totalTime: number, playerPos: THREE.Vector3): void {
     this.model.applySittingPosture(totalTime);
-    this.position.y = 0;
+    this.position.y = this.baseGroundY;
 
     if (!this.levelDef) return;
     const cfg = this.levelDef.monsterConfig;
 
     const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
+    const verticalDist = Math.abs((playerPos.y - 1.65) - this.baseGroundY);
 
-    // Frontal Detection & Proximity Awakening
+    // Frontal Detection & Proximity Awakening (strictly floor-aware)
     let isDetected = false;
 
-    // 1. Physical proximity: player bumps into or steps right next to sleeping Pocong (< 2.2m)
-    if (horizontalDist < 2.2) {
-      isDetected = true;
-    }
-    // 2. Frontal Vision Cone: player enters front FOV cone within sight distance
-    else if (horizontalDist < (cfg.detectionDistance || 9.0)) {
-      const forward = this.getForwardVector();
-      const dirToPlayer = new THREE.Vector3(
-        playerPos.x - this.position.x,
-        0,
-        playerPos.z - this.position.z
-      ).normalize();
+    // Floor separation guard: monster cannot detect through solid floors/ceilings
+    if (verticalDist <= 1.75) {
+      // 1. Physical proximity: player bumps into or steps right next to sleeping Pocong (< 2.2m)
+      if (horizontalDist < 2.2) {
+        isDetected = true;
+      }
+      // 2. Frontal Vision Cone: player enters front FOV cone within sight distance
+      else if (horizontalDist < (cfg.detectionDistance || 9.0)) {
+        const forward = this.getForwardVector();
+        const dirToPlayer = new THREE.Vector3(
+          playerPos.x - this.position.x,
+          0,
+          playerPos.z - this.position.z
+        ).normalize();
 
-      const dot = forward.dot(dirToPlayer);
-      const halfFovRad = (((cfg.detectionFovDeg || 90) / 2) * Math.PI) / 180;
-      const fovThreshold = Math.cos(halfFovRad);
+        const dot = forward.dot(dirToPlayer);
+        const halfFovRad = (((cfg.detectionFovDeg || 90) / 2) * Math.PI) / 180;
+        const fovThreshold = Math.cos(halfFovRad);
 
-      if (dot >= fovThreshold) {
-        if (!this.pathfinding || this.pathfinding.hasLineOfSight(this.position.x, this.position.z, playerPos.x, playerPos.z)) {
-          isDetected = true;
+        if (dot >= fovThreshold) {
+          if (!this.pathfinding || this.pathfinding.hasLineOfSight(this.position.x, this.position.z, playerPos.x, playerPos.z)) {
+            isDetected = true;
+          }
         }
       }
     }
@@ -614,6 +631,25 @@ export class MonsterController {
         if (cdist < minDist && cdist > 0.001) {
           this.position.x = c.x + (cdx / cdist) * minDist;
           this.position.z = c.z + (cdz / cdist) * minDist;
+        }
+      }
+
+      // 4. Multi-Monster Mutual Separation / Local Avoidance
+      if (this.otherMonsters && this.otherMonsters.length > 1) {
+        const separationRadius = 1.35;
+        for (let i = 0; i < this.otherMonsters.length; i++) {
+          const other = this.otherMonsters[i];
+          if (other === this) continue;
+          if (Math.abs(this.position.y - other.position.y) < 1.8) {
+            const mdx = this.position.x - other.position.x;
+            const mdz = this.position.z - other.position.z;
+            const mdist = Math.hypot(mdx, mdz);
+            if (mdist < separationRadius && mdist > 0.001) {
+              const push = ((separationRadius - mdist) / separationRadius) * 2.2 * dt;
+              this.position.x += (mdx / mdist) * push;
+              this.position.z += (mdz / mdist) * push;
+            }
+          }
         }
       }
     }

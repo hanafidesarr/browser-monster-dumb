@@ -41,7 +41,10 @@ export class GameManager {
   private currentLevelDef: LevelDefinition;
   private levelBuild: LevelBuildResult | null = null;
   private pathfinding: GridPathfinding | null = null;
-  private monster: MonsterController;
+  private monsters: MonsterController[] = [];
+  public get monster(): MonsterController {
+    return this.monsters[0];
+  }
 
   // Game State
   public state: GameState = 'MAIN_MENU';
@@ -79,9 +82,6 @@ export class GameManager {
     this.fpController = new FirstPersonController();
     this.scene.add(this.fpController.camera);
 
-    this.monster = new MonsterController();
-    this.scene.add(this.monster.group);
-
     this.activeCamera = this.overviewCam.camera;
 
     // Apply Graphics Resolution
@@ -101,9 +101,6 @@ export class GameManager {
 
     // Setup UI Callbacks
     this.setupUICallbacks();
-
-    // Setup Monster Callbacks
-    this.setupMonsterCallbacks();
 
     // Start Rendering Loop
     this.animate();
@@ -255,23 +252,25 @@ export class GameManager {
     };
   }
 
-  private setupMonsterCallbacks(): void {
+  private setupMonsterCallbacks(m: MonsterController): void {
     const ui = UIManager.getInstance();
 
-    this.monster.onPlayerDetected = () => {
+    m.onPlayerDetected = () => {
       if (this.state === 'STEALTH') {
-        this.triggerGameOver('The monster detected your presence.');
+        this.triggerGameOver('Pocong mendeteksi keberadaanmu!');
       }
     };
 
-    this.monster.onPlayerCaught = () => {
+    m.onPlayerCaught = () => {
       this.triggerGameOver('Pocong berhasil menangkapmu!');
     };
 
-    this.monster.onChaseStarted = () => {
-      this.state = 'CHASE';
-      ui.switchToChaseControls();
-      ui.setStatusText('POCONG MELONCAT MENGEJAR! CEPAT LARI KE PINTU KELUAR!');
+    m.onChaseStarted = () => {
+      if (this.state !== 'CHASE') {
+        this.state = 'CHASE';
+        ui.switchToChaseControls();
+        ui.setStatusText('POCONG MELONCAT MENGEJAR! CEPAT LARI KE PINTU KELUAR!');
+      }
     };
   }
 
@@ -286,6 +285,15 @@ export class GameManager {
       this.scene.remove(this.levelBuild.rootGroup);
       this.disposeHierarchy(this.levelBuild.rootGroup);
       this.levelBuild = null as any;
+    }
+
+    // Remove existing monsters and dispose hierarchy
+    if (this.monsters.length > 0) {
+      for (const m of this.monsters) {
+        this.scene.remove(m.group);
+        this.disposeHierarchy(m.group);
+      }
+      this.monsters = [];
     }
 
     // Build Labyrinth
@@ -315,14 +323,28 @@ export class GameManager {
     const savedWeaponId = SaveManager.getInstance().getSelectedWeapon() as WeaponId;
     this.fpController.weapon.setWeapon(savedWeaponId);
 
-    // Setup Monster with isolated level-specific collision configuration
-    this.monster.setLevel(
-      this.currentLevelDef,
-      this.pathfinding,
-      this.levelBuild.monsterWorldSpawn,
-      this.levelBuild.collisionConfig
-    );
-    this.fpController.setMonsterObstacle(this.monster.position);
+    // Setup Monsters with isolated level-specific collision configuration
+    const monsterSpawns = this.levelBuild.monsterWorldSpawns || [this.levelBuild.monsterWorldSpawn];
+    for (let i = 0; i < monsterSpawns.length; i++) {
+      const m = new MonsterController();
+      m.id = `pocong_${i + 1}`;
+      this.scene.add(m.group);
+      m.setLevel(
+        this.currentLevelDef,
+        this.pathfinding,
+        monsterSpawns[i],
+        this.levelBuild.collisionConfig
+      );
+      this.setupMonsterCallbacks(m);
+      this.monsters.push(m);
+    }
+    // Link otherMonsters for mutual separation
+    for (const m of this.monsters) {
+      m.otherMonsters = this.monsters;
+    }
+    if (this.monsters.length > 0) {
+      this.fpController.setMonsterObstacle(this.monsters[0].position);
+    }
 
     // Setup Overview Camera
     this.overviewCam.setLevel(this.currentLevelDef);
@@ -372,7 +394,11 @@ export class GameManager {
     // Markers visible during Overview
     if (this.levelBuild) {
       this.levelBuild.playerMarker.visible = true;
-      this.levelBuild.monsterMarker.visible = true;
+      if (this.levelBuild.monsterMarkers) {
+        this.levelBuild.monsterMarkers.forEach((m) => (m.visible = true));
+      } else if (this.levelBuild.monsterMarker) {
+        this.levelBuild.monsterMarker.visible = true;
+      }
       this.levelBuild.exitMarker.visible = true;
     }
 
@@ -386,7 +412,11 @@ export class GameManager {
 
     // Hide overview markers for first-person gameplay
     this.levelBuild.playerMarker.visible = false;
-    this.levelBuild.monsterMarker.visible = false;
+    if (this.levelBuild.monsterMarkers) {
+      this.levelBuild.monsterMarkers.forEach((m) => (m.visible = false));
+    } else if (this.levelBuild.monsterMarker) {
+      this.levelBuild.monsterMarker.visible = false;
+    }
     this.levelBuild.exitMarker.visible = false;
 
     // Smoothly fly camera to player spawn
@@ -422,21 +452,30 @@ export class GameManager {
     );
   }
 
-  // Execute Baseball Bat Attack on Monster
+  // Execute Weapon Attack on Monster
   private performAttack(): void {
     if (this.state !== 'STEALTH' || this.isAttackSuccessful) return;
 
     const blocking = this.levelBuild ? this.levelBuild.blockingMeshes : [];
     const forward = this.fpController.getForwardVector();
-    const hitsMonster = this.monster.isHitByPlayerSwing(
-      this.fpController.camera,
-      this.fpController.position,
-      forward,
-      blocking,
-      this.fpController.currentFloor
-    );
+    let hitMonster: MonsterController | null = null;
 
-    if (hitsMonster) {
+    for (const m of this.monsters) {
+      if (
+        m.isHitByPlayerSwing(
+          this.fpController.camera,
+          this.fpController.position,
+          forward,
+          blocking,
+          this.fpController.currentFloor
+        )
+      ) {
+        hitMonster = m;
+        break;
+      }
+    }
+
+    if (hitMonster) {
       // Strike connected on monster's body!
       this.state = 'ATTACK';
       this.isAttackSuccessful = true;
@@ -451,10 +490,21 @@ export class GameManager {
         this.fpController.weapon.disableAttackPermanently();
       });
 
-      // 2. Immediately trigger Monster hit reaction with weapon characteristics, scream, and chase!
-      this.monster.triggerWeaponHit(weaponDef);
+      // 2. Immediately trigger hit reaction on struck monster with weapon characteristics, scream, and chase!
+      hitMonster.triggerWeaponHit(weaponDef);
       this.triggerScreenShake(0.4);
       UIManager.getInstance().setStatusText('POCONG TERBANGUN & MENGEJAR! CEPAT LARI KE PINTU EXIT!');
+
+      // Awaken all other resting monsters to join the chase
+      for (const m of this.monsters) {
+        if (m !== hitMonster) {
+          setTimeout(() => {
+            if (this.state === 'CHASE' || this.state === 'ATTACK') {
+              m.wakeUpAndChase();
+            }
+          }, 350);
+        }
+      }
       return;
     }
 
@@ -574,7 +624,11 @@ export class GameManager {
         if (this.levelBuild.playerMarker.visible) {
           this.levelBuild.playerMarker.rotation.y = t * 1.5;
         }
-        if (this.levelBuild.monsterMarker.visible) {
+        if (this.levelBuild.monsterMarkers) {
+          this.levelBuild.monsterMarkers.forEach((m) => {
+            if (m.visible) m.rotation.y = -t * 2.0;
+          });
+        } else if (this.levelBuild.monsterMarker && this.levelBuild.monsterMarker.visible) {
           this.levelBuild.monsterMarker.rotation.y = -t * 2.0;
         }
         if (this.levelBuild.exitMarker.visible) {
@@ -588,8 +642,10 @@ export class GameManager {
       // 1. Update Player
       this.fpController.update(dt, this.totalTime);
 
-      // 2. Update Monster
-      this.monster.update(dt, this.totalTime, this.fpController.position);
+      // 2. Update All Monsters
+      for (const m of this.monsters) {
+        m.update(dt, this.totalTime, this.fpController.position);
+      }
 
       // Animate world weapon pickups
       this.animateWorldPickups(this.totalTime);
@@ -597,13 +653,31 @@ export class GameManager {
       // 3. Attack Check & Weapon Pickup Discovery (during STEALTH phase)
       if (this.state === 'STEALTH') {
         const blocking = this.levelBuild ? this.levelBuild.blockingMeshes : [];
-        const nearMonster = this.monster.canBeAttackedFromBehind(
-          this.fpController.position,
-          blocking,
-          this.fpController.currentFloor
-        );
-        UIManager.getInstance().setAttackPromptVisible(nearMonster);
-        UIManager.getInstance().setDetectionMeter(this.monster.detectionPercent);
+        let canAttackAny = false;
+        let maxDetection = 0;
+        let nearestDist = Infinity;
+        let nearestMonster: MonsterController | null = null;
+
+        for (const m of this.monsters) {
+          if (m.canBeAttackedFromBehind(this.fpController.position, blocking, this.fpController.currentFloor)) {
+            canAttackAny = true;
+          }
+          if (m.detectionPercent > maxDetection) {
+            maxDetection = m.detectionPercent;
+          }
+          const dist = this.fpController.position.distanceTo(m.position);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestMonster = m;
+          }
+        }
+
+        if (nearestMonster) {
+          this.fpController.setMonsterObstacle(nearestMonster.position);
+        }
+
+        UIManager.getInstance().setAttackPromptVisible(canAttackAny);
+        UIManager.getInstance().setDetectionMeter(maxDetection);
 
         if (inputMgr.consumeAttackRequest()) {
           this.performAttack();
@@ -619,13 +693,16 @@ export class GameManager {
 
       // 4. Escape Door Trigger Check & Catch Check (during CHASE phase!)
       if (this.state === 'CHASE') {
-        const horizontalDist = Math.hypot(
-          this.monster.position.x - this.fpController.position.x,
-          this.monster.position.z - this.fpController.position.z
-        );
-        if (this.monster.stateTime > 0.8 && horizontalDist <= 1.5) {
-          this.triggerGameOver('Monster berhasil menangkapmu!');
-          return;
+        for (const m of this.monsters) {
+          const horizontalDist = Math.hypot(
+            m.position.x - this.fpController.position.x,
+            m.position.z - this.fpController.position.z
+          );
+          const verticalDiff = Math.abs(m.position.y - (this.fpController.position.y - 1.65));
+          if (m.stateTime > 0.8 && horizontalDist <= 1.5 && verticalDiff <= 1.5) {
+            this.triggerGameOver('Pocong berhasil menangkapmu!');
+            return;
+          }
         }
 
         if (this.levelBuild && this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)) {
