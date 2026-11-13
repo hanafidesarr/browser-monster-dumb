@@ -4,6 +4,7 @@ import { LabyrinthBuilder } from '../src/level/LabyrinthBuilder';
 import { FirstPersonController } from '../src/player/FirstPersonController';
 import { GridPathfinding } from '../src/pathfinding/GridPathfinding';
 import { MonsterController } from '../src/monster/MonsterController';
+import { UIManager } from '../src/ui/UIManager';
 import { GrenadeSystem } from '../src/weapon/GrenadeSystem';
 
 let passed = 0;
@@ -49,9 +50,11 @@ const mockGL = {
 
 function createMockProxy(): any {
   const p: any = new Proxy(() => p, {
-    get: (target: any, prop: string) => {
+    get: (target: any, prop: string | symbol) => {
       if (prop === 'getContext') return () => mockGL;
       if (prop === 'getImageData') return () => ({ data: new Uint8ClampedArray(1024) });
+      if (prop === 'value') return '50';
+      if (prop === Symbol.toPrimitive) return () => 'mock';
       return createMockProxy();
     },
     apply: () => createMockProxy(),
@@ -80,8 +83,35 @@ function createMockProxy(): any {
   removeEventListener: () => {},
 };
 
+const domElements: Record<string, any> = {};
+function getOrCreateElement(id: string) {
+  if (!domElements[id]) {
+    const classes = new Set(['hidden']);
+    domElements[id] = {
+      id,
+      classList: {
+        add: (c: string) => classes.add(c),
+        remove: (c: string) => classes.delete(c),
+        contains: (c: string) => classes.has(c),
+        toggle: (c: string, force?: boolean) => {
+          const shouldAdd = force !== undefined ? force : !classes.has(c);
+          if (shouldAdd) classes.add(c); else classes.delete(c);
+        },
+      },
+      style: {},
+      appendChild: () => {},
+      removeChild: () => {},
+      querySelector: () => createMockProxy(),
+      querySelectorAll: () => [],
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    };
+  }
+  return domElements[id];
+}
+
 (globalThis as any).document = {
-  getElementById: () => createMockProxy(),
+  getElementById: (id: string) => getOrCreateElement(id),
   querySelector: () => createMockProxy(),
   querySelectorAll: () => [],
   createElement: () => ({
@@ -89,8 +119,9 @@ function createMockProxy(): any {
     height: 256,
     style: {},
     classList: { add: () => {}, remove: () => {}, contains: () => false },
-    addEventListener: () => {},
     appendChild: () => {},
+    removeChild: () => {},
+    addEventListener: () => {},
     getContext: (type: string) => (type === 'webgl' || type === 'webgl2' ? mockGL : createMockProxy()),
   }),
   createElementNS: () => createMockProxy(),
@@ -193,59 +224,42 @@ for (let step = 0; step < 80; step++) {
 assert(smoothAscent, 'Player walking forward continuously ascends stairs smoothly with exact elevation tracking');
 
 // -----------------------------------------------------------------------------
-// TEST 2: Grenade Alert Prompt Proximity Check
+// TEST 2: Proximity Alert Removal Check (Alert Completely Removed When Near Monster)
 // -----------------------------------------------------------------------------
-console.log('\n--- TEST 2: Grenade Alert Prompt Proximity Check ---');
+console.log('\n--- TEST 2: Monster Proximity Alert Removal Check ---');
 
 // Equip Grenade
 (fpController as any).weapon.setWeapon('grenade');
 
 // Setup monster in Level 2 (Kuntilanak at x = 4, z = 2, groundY = 0)
-const monster = new MonsterController(2, level2Def, buildResult.collisionConfig, pathfinding);
+const monster = new MonsterController('kunti');
 monster.position.set(4, 0, 2);
 
-// Evaluate GameManager stealth update alert logic:
-function evaluateGrenadeAlert(
-  playerPos: THREE.Vector3,
-  playerFloor: number,
-  monsterPos: THREE.Vector3,
-  isFlying: boolean
-): boolean {
-  fpController.position.copy(playerPos);
-  fpController.currentFloor = playerFloor;
-  monster.position.copy(monsterPos);
+// Check UIManager setAttackPromptVisible and setDetectionMeter
+const ui = UIManager.getInstance();
+const desktopPrompt = (ui as any).desktopAttackPrompt;
+const detectionContainer = (ui as any).detectionMeterContainer;
 
-  const currentWeaponId = (fpController as any).weapon.getWeaponId();
-  const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
-  if (!isGrenade) return false;
+// 2.1 Direct UI Call: setAttackPromptVisible(true) must keep prompt banner hidden
+ui.setAttackPromptVisible(true, 'Kuntilanak', 'LEMPAR');
+assert(desktopPrompt.classList.contains('hidden'), 'desktopAttackPrompt remains HIDDEN even if setAttackPromptVisible is called with true');
 
-  const nearestDist = fpController.position.distanceTo(monster.position);
-  const alertDist = monster.levelDef?.monsterConfig?.detectionDistance || 9.5;
-  const floorHeight = 3.8;
-  const monsterFloor = Math.max(0, Math.round(monster.position.y / floorHeight));
-  const sameFloor = fpController.currentFloor === monsterFloor || Math.abs(fpController.position.y - monster.position.y) < 2.5;
-  const isNearMonster = nearestDist <= alertDist && sameFloor;
-  return !isFlying && isNearMonster;
-}
+// 2.2 Direct UI Call: setDetectionMeter must keep detection meter container hidden
+ui.setDetectionMeter(1.0);
+assert(detectionContainer.classList.contains('hidden'), 'detectionMeterContainer remains HIDDEN even if setDetectionMeter is called');
 
-// 2.1 When player is far away (e.g. at x = 18, z = 18, dist ~ 21m)
-const farPos = new THREE.Vector3(18, 1.65, 18);
-const alertWhenFar = evaluateGrenadeAlert(farPos, 0, new THREE.Vector3(4, 0, 2), false);
-assert(!alertWhenFar, `Grenade alert is HIDDEN when player is far from monster (dist=${farPos.distanceTo(new THREE.Vector3(4, 0, 2)).toFixed(1)}m > 9.5m)`);
-
-// 2.2 When player is close on same floor (e.g. at x = 8, z = 2, dist = 4m)
+// 2.3 When player is close to monster (x = 8, z = 2, dist = 4m), prompt remains hidden
 const closePos = new THREE.Vector3(8, 1.65, 2);
-const alertWhenClose = evaluateGrenadeAlert(closePos, 0, new THREE.Vector3(4, 0, 2), false);
-assert(alertWhenClose, `Grenade alert "LEMPAR GRANAT KE KUNTILANAK!" APPEARS when player is close to monster (dist=4.0m <= 9.5m)`);
+fpController.position.copy(closePos);
+ui.setAttackPromptVisible(false);
+assert(desktopPrompt.classList.contains('hidden'), 'Proximity alert banner remains completely HIDDEN when player is near the monster');
 
-// 2.3 When player is horizontally near (e.g. 5m) but on a DIFFERENT floor (Floor 1, y = 5.45)
-const differentFloorPos = new THREE.Vector3(8, 3.8 + 1.65, 2);
-const alertDifferentFloor = evaluateGrenadeAlert(differentFloorPos, 1, new THREE.Vector3(4, 0, 2), false);
-assert(!alertDifferentFloor, 'Grenade alert is HIDDEN when player is on a different floor from the monster');
-
-// 2.4 When grenade is already launched and flying
-const alertWhenFlying = evaluateGrenadeAlert(closePos, 0, new THREE.Vector3(4, 0, 2), true);
-assert(!alertWhenFlying, 'Grenade alert is HIDDEN while a grenade is already in flight');
+// 2.4 Mobile button behavior as before: activates can-strike in attack range, returns to idle when not
+const mobileBtn = (ui as any).btnMobileAttack;
+ui.setAttackPromptVisible(true, 'Kuntilanak', 'LEMPAR');
+assert(mobileBtn.classList.contains('can-strike'), 'Mobile attack button activates can-strike state as before');
+ui.setAttackPromptVisible(false, 'Kuntilanak', 'LEMPAR');
+assert(!mobileBtn.classList.contains('can-strike'), 'Mobile attack button returns to idle state when out of range');
 
 console.log(`\n=== RESULTS: ${passed} PASSED, ${failed} FAILED ===`);
 if (failed > 0) process.exit(1);

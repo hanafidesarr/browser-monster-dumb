@@ -950,7 +950,6 @@ export class GameManager {
       if (this.state === 'STEALTH') {
         const blocking = this.levelBuild ? this.levelBuild.blockingMeshes : [];
         let canAttackAny = false;
-        let maxDetection = 0;
         let nearestDist = Infinity;
         let nearestMonster: MonsterController | null = null;
         let nearestAttackableDist = Infinity;
@@ -969,9 +968,6 @@ export class GameManager {
               nearestAttackableDist = dist;
               nearestAttackableMonster = m;
             }
-          }
-          if (m.detectionPercent > maxDetection) {
-            maxDetection = m.detectionPercent;
           }
           const dist = this.fpController.position.distanceTo(m.position);
           if (dist < nearestDist) {
@@ -1004,11 +1000,10 @@ export class GameManager {
           canAttackAny = !isFlying && isNearMonster;
         }
 
-        // Single Monster Alert: Only one prompt banner is updated
         const targetMonster = nearestAttackableMonster || nearestMonster;
         const targetMonsterName = targetMonster?.monsterType === 'kunti' ? 'Kuntilanak' : 'Pocong';
         UIManager.getInstance().setAttackPromptVisible(canAttackAny, targetMonsterName, actionVerb);
-        UIManager.getInstance().setDetectionMeter(maxDetection);
+        UIManager.getInstance().setDetectionMeter(0);
 
         if (inputMgr.consumeAttackRequest()) {
           this.performAttack();

@@ -328,34 +328,20 @@ export class UIManager {
 
   public setAttackPromptVisible(visible: boolean, monsterName: string = 'POCONG', actionVerb: string = 'PUKUL'): void {
     const isThrow = actionVerb === 'LEMPAR';
-    const icon = isThrow ? '&#128163;' : '&#9876;';
-    const title = isThrow ? `LEMPAR GRANAT KE ${monsterName.toUpperCase()}!` : `PUKUL ${monsterName.toUpperCase()}!`;
     const btnText = isThrow ? 'LEMPAR!' : 'PUKUL!';
     const btnTextIdle = isThrow ? 'LEMPAR' : 'PUKUL';
 
-    // 1. Single Monster Alert: Only show the black-background banner prompt
+    // 1. Alert banner on screen is completely removed per user request (desktopAttackPrompt remains permanently hidden)
     if (this.desktopAttackPrompt) {
-      if (visible) {
-        const titleEl = this.desktopAttackPrompt.querySelector('.prompt-title');
-        if (titleEl) {
-          titleEl.textContent = title;
-        }
-        const iconEl = this.desktopAttackPrompt.querySelector('.prompt-icon');
-        if (iconEl) {
-          iconEl.innerHTML = icon;
-        }
-        this.desktopAttackPrompt.classList.remove('hidden');
-      } else {
-        this.desktopAttackPrompt.classList.add('hidden');
-      }
+      this.desktopAttackPrompt.classList.add('hidden');
     }
 
-    // 2. Disable duplicate proximity alert (red circular contextual button is permanently hidden)
+    // 2. Duplicate proximity alert wrapper remains permanently hidden
     if (this.contextualAttackWrapper) {
       this.contextualAttackWrapper.classList.add('hidden');
     }
 
-    // 3. Highlight mobile thumb attack button when in striking position
+    // 3. Mobile touch attack button restored to original behavior: activates can-strike when player is in striking range!
     if (this.btnMobileAttack) {
       const label = this.btnMobileAttack.querySelector('.touch-attack-label');
       if (visible) {
@@ -369,10 +355,8 @@ export class UIManager {
   }
 
   public setDetectionMeter(percent: number): void {
-    if (percent > 0.05) {
-      this.detectionMeterContainer.classList.remove('hidden');
-      this.detectionMeterFill.style.width = `${Math.min(100, Math.floor(percent * 100))}%`;
-    } else {
+    // Stealth proximity alert indicator is completely removed across all levels per user request
+    if (this.detectionMeterContainer) {
       this.detectionMeterContainer.classList.add('hidden');
       this.detectionMeterFill.style.width = '0%';
     }
