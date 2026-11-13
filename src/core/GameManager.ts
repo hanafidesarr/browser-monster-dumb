@@ -19,6 +19,7 @@ export type GameState =
   | 'STEALTH'
   | 'ATTACK'
   | 'CHASE'
+  | 'JUMPSCARE'
   | 'GAME_OVER'
   | 'LEVEL_COMPLETE'
   | 'PAUSED';
@@ -54,6 +55,14 @@ export class GameManager {
   private isAttackSuccessful: boolean = false;
   private isExitUnlocked: boolean = true; // Special objective flag (Level 9)
 
+  // Level 1 Capture Jumpscare Presentation
+  private isJumpscareActive: boolean = false;
+  private jumpscareTimer: number = 0;
+  private jumpscareDuration: number = 1.25;
+  private jumpscareReason: string = 'Pocong berhasil menangkapmu!';
+  private activeCatchingMonster: MonsterController | null = null;
+  private jumpscareInitialCamPos: THREE.Vector3 = new THREE.Vector3();
+
   // Screen Shake
   private shakeIntensity: number = 0;
   private shakeDecay: number = 5.0;
@@ -71,9 +80,9 @@ export class GameManager {
     });
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x1a334d);
+    this.scene.background = new THREE.Color(0x101416);
     // Night atmosphere without moon
-    this.scene.fog = new THREE.Fog(0x1a334d, 50, 140);
+    this.scene.fog = new THREE.Fog(0x101416, 50, 140);
 
     this.currentLevelDef = ALL_LEVELS[0];
 
@@ -114,23 +123,40 @@ export class GameManager {
   }
 
   public init(): void {
-    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const rawUrl = typeof window !== 'undefined' ? window.location.href : '';
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : '';
+    const searchPart = typeof window !== 'undefined'
+      ? (window.location.search || (rawUrl.includes('?') ? '?' + rawUrl.split('?')[1].split('#')[0] : ''))
+      : '';
+    const queryStr = searchPart ? searchPart.replace(/^\?/, '') : hash;
+    const params = queryStr ? new URLSearchParams(queryStr) : null;
     const qLevel = params ? parseInt(params.get('level') || '1', 10) : 1;
     const qView = params ? params.get('view') : null;
     const hideUi = params ? params.get('hide_ui') === 'true' : false;
 
-    // Show Main Menu by default unless audit hideUi requested
-    this.state = 'MAIN_MENU';
-    if (!hideUi) {
-      UIManager.getInstance().showMainMenu();
-    } else {
-      const uiRoot = document.getElementById('ui-root');
-      if (uiRoot) uiRoot.style.display = 'none';
-    }
-
     // Start in level preview in background
     const targetLevel = (qLevel >= 1 && qLevel <= ALL_LEVELS.length) ? qLevel : 1;
     this.loadLevel(targetLevel, false);
+
+    // Show Main Menu by default unless audit hideUi or direct phase requested
+    const qPhase = params ? params.get('phase') : null;
+    if (qPhase === 'gameplay' || qPhase === 'attack_alert') {
+      this.state = 'STEALTH';
+      this.activeCamera = this.fpController.camera;
+      this.fpController.setEnabled(true);
+      this.overviewCam.setEnabled(false);
+      UIManager.getInstance().showGameplayHUD();
+      if (qPhase === 'attack_alert') {
+        UIManager.getInstance().setAttackPromptVisible(true);
+      }
+    } else if (!hideUi) {
+      this.state = 'MAIN_MENU';
+      UIManager.getInstance().showMainMenu();
+    } else {
+      this.state = 'MAIN_MENU';
+      const uiRoot = document.getElementById('ui-root');
+      if (uiRoot) uiRoot.style.display = 'none';
+    }
 
     if (qView) {
       this.applyAuditView(qView);
@@ -262,7 +288,7 @@ export class GameManager {
     };
 
     m.onPlayerCaught = () => {
-      this.triggerGameOver('Pocong berhasil menangkapmu!');
+      this.handlePlayerCaught(m, 'Pocong berhasil menangkapmu!');
     };
 
     m.onChaseStarted = () => {
@@ -356,6 +382,11 @@ export class GameManager {
     this.isAttackSuccessful = false;
     this.isExitUnlocked = !this.currentLevelDef.exitLockedInitially;
     this.shakeIntensity = 0;
+    this.isJumpscareActive = false;
+    this.jumpscareTimer = 0;
+    this.activeCatchingMonster = null;
+    this.fpController.weapon.group.visible = true;
+    UIManager.getInstance().hideJumpscareOverlay();
     this.state = enterOverview ? 'LEVEL_OVERVIEW' : 'STEALTH';
     InputManager.getInstance().resetInputs();
 
@@ -366,7 +397,7 @@ export class GameManager {
 
   private getThemeFogColor(): number {
     switch (this.currentLevelDef.theme) {
-      case 'banana_garden': return 0x1a334d;
+      case 'banana_garden': return 0x101416;
       case 'school': return 0x242e29;
       case 'labyrinth': return 0x1c2126;
       case 'hospital': return 0x1f2e29;
@@ -376,7 +407,7 @@ export class GameManager {
       case 'subway': return 0x182026;
       case 'research_facility': return 0x15222b;
       case 'nightmare': return 0x21060c;
-      default: return 0x1a334d;
+      default: return 0x101416;
     }
   }
 
@@ -524,6 +555,80 @@ export class GameManager {
     this.shakeIntensity = amount;
   }
 
+  // Handle Pocong catching player (routes Level 1 to Capture Jumpscare, other levels to direct Game Over)
+  private handlePlayerCaught(m?: MonsterController, reason: string = 'Pocong berhasil menangkapmu!'): void {
+    if (this.state === 'GAME_OVER' || this.state === 'JUMPSCARE' || this.isJumpscareActive) return;
+
+    if (this.currentLevelDef && this.currentLevelDef.id === 1) {
+      this.triggerCaptureJumpscare(m, reason);
+    } else {
+      this.triggerGameOver(reason);
+    }
+  }
+
+  // Level 1 Short Capture Jumpscare Presentation
+  private triggerCaptureJumpscare(m?: MonsterController, reason: string = 'Pocong berhasil menangkapmu!'): void {
+    if (this.state === 'GAME_OVER' || this.state === 'JUMPSCARE' || this.isJumpscareActive) return;
+    this.isJumpscareActive = true;
+    this.state = 'JUMPSCARE';
+    this.jumpscareTimer = 0;
+    this.jumpscareReason = reason;
+    this.isTimerRunning = false;
+
+    // 1. Disable normal player controls & exit pointer lock
+    this.fpController.setEnabled(false);
+    InputManager.getInstance().exitPointerLock();
+    try {
+      if (document.exitPointerLock) document.exitPointerLock();
+    } catch (_) {}
+
+    // Hide gameplay HUD prompts and touch controls
+    const ui = UIManager.getInstance();
+    ui.setAttackPromptVisible(false);
+    ui.setDetectionMeter(0);
+    ui.hidePickupPrompt();
+    ui.showJumpscareOverlay();
+
+    // 2. Play supplied Pocong scream audio & stinger
+    AudioManager.getInstance().playPocongScream(true);
+    AudioManager.getInstance().playCaughtStinger();
+
+    // 3. Camera presentation & Monster Face Framing
+    const catchingMonster = m || this.monsters[0];
+    this.activeCatchingMonster = catchingMonster;
+
+    // Hide weapon model during jumpscare so it doesn't obstruct the monster face
+    this.fpController.weapon.group.visible = false;
+
+    // Record initial camera position and get forward vector
+    this.jumpscareInitialCamPos.copy(this.fpController.camera.position);
+    const forward = new THREE.Vector3();
+    this.fpController.camera.getWorldDirection(forward);
+    forward.y = 0;
+    if (forward.lengthSq() < 0.001) forward.set(0, 0, -1);
+    forward.normalize();
+
+    // Align player camera horizontally so look pitch is zero (dead ahead)
+    const currentYaw = this.fpController.getYaw();
+    this.fpController.setLookAngles(currentYaw, 0);
+
+    if (catchingMonster) {
+      // Place Pocong directly in front of the camera (0.82m) at eye level
+      // Pocong head is at ~1.62m height on its local group
+      const camPos = this.fpController.camera.position;
+      catchingMonster.position.copy(camPos).addScaledVector(forward, 0.82);
+      catchingMonster.position.y = camPos.y - 1.62;
+
+      // Face Pocong directly into player camera
+      catchingMonster.rotationY = Math.atan2(-forward.x, -forward.z);
+      catchingMonster.state = 'CATCH_PLAYER';
+      catchingMonster.model.applyCatch(0);
+    }
+
+    // Heavy violent initial screen shake
+    this.shakeIntensity = 0.55;
+  }
+
   // Trigger Game Over
   private triggerGameOver(reason: string): void {
     if (this.state === 'GAME_OVER') return;
@@ -585,7 +690,7 @@ export class GameManager {
   // Exit to Main Menu
   private exitToMainMenu(): void {
     this.state = 'MAIN_MENU';
-    this.scene.fog = new THREE.Fog(0x1a334d, 100, 240);
+    this.scene.fog = new THREE.Fog(0x101416, 100, 240);
     this.isTimerRunning = false;
     this.fpController.setEnabled(false);
     InputManager.getInstance().exitPointerLock();
@@ -615,6 +720,34 @@ export class GameManager {
     }
 
     // State Updates
+    if (this.state === 'JUMPSCARE' || this.isJumpscareActive) {
+      this.jumpscareTimer += dt;
+
+      if (this.activeCatchingMonster) {
+        // Violently animate Pocong jaw/head and flare glowing red eyes
+        this.activeCatchingMonster.model.applyCatch(this.jumpscareTimer);
+      }
+
+      // Screen shake decay during jumpscare
+      if (this.shakeIntensity > 0.001) {
+        const shakeX = (Math.random() - 0.5) * this.shakeIntensity;
+        const shakeY = (Math.random() - 0.5) * this.shakeIntensity;
+        this.fpController.camera.position.x = this.jumpscareInitialCamPos.x + shakeX;
+        this.fpController.camera.position.y = this.jumpscareInitialCamPos.y + shakeY;
+        this.shakeIntensity = Math.max(0, this.shakeIntensity - this.shakeDecay * dt);
+      }
+
+      if (this.jumpscareTimer >= this.jumpscareDuration) {
+        this.isJumpscareActive = false;
+        UIManager.getInstance().hideJumpscareOverlay();
+        this.fpController.weapon.group.visible = true;
+        this.triggerGameOver(this.jumpscareReason);
+      }
+
+      this.renderer.render(this.scene, this.activeCamera);
+      return;
+    }
+
     if (this.state === 'LEVEL_OVERVIEW') {
       this.overviewCam.update(dt);
 
@@ -657,10 +790,22 @@ export class GameManager {
         let maxDetection = 0;
         let nearestDist = Infinity;
         let nearestMonster: MonsterController | null = null;
+        let nearestAttackableDist = Infinity;
+        let nearestAttackableMonster: MonsterController | null = null;
 
         for (const m of this.monsters) {
-          if (m.canBeAttackedFromBehind(this.fpController.position, blocking, this.fpController.currentFloor)) {
+          const isAttackable = m.canBeAttackedFromBehind(
+            this.fpController.position,
+            blocking,
+            this.fpController.currentFloor
+          );
+          if (isAttackable) {
             canAttackAny = true;
+            const dist = this.fpController.position.distanceTo(m.position);
+            if (dist < nearestAttackableDist) {
+              nearestAttackableDist = dist;
+              nearestAttackableMonster = m;
+            }
           }
           if (m.detectionPercent > maxDetection) {
             maxDetection = m.detectionPercent;
@@ -672,10 +817,14 @@ export class GameManager {
           }
         }
 
-        if (nearestMonster) {
+        // Set collision obstacle to the target monster
+        if (nearestAttackableMonster) {
+          this.fpController.setMonsterObstacle(nearestAttackableMonster.position);
+        } else if (nearestMonster) {
           this.fpController.setMonsterObstacle(nearestMonster.position);
         }
 
+        // Single Monster Alert: Only one prompt banner is updated
         UIManager.getInstance().setAttackPromptVisible(canAttackAny);
         UIManager.getInstance().setDetectionMeter(maxDetection);
 
@@ -700,7 +849,7 @@ export class GameManager {
           );
           const verticalDiff = Math.abs(m.position.y - (this.fpController.position.y - 1.65));
           if (m.stateTime > 0.8 && horizontalDist <= 1.5 && verticalDiff <= 1.5) {
-            this.triggerGameOver('Pocong berhasil menangkapmu!');
+            this.handlePlayerCaught(m, 'Pocong berhasil menangkapmu!');
             return;
           }
         }
@@ -788,7 +937,7 @@ export class GameManager {
 
     if (this.levelBuild?.weaponPickups) {
       for (const pickup of this.levelBuild.weaponPickups) {
-        if (!pickup.collected) {
+        if (!pickup.collected && !SaveManager.getInstance().isWeaponUnlocked(pickup.weaponId)) {
           // Reject cross-floor prompts (must be on compatible height threshold <= 1.75m)
           const verticalDiff = Math.abs(pickup.position.y - (playerPos.y - 1.65));
           if (verticalDiff <= 1.75) {
@@ -900,15 +1049,29 @@ export class GameManager {
     if (pickup.collected) return;
     pickup.collected = true;
     pickup.group.visible = false;
+    UIManager.getInstance().hidePickupPrompt();
 
-    AudioManager.getInstance().playPickupWeapon();
-    SaveManager.getInstance().unlockWeapon(pickup.weaponId);
+    // Unlock permanently in persistent save data
+    const wasNewlyUnlocked = SaveManager.getInstance().unlockWeapon(pickup.weaponId);
     SaveManager.getInstance().setSelectedWeapon(pickup.weaponId);
     this.fpController.weapon.setWeapon(pickup.weaponId);
 
-    const def = WEAPON_MAP[pickup.weaponId];
-    UIManager.getInstance().showWeaponDiscoveryToast(def.nameId, def.description);
-    UIManager.getInstance().setStatusText(`SENJATA DIPAKAI: ${def.nameId.toUpperCase()}!`);
+    // Hide all other world pickups of the same weapon ID in the active level environment
+    if (this.levelBuild?.weaponPickups) {
+      for (const other of this.levelBuild.weaponPickups) {
+        if (other.weaponId === pickup.weaponId) {
+          other.collected = true;
+          other.group.visible = false;
+        }
+      }
+    }
+
+    if (wasNewlyUnlocked) {
+      AudioManager.getInstance().playPickupWeapon();
+      const def = WEAPON_MAP[pickup.weaponId];
+      UIManager.getInstance().showWeaponDiscoveryToast(def.nameId, def.description);
+      UIManager.getInstance().setStatusText(`SENJATA DIPAKAI: ${def.nameId.toUpperCase()}!`);
+    }
   }
 
   private disposeHierarchy(obj: THREE.Object3D): void {

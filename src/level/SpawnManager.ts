@@ -43,8 +43,8 @@ export class SpawnManager {
       monsterCount: 1,
       minPlayerMonsterDist: 10.0,
       minPlayerExitDist: 14.0,
-      minMonsterMonsterDist: 5.0,
-      minMonsterExitDist: 6.0,
+      minMonsterMonsterDist: 6.0,
+      minMonsterExitDist: 26.0,
       playerCandidates: [
         { x: 3, z: 3, floor: 0, rotationY: 0 },
         { x: 3, z: 17, floor: 0, rotationY: 0 },
@@ -52,16 +52,15 @@ export class SpawnManager {
         { x: 4, z: 10, floor: 0, rotationY: Math.PI / 2 },
       ],
       monsterCandidates: [
-        { x: 10, z: 10, floor: 0, rotationY: 0 },
-        { x: 12, z: 14, floor: 0, rotationY: Math.PI / 4 },
-        { x: 14, z: 8, floor: 0, rotationY: -Math.PI / 2 },
-        { x: 15, z: 12, floor: 0, rotationY: Math.PI },
+        { x: 6, z: 6, floor: 0, rotationY: 0 },
+        { x: 4, z: 12, floor: 0, rotationY: Math.PI / 4 },
+        { x: 10, z: 6, floor: 0, rotationY: -Math.PI / 2 },
+        { x: 6, z: 10, floor: 0, rotationY: Math.PI },
       ],
       exitCandidates: [
         { x: 18, z: 18, floor: 0, rotationY: -Math.PI / 2 },
-        { x: 18, z: 10, floor: 0, rotationY: -Math.PI / 2 },
-        { x: 10, z: 2, floor: 0, rotationY: Math.PI },
-        { x: 10, z: 18, floor: 0, rotationY: 0 },
+        { x: 18, z: 14, floor: 0, rotationY: -Math.PI / 2 },
+        { x: 14, z: 18, floor: 0, rotationY: 0 },
       ],
     }],
 
@@ -70,8 +69,8 @@ export class SpawnManager {
       monsterCount: 1,
       minPlayerMonsterDist: 9.0,
       minPlayerExitDist: 12.0,
-      minMonsterMonsterDist: 5.0,
-      minMonsterExitDist: 5.0,
+      minMonsterMonsterDist: 6.0,
+      minMonsterExitDist: 26.0,
       playerCandidates: [
         { x: 3, z: 3, floor: 0, rotationY: 0 },
         { x: 3, z: 17, floor: 0, rotationY: 0 },
@@ -79,15 +78,15 @@ export class SpawnManager {
         { x: 17, z: 17, floor: 1, rotationY: Math.PI },
       ],
       monsterCandidates: [
-        { x: 10, z: 10, floor: 0, rotationY: 0 },
-        { x: 6, z: 14, floor: 0, rotationY: Math.PI / 2 },
-        { x: 10, z: 10, floor: 1, rotationY: 0 },
-        { x: 14, z: 6, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 4, z: 2, floor: 0, rotationY: 0 },
+        { x: 4, z: 12, floor: 0, rotationY: Math.PI / 2 },
+        { x: 6, z: 2, floor: 1, rotationY: 0 },
+        { x: 8, z: 10, floor: 1, rotationY: -Math.PI / 2 },
       ],
       exitCandidates: [
         { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 2, z: 10, floor: 0, rotationY: Math.PI / 2 },
-        { x: 18, z: 6, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 18, z: 16, floor: 0, rotationY: -Math.PI / 2 },
+        { x: 14, z: 18, floor: 0, rotationY: 0 },
       ],
     }],
 
@@ -96,8 +95,8 @@ export class SpawnManager {
       monsterCount: 1,
       minPlayerMonsterDist: 9.0,
       minPlayerExitDist: 12.0,
-      minMonsterMonsterDist: 5.0,
-      minMonsterExitDist: 5.0,
+      minMonsterMonsterDist: 6.0,
+      minMonsterExitDist: 26.0,
       playerCandidates: [
         { x: 2, z: 2, floor: 0, rotationY: 0 },
         { x: 2, z: 18, floor: 0, rotationY: 0 },
@@ -105,14 +104,13 @@ export class SpawnManager {
         { x: 18, z: 6, floor: 1, rotationY: Math.PI },
       ],
       monsterCandidates: [
-        { x: 10, z: 10, floor: 0, rotationY: 0 },
-        { x: 10, z: 16, floor: 0, rotationY: Math.PI },
-        { x: 14, z: 10, floor: 1, rotationY: 0 },
-        { x: 10, z: 4, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 4, z: 2, floor: 0, rotationY: 0 },
+        { x: 6, z: 14, floor: 0, rotationY: Math.PI },
+        { x: 6, z: 2, floor: 1, rotationY: 0 },
+        { x: 8, z: 10, floor: 1, rotationY: -Math.PI / 2 },
       ],
       exitCandidates: [
         { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 2, z: 10, floor: 0, rotationY: Math.PI / 2 },
         { x: 18, z: 14, floor: 1, rotationY: -Math.PI / 2 },
       ],
     }],
@@ -121,9 +119,9 @@ export class SpawnManager {
     [4, {
       monsterCount: 2,
       minPlayerMonsterDist: 8.0,
-      minPlayerExitDist: 11.0,
-      minMonsterMonsterDist: 5.0,
-      minMonsterExitDist: 4.5,
+      minPlayerExitDist: 12.0,
+      minMonsterMonsterDist: 5.5,
+      minMonsterExitDist: 25.0,
       playerCandidates: [
         { x: 3, z: 3, floor: 0, rotationY: 0 },
         { x: 3, z: 17, floor: 0, rotationY: 0 },
@@ -131,17 +129,17 @@ export class SpawnManager {
         { x: 5, z: 15, floor: 2, rotationY: 0 },
       ],
       monsterCandidates: [
-        { x: 10, z: 10, floor: 0, rotationY: 0 },
-        { x: 6, z: 14, floor: 0, rotationY: Math.PI / 2 },
-        { x: 10, z: 10, floor: 1, rotationY: 0 },
-        { x: 14, z: 8, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 10, z: 10, floor: 2, rotationY: 0 },
-        { x: 14, z: 14, floor: 2, rotationY: Math.PI },
+        { x: 4, z: 4, floor: 0, rotationY: 0 },
+        { x: 6, z: 12, floor: 0, rotationY: Math.PI / 2 },
+        { x: 6, z: 6, floor: 1, rotationY: 0 },
+        { x: 4, z: 14, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 6, z: 6, floor: 2, rotationY: 0 },
+        { x: 8, z: 10, floor: 2, rotationY: Math.PI },
       ],
       exitCandidates: [
         { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 18, z: 6, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 17, z: 17, floor: 2, rotationY: 0 },
+        { x: 18, z: 14, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 18, z: 18, floor: 2, rotationY: 0 },
       ],
     }],
 
@@ -149,9 +147,9 @@ export class SpawnManager {
     [5, {
       monsterCount: 2,
       minPlayerMonsterDist: 8.0,
-      minPlayerExitDist: 11.0,
-      minMonsterMonsterDist: 5.0,
-      minMonsterExitDist: 4.5,
+      minPlayerExitDist: 12.0,
+      minMonsterMonsterDist: 5.5,
+      minMonsterExitDist: 25.0,
       playerCandidates: [
         { x: 3, z: 3, floor: 0, rotationY: 0 },
         { x: 3, z: 17, floor: 0, rotationY: 0 },
@@ -159,15 +157,14 @@ export class SpawnManager {
         { x: 16, z: 16, floor: 1, rotationY: Math.PI },
       ],
       monsterCandidates: [
-        { x: 10, z: 10, floor: 0, rotationY: 0 },
+        { x: 4, z: 4, floor: 0, rotationY: 0 },
         { x: 6, z: 14, floor: 0, rotationY: Math.PI / 2 },
-        { x: 10, z: 10, floor: 1, rotationY: 0 },
-        { x: 15, z: 8, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 6, z: 6, floor: 1, rotationY: 0 },
+        { x: 8, z: 10, floor: 1, rotationY: -Math.PI / 2 },
       ],
       exitCandidates: [
         { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 18, z: 4, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 4, z: 10, floor: 1, rotationY: Math.PI / 2 },
+        { x: 18, z: 14, floor: 1, rotationY: -Math.PI / 2 },
       ],
     }],
 
@@ -175,9 +172,9 @@ export class SpawnManager {
     [6, {
       monsterCount: 3,
       minPlayerMonsterDist: 7.5,
-      minPlayerExitDist: 10.0,
-      minMonsterMonsterDist: 4.5,
-      minMonsterExitDist: 4.0,
+      minPlayerExitDist: 11.0,
+      minMonsterMonsterDist: 5.0,
+      minMonsterExitDist: 25.0,
       playerCandidates: [
         { x: 2, z: 2, floor: 0, rotationY: 0 },
         { x: 2, z: 18, floor: 0, rotationY: 0 },
@@ -185,17 +182,17 @@ export class SpawnManager {
         { x: 10, z: 18, floor: 2, rotationY: Math.PI },
       ],
       monsterCandidates: [
-        { x: 10, z: 10, floor: 0, rotationY: 0 },
-        { x: 6, z: 14, floor: 0, rotationY: Math.PI / 2 },
-        { x: 10, z: 10, floor: 1, rotationY: 0 },
-        { x: 14, z: 8, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 10, z: 10, floor: 2, rotationY: 0 },
-        { x: 14, z: 14, floor: 2, rotationY: Math.PI },
+        { x: 4, z: 2, floor: 0, rotationY: 0 },
+        { x: 6, z: 12, floor: 0, rotationY: Math.PI / 2 },
+        { x: 6, z: 2, floor: 1, rotationY: 0 },
+        { x: 4, z: 12, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 6, z: 2, floor: 2, rotationY: 0 },
+        { x: 8, z: 10, floor: 2, rotationY: Math.PI },
       ],
       exitCandidates: [
         { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 18, z: 6, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 18, z: 14, floor: 2, rotationY: -Math.PI / 2 },
+        { x: 18, z: 14, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 18, z: 18, floor: 2, rotationY: -Math.PI / 2 },
       ],
     }],
 
@@ -203,9 +200,9 @@ export class SpawnManager {
     [7, {
       monsterCount: 3,
       minPlayerMonsterDist: 7.5,
-      minPlayerExitDist: 10.0,
-      minMonsterMonsterDist: 4.5,
-      minMonsterExitDist: 4.0,
+      minPlayerExitDist: 11.0,
+      minMonsterMonsterDist: 5.0,
+      minMonsterExitDist: 25.0,
       playerCandidates: [
         { x: 3, z: 3, floor: 0, rotationY: 0 },
         { x: 3, z: 17, floor: 0, rotationY: 0 },
@@ -214,18 +211,17 @@ export class SpawnManager {
         { x: 15, z: 15, floor: 3, rotationY: Math.PI },
       ],
       monsterCandidates: [
-        { x: 10, z: 10, floor: 0, rotationY: 0 },
+        { x: 4, z: 2, floor: 0, rotationY: 0 },
         { x: 4, z: 10, floor: 0, rotationY: Math.PI / 2 },
-        { x: 16, z: 10, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 10, z: 4, floor: 1, rotationY: 0 },
-        { x: 10, z: 16, floor: 2, rotationY: Math.PI },
-        { x: 14, z: 8, floor: 3, rotationY: -Math.PI / 2 },
-        { x: 14, z: 14, floor: 4, rotationY: Math.PI },
+        { x: 7, z: 2, floor: 1, rotationY: 0 },
+        { x: 4, z: 4, floor: 2, rotationY: 0 },
+        { x: 8, z: 10, floor: 3, rotationY: -Math.PI / 2 },
+        { x: 4, z: 4, floor: 4, rotationY: Math.PI },
       ],
       exitCandidates: [
         { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 18, z: 6, floor: 2, rotationY: -Math.PI / 2 },
-        { x: 18, z: 14, floor: 4, rotationY: -Math.PI / 2 },
+        { x: 18, z: 14, floor: 2, rotationY: -Math.PI / 2 },
+        { x: 18, z: 18, floor: 4, rotationY: -Math.PI / 2 },
       ],
     }],
 
@@ -233,9 +229,9 @@ export class SpawnManager {
     [8, {
       monsterCount: 3,
       minPlayerMonsterDist: 7.5,
-      minPlayerExitDist: 10.0,
-      minMonsterMonsterDist: 4.5,
-      minMonsterExitDist: 4.0,
+      minPlayerExitDist: 11.0,
+      minMonsterMonsterDist: 5.0,
+      minMonsterExitDist: 25.0,
       playerCandidates: [
         { x: 2, z: 2, floor: 0, rotationY: 0 },
         { x: 6, z: 16, floor: 1, rotationY: 0 },
@@ -243,17 +239,17 @@ export class SpawnManager {
         { x: 5, z: 5, floor: 2, rotationY: 0 },
       ],
       monsterCandidates: [
-        { x: 10, z: 10, floor: 0, rotationY: 0 },
+        { x: 4, z: 4, floor: 0, rotationY: 0 },
         { x: 6, z: 14, floor: 0, rotationY: Math.PI / 2 },
-        { x: 10, z: 10, floor: 1, rotationY: 0 },
-        { x: 14, z: 8, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 10, z: 10, floor: 2, rotationY: 0 },
-        { x: 14, z: 14, floor: 2, rotationY: Math.PI },
+        { x: 6, z: 6, floor: 1, rotationY: 0 },
+        { x: 8, z: 10, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 6, z: 6, floor: 2, rotationY: 0 },
+        { x: 4, z: 14, floor: 2, rotationY: Math.PI },
       ],
       exitCandidates: [
         { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 2, z: 10, floor: 1, rotationY: Math.PI / 2 },
-        { x: 18, z: 10, floor: 2, rotationY: -Math.PI / 2 },
+        { x: 18, z: 14, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 18, z: 18, floor: 2, rotationY: -Math.PI / 2 },
       ],
     }],
 
@@ -262,8 +258,8 @@ export class SpawnManager {
       monsterCount: 4,
       minPlayerMonsterDist: 7.0,
       minPlayerExitDist: 10.0,
-      minMonsterMonsterDist: 4.0,
-      minMonsterExitDist: 4.0,
+      minMonsterMonsterDist: 4.5,
+      minMonsterExitDist: 25.0,
       playerCandidates: [
         { x: 3, z: 3, floor: 0, rotationY: 0 },
         { x: 3, z: 17, floor: 0, rotationY: 0 },
@@ -272,16 +268,14 @@ export class SpawnManager {
         { x: 15, z: 15, floor: 3, rotationY: Math.PI },
       ],
       monsterCandidates: [
-        { x: 10, z: 10, floor: 0, rotationY: 0 },
-        { x: 6, z: 14, floor: 0, rotationY: Math.PI / 2 },
-        { x: 12, z: 12, floor: 1, rotationY: 0 },
-        { x: 14, z: 6, floor: 2, rotationY: -Math.PI / 2 },
-        { x: 8, z: 14, floor: 3, rotationY: Math.PI / 2 },
-        { x: 14, z: 14, floor: 4, rotationY: Math.PI },
+        { x: 4, z: 4, floor: 0, rotationY: 0 },
+        { x: 6, z: 12, floor: 1, rotationY: 0 },
+        { x: 6, z: 6, floor: 2, rotationY: -Math.PI / 2 },
+        { x: 8, z: 10, floor: 3, rotationY: Math.PI / 2 },
+        { x: 4, z: 4, floor: 4, rotationY: Math.PI },
       ],
       exitCandidates: [
         { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 18, z: 10, floor: 4, rotationY: -Math.PI / 2 },
         { x: 18, z: 18, floor: 4, rotationY: -Math.PI / 2 },
       ],
     }],
@@ -291,8 +285,8 @@ export class SpawnManager {
       monsterCount: 4,
       minPlayerMonsterDist: 7.0,
       minPlayerExitDist: 10.0,
-      minMonsterMonsterDist: 4.0,
-      minMonsterExitDist: 4.0,
+      minMonsterMonsterDist: 4.5,
+      minMonsterExitDist: 25.0,
       playerCandidates: [
         { x: 2, z: 2, floor: 0, rotationY: 0 },
         { x: 18, z: 2, floor: 1, rotationY: Math.PI / 2 },
@@ -300,17 +294,15 @@ export class SpawnManager {
         { x: 18, z: 18, floor: 3, rotationY: -Math.PI / 2 },
       ],
       monsterCandidates: [
-        { x: 10, z: 10, floor: 0, rotationY: 0 },
-        { x: 6, z: 14, floor: 2, rotationY: Math.PI / 2 },
-        { x: 14, z: 6, floor: 4, rotationY: -Math.PI / 2 },
-        { x: 10, z: 10, floor: 6, rotationY: 0 },
-        { x: 14, z: 14, floor: 8, rotationY: Math.PI },
-        { x: 6, z: 6, floor: 9, rotationY: 0 },
+        { x: 4, z: 4, floor: 0, rotationY: 0 },
+        { x: 6, z: 10, floor: 2, rotationY: Math.PI / 2 },
+        { x: 4, z: 2, floor: 4, rotationY: -Math.PI / 2 },
+        { x: 6, z: 8, floor: 6, rotationY: 0 },
+        { x: 4, z: 2, floor: 8, rotationY: Math.PI },
+        { x: 4, z: 4, floor: 9, rotationY: 0 },
       ],
       exitCandidates: [
         { x: 18, z: 18, floor: 9, rotationY: 0 },
-        { x: 10, z: 18, floor: 9, rotationY: 0 },
-        { x: 18, z: 10, floor: 9, rotationY: -Math.PI / 2 },
       ],
     }],
   ]);
@@ -439,8 +431,10 @@ export class SpawnManager {
           // Check distance from player
           if (dist3D(playerSpawn, monsterSpawn) < config.minPlayerMonsterDist) continue;
 
-          // Check distance from exit
-          if (dist3D(exitSpawn, monsterSpawn) < config.minMonsterExitDist) continue;
+          // Check distance from exit (both 3D distance and 2D horizontal separation)
+          const distExit3D = dist3D(exitSpawn, monsterSpawn);
+          const distExit2D = Math.hypot(exitSpawn.x - monsterSpawn.x, exitSpawn.z - monsterSpawn.z);
+          if (distExit3D < config.minMonsterExitDist || distExit2D < config.minMonsterExitDist * 0.85) continue;
 
           // Check distance from other selected monsters
           const tooCloseToOther = selectedMonsters.some(
@@ -485,8 +479,9 @@ export class SpawnManager {
 
     for (let i = 0; i < targetMonsterCount; i++) {
       const assignedFloor = level.floorCount && level.floorCount > 1 ? i % level.floorCount : 0;
-      const offsetX = i * 2.0;
-      const offsetZ = i * 2.0;
+      // Offset multiple monsters towards northwest to stay far from exit
+      const offsetX = -i * 2.0;
+      const offsetZ = -i * 2.0;
       defaultMonsters.push({
         x: baseMonsterX + offsetX,
         y: assignedFloor * fh,

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>MONSTER DUMB - LEVEL 1 POLISH & JUMPSCARE AUDIT</title>
+  <link rel="stylesheet" href="../src/style.css" />
+  <style>
+    body {
+      background: #06090e;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 3D Scene Simulation for Level 1 Haunted Banana Garden */
+    .scene-banana-garden {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 65%, #25382b 0%, #15231c 30%, #0a1114 65%, #04070a 100%);
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    /* Wide Player-Centered Light Illumination Zone */
+    .player-wide-light {
+      position: absolute;
+      top: 55%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 65vw;
+      height: 60vh;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 243, 219, 0.22) 0%, rgba(210, 190, 150, 0.12) 45%, rgba(40, 56, 74, 0.05) 75%, transparent 100%);
+      pointer-events: none;
+    }
+
+    /* Banana Trees in Foreground & Midground */
+    .banana-tree-stalk {
+      position: absolute;
+      bottom: 0;
+      width: 28px;
+      height: 55vh;
+      background: linear-gradient(180deg, #3d5236 0%, #202d1d 100%);
+      border-radius: 10px 10px 0 0;
+    }
+    .banana-leaves {
+      position: absolute;
+      top: -30px;
+      left: -90px;
+      width: 210px;
+      height: 90px;
+      border-radius: 50%;
+      border-top: 18px solid #4d6840;
+      transform: rotate(-15deg);
+    }
+    .banana-leaves-right {
+      position: absolute;
+      top: -20px;
+      left: -20px;
+      width: 220px;
+      height: 80px;
+      border-radius: 50%;
+      border-top: 16px solid #3e5632;
+      transform: rotate(25deg);
+    }
+
+    /* Jumpscare Close-Up Monster Face */
+    .jumpscare-pocong-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -46%) scale(1.35);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      filter: drop-shadow(0 0 35px rgba(0, 0, 0, 0.95));
+    }
+
+    /* Pocong Shroud Top Knot */
+    .pocong-knot {
+      width: 44px;
+      height: 48px;
+      background: #c7cbd1;
+      border-radius: 50% 50% 30% 30%;
+      border: 3px solid #374151;
+      box-shadow: inset 0 -6px 12px rgba(0,0,0,0.6);
+      margin-bottom: -10px;
+      z-index: 2;
+    }
+
+    /* Pocong Head and Terrifying Face */
+    .pocong-head {
+      width: 175px;
+      height: 230px;
+      background: radial-gradient(circle at 50% 40%, #e2e8f0 0%, #94a3b8 60%, #334155 100%);
+      border-radius: 80px 80px 70px 70px;
+      border: 4px solid #1e293b;
+      position: relative;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0,0,0,0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Glowing Red Eyes */
+    .pocong-eyes-row {
+      display: flex;
+      gap: 36px;
+      margin-top: 60px;
+    }
+    .pocong-eye {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #ff1111;
+      box-shadow: 0 0 16px #ff0000, 0 0 32px #ff2222, inset 0 0 4px #ffffff;
+      animation: eyeFlare 0.15s infinite alternate ease-in-out;
+    }
+
+    @keyframes eyeFlare {
+      0% { transform: scale(0.95); opacity: 0.9; }
+      100% { transform: scale(1.15); opacity: 1.0; }
+    }
+
+    /* Screaming Open Jaw */
+    .pocong-screaming-mouth {
+      margin-top: 25px;
+      width: 48px;
+      height: 70px;
+      background: #080305;
+      border-radius: 24px 24px 28px 28px;
+      border: 3px solid #180508;
+      box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.95);
+      position: relative;
+    }
+    .pocong-mouth-teeth {
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 24px;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 2px;
+    }
+
+    /* Pocong Shroud Body */
+    .pocong-body-shroud {
+      width: 220px;
+      height: 180px;
+      background: linear-gradient(180deg, #cbd5e1 0%, #475569 80%, #0f172a 100%);
+      border-radius: 50px 50px 10px 10px;
+      margin-top: -20px;
+      border: 4px solid #1e293b;
+      box-shadow: inset 0 0 35px rgba(0,0,0,0.8);
+    }
+  </style>
+</head>
+<body>
+  <div class="scene-banana-garden">
+    <!-- Starfield -->
+    <div style="position: absolute; inset: 0; background-image: radial-gradient(#e0f2fe 1px, transparent 1px); background-size: 60px 60px; opacity: 0.4;"></div>
+
+    <!-- Wide Player-Centered Light Glow -->
+    <div class="player-wide-light"></div>
+
+    <!-- Background/Midground Trees -->
+    <div class="banana-tree-stalk" style="left: 15%; height: 60vh;">
+      <div class="banana-leaves"></div>
+      <div class="banana-leaves-right"></div>
+    </div>
+    <div class="banana-tree-stalk" style="right: 18%; height: 65vh;">
+      <div class="banana-leaves" style="transform: rotate(30deg); left: -60px;"></div>
+      <div class="banana-leaves-right" style="transform: rotate(-20deg); left: -100px;"></div>
+    </div>
+    <div class="banana-tree-stalk" style="left: 4%; height: 48vh; opacity: 0.7;">
+      <div class="banana-leaves"></div>
+    </div>
+    <div class="banana-tree-stalk" style="right: 6%; height: 50vh; opacity: 0.7;">
+      <div class="banana-leaves-right"></div>
+    </div>
+
+    <!-- Jumpscare Monster Presentation (Toggled by Hash) -->
+    <div id="jumpscare-monster" class="jumpscare-pocong-container" style="display: none;">
+      <div class="pocong-knot"></div>
+      <div class="pocong-head">
+        <div class="pocong-eyes-row">
+          <div class="pocong-eye"></div>
+          <div class="pocong-eye"></div>
+        </div>
+        <div class="pocong-screaming-mouth">
+          <div class="pocong-mouth-teeth"></div>
+        </div>
+      </div>
+      <div class="pocong-body-shroud"></div>
+    </div>
+  </div>
+
+  <div id="ui-root">
+    <!-- CAPTURE JUMPSCARE OVERLAY -->
+    <div id="jumpscare-overlay" class="jumpscare-overlay hidden">
+      <div class="jumpscare-vignette"></div>
+      <div class="jumpscare-flash"></div>
+    </div>
+
+    <!-- GAMEPLAY HUD (Normal exploration) -->
+    <div id="hud-gameplay" class="ui-hud active">
+      <div class="hud-top">
+        <div class="hud-status" id="hud-status-text">LEVEL 1 — HAUNTED BANANA GARDEN</div>
+      </div>
+      <div id="crosshair"><div class="ch-dot"></div></div>
+      <div id="touch-controls-container">
+        <button id="btn-mobile-attack" class="touch-attack-btn" type="button">
+          <span class="touch-attack-icon">&#9876;</span>
+          <span class="touch-attack-label">PUKUL</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- GAME OVER SCREEN (After jumpscare) -->
+    <div id="screen-game-over" class="ui-screen">
+      <div class="modal-card horror-card">
+        <h2 class="game-over-title">YOU WERE CAUGHT</h2>
+        <p id="game-over-reason">Pocong berhasil menangkapmu!</p>
+        <div class="modal-buttons">
+          <button id="btn-game-over-retry" class="retro-btn primary-btn pulse-glow">COBA LAGI</button>
+          <button id="btn-game-over-menu" class="retro-btn">MENU UTAMA</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const hash = window.location.hash.replace('#', '');
+    const jumpscareOverlay = document.getElementById('jumpscare-overlay');
+    const jumpscareMonster = document.getElementById('jumpscare-monster');
+    const hudGameplay = document.getElementById('hud-gameplay');
+    const screenGameOver = document.getElementById('screen-game-over');
+
+    if (hash === 'jumpscare') {
+      hudGameplay.classList.remove('active');
+      jumpscareOverlay.classList.remove('hidden');
+      jumpscareMonster.style.display = 'flex';
+      screenGameOver.classList.remove('active');
+    } else if (hash === 'game_over') {
+      hudGameplay.classList.remove('active');
+      jumpscareOverlay.classList.add('hidden');
+      jumpscareMonster.style.display = 'none';
+      screenGameOver.classList.add('active');
+    } else {
+      // Normal exploration lighting
+      hudGameplay.classList.add('active');
+      jumpscareOverlay.classList.add('hidden');
+      jumpscareMonster.style.display = 'none';
+      screenGameOver.classList.remove('active');
+    }
+  </script>
+</body>
+</html>

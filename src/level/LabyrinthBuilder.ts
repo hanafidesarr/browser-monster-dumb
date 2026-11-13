@@ -15,6 +15,7 @@ import {
   FallZoneConfig,
 } from './LevelCollisionConfig.ts';
 import { SpawnManager, SelectedSpawns } from './SpawnManager.ts';
+import { SaveManager } from '../core/SaveManager.ts';
 
 export type { WorldRamp, WorldBridge, StairwellOpening, SelectedSpawns };
 
@@ -116,24 +117,28 @@ export class LabyrinthBuilder {
     }
     starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
     const starMat = new THREE.PointsMaterial({
-      color: 0xe0f2fe,
-      size: 0.28,
+      color: 0xf5f5f5,
+      size: 0.22,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.65,
     });
     const starfield = new THREE.Points(starGeo, starMat);
     rootGroup.add(starfield);
 
-    const skyLight = new THREE.DirectionalLight(0xdce7f5, 2.6);
+    // Haunted Banana Garden (Level 1) Atmospheric Night Lighting:
+    // Neutral pale moonlight and dark night tones without any artificial blue tint
+    const skyLight = new THREE.DirectionalLight(0xd4d8dc, 0.75);
     skyLight.position.set(halfWidth * 0.8, 55, -halfHeight * 0.85);
     skyLight.target.position.set(0, 0, 0);
     rootGroup.add(skyLight);
     rootGroup.add(skyLight.target);
 
-    const ambientLight = new THREE.AmbientLight(0x40556b, 2.4);
+    // Subtle dark neutral ambient fill so shadows are deep but navigation is never pitch black
+    const ambientLight = new THREE.AmbientLight(0x222426, 0.65);
     rootGroup.add(ambientLight);
 
-    const hemiLight = new THREE.HemisphereLight(0x8cb0d4, 0x273d2d, 2.0);
+    // Soft neutral sky vs dark earth bounce
+    const hemiLight = new THREE.HemisphereLight(0x35383b, 0x181a18, 0.45);
     rootGroup.add(hemiLight);
 
     // 3. Spawns & Clearings Calculation
@@ -1421,8 +1426,16 @@ export class LabyrinthBuilder {
     rootGroup: THREE.Group
   ): WorldWeaponPickup[] {
     const weaponPickups: WorldWeaponPickup[] = [];
+    const saveManager = SaveManager.getInstance();
+
     if (level.weaponPickups && level.weaponPickups.length > 0) {
       level.weaponPickups.forEach((loc) => {
+        // ONE PERMANENT WEAPON UNLOCK = ALL WORLD PICKUPS WITH THE SAME WEAPON ID ARE HIDDEN
+        // If this weapon has already been permanently unlocked by the player, do not spawn its world pickup
+        if (saveManager.isWeaponUnlocked(loc.weaponId)) {
+          return;
+        }
+
         const wx = (loc.x + 0.5) * cellSize - halfWidth;
         const wz = (loc.z + 0.5) * cellSize - halfHeight;
         const pickupGroup = WeaponModelFactory.createWorldPickup(loc.weaponId);

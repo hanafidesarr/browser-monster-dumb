@@ -196,6 +196,7 @@ export class InputManager {
     const sprintBtn = document.getElementById('btn-touch-sprint');
     const mobileAttackBtn = document.getElementById('btn-mobile-attack');
     const contextualAttackBtn = document.getElementById('btn-contextual-attack');
+    const desktopAttackPrompt = document.getElementById('desktop-attack-prompt');
 
     // Attack Button (Fast, responsive tap handling on mobile)
     const bindAttackElement = (btn: HTMLElement | null) => {
@@ -212,6 +213,7 @@ export class InputManager {
 
     bindAttackElement(mobileAttackBtn);
     bindAttackElement(contextualAttackBtn);
+    bindAttackElement(desktopAttackPrompt);
 
     // Sprint Button (Replaces attack button on mobile during chase phase)
     if (sprintBtn) {

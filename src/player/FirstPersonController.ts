@@ -15,6 +15,7 @@ export class FirstPersonController {
   public camera: THREE.PerspectiveCamera;
   public weapon: WeaponController;
   public position: THREE.Vector3;
+  public playerLight: THREE.PointLight;
   private yaw: number = 0;
   private pitch: number = 0;
   private playerRadius: number = 0.38;
@@ -65,10 +66,10 @@ export class FirstPersonController {
     this.weapon = new WeaponController();
     this.camera.add(this.weapon.group);
 
-    // Player personal flashlight (Survival horror atmosphere with clear visibility)
-    const playerLight = new THREE.PointLight(0xfff5e6, 1.5, 10, 1.4);
-    playerLight.position.set(0, -0.15, 0.1);
-    this.camera.add(playerLight);
+    // Player personal light
+    this.playerLight = new THREE.PointLight(0xfff5e6, 1.5, 10, 1.4);
+    this.playerLight.position.set(0, -0.15, 0.1);
+    this.camera.add(this.playerLight);
   }
 
   public setLevel(
@@ -114,6 +115,30 @@ export class FirstPersonController {
     this.velocity.set(0, 0, 0);
     this.updateCameraTransform();
     this.weapon.reset();
+
+    // Level-specific player light configuration
+    if (level.id === 1) {
+      // Level 1 Haunted Banana Garden: Wide player-centered atmospheric illumination
+      // Illuminates surrounding banana trees, ground, obstacles with natural falloff
+      this.playerLight.color.setHex(0xfff3db);
+      this.playerLight.intensity = 2.4;
+      this.playerLight.distance = 28.0;
+      this.playerLight.decay = 1.15;
+      this.playerLight.position.set(0, 0.35, 0.15);
+    } else {
+      // Preserved default for Levels 2-10
+      this.playerLight.color.setHex(0xfff5e6);
+      this.playerLight.intensity = 1.5;
+      this.playerLight.distance = 10;
+      this.playerLight.decay = 1.4;
+      this.playerLight.position.set(0, -0.15, 0.1);
+    }
+  }
+
+  public setLookAngles(yaw: number, pitch: number): void {
+    this.yaw = yaw;
+    this.pitch = pitch;
+    this.updateCameraTransform();
   }
 
   public setCollisionConfig(config: LevelCollisionConfig): void {

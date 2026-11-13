@@ -430,11 +430,11 @@ export class WeaponModelFactory {
     weaponMesh.rotation.set(0.35, 0, 0.25);
     pickupRoot.add(weaponMesh);
 
-    // 2. Holographic Ground Ring (Cyan glowing ring showing item spot)
+    // 2. Holographic Ground Ring (Warm amber glowing ring showing item spot)
     const ringGeo = new THREE.RingGeometry(0.45, 0.58, 16);
     ringGeo.rotateX(-Math.PI / 2);
     const ringMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
+      color: 0xf59e0b,
       transparent: true,
       opacity: 0.65,
       side: THREE.DoubleSide,
@@ -448,7 +448,7 @@ export class WeaponModelFactory {
     // 3. Subtle floating vertical sparkle diamond
     const sparkGeo = new THREE.OctahedronGeometry(0.12, 0);
     const sparkMat = new THREE.MeshBasicMaterial({
-      color: 0x7dd3fc,
+      color: 0xfde68a,
       transparent: true,
       opacity: 0.8,
     });

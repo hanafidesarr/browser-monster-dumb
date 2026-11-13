@@ -46,6 +46,7 @@ export class UIManager {
   private completeLevelName = document.getElementById('complete-level-name')!;
   private completeTime = document.getElementById('complete-time')!;
   private btnCompleteNext = document.getElementById('btn-complete-next') as HTMLButtonElement;
+  private jumpscareOverlay = document.getElementById('jumpscare-overlay');
 
   // Level Selection Container
   private levelsContainer = document.getElementById('levels-container')!;
@@ -86,6 +87,19 @@ export class UIManager {
       this.screenLevelComplete,
     ];
     screens.forEach((s) => s.classList.remove('active'));
+    this.hideJumpscareOverlay();
+  }
+
+  public showJumpscareOverlay(): void {
+    if (this.jumpscareOverlay) {
+      this.jumpscareOverlay.classList.remove('hidden');
+    }
+  }
+
+  public hideJumpscareOverlay(): void {
+    if (this.jumpscareOverlay) {
+      this.jumpscareOverlay.classList.add('hidden');
+    }
   }
 
   public showMainMenu(): void {
@@ -299,6 +313,7 @@ export class UIManager {
   }
 
   public setAttackPromptVisible(visible: boolean): void {
+    // 1. Single Monster Alert: Only show the black-background banner prompt
     if (this.desktopAttackPrompt) {
       if (visible) {
         this.desktopAttackPrompt.classList.remove('hidden');
@@ -307,14 +322,12 @@ export class UIManager {
       }
     }
 
+    // 2. Disable duplicate proximity alert (red circular contextual button is permanently hidden)
     if (this.contextualAttackWrapper) {
-      if (visible) {
-        this.contextualAttackWrapper.classList.remove('hidden');
-      } else {
-        this.contextualAttackWrapper.classList.add('hidden');
-      }
+      this.contextualAttackWrapper.classList.add('hidden');
     }
 
+    // 3. Highlight mobile thumb attack button when in striking position
     if (this.btnMobileAttack) {
       const label = this.btnMobileAttack.querySelector('.touch-attack-label');
       if (visible) {

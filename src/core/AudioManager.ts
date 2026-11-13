@@ -12,6 +12,11 @@ export class AudioManager {
   private isMuted: boolean = false;
   private isInitialized: boolean = false;
 
+  // Pocong Screaming Audio (loaded from user supplied pocong_scream.mp3)
+  private pocongAudioBuffer: AudioBuffer | null = null;
+  private isPocongAudioLoading: boolean = false;
+  private lastPocongScreamTime: number = 0;
+
   private constructor() {}
 
   public static getInstance(): AudioManager {
@@ -37,6 +42,7 @@ export class AudioManager {
 
       this.updateVolumes();
       this.isInitialized = true;
+      this.loadPocongAudio();
     } catch (e) {
       console.warn('Web Audio not available:', e);
     }
@@ -453,8 +459,79 @@ export class AudioManager {
     });
   }
 
-  // Monster Bloodcurdling Scream (FM synth screech)
+  // Load supplied Pocong Scream audio asset (/Users/hanafidesar/.../pocong_scream.mp3)
+  public async loadPocongAudio(): Promise<void> {
+    if (this.pocongAudioBuffer || this.isPocongAudioLoading) return;
+    this.isPocongAudioLoading = true;
+
+    const candidateUrls = [
+      './audio/pocong_scream.mp3',
+      './pocong_scream.mp3',
+      '/audio/pocong_scream.mp3',
+      '/pocong_scream.mp3',
+    ];
+
+    for (const url of candidateUrls) {
+      try {
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const ab = await resp.arrayBuffer();
+          if (!this.ctx) this.init();
+          if (this.ctx) {
+            this.pocongAudioBuffer = await this.ctx.decodeAudioData(ab);
+            this.isPocongAudioLoading = false;
+            return;
+          }
+        }
+      } catch (_) {
+        // Fallback to next candidate path
+      }
+    }
+    this.isPocongAudioLoading = false;
+  }
+
+  // Play supplied Pocong scream audio (with anti-overlap cooldown & graceful fallback)
+  public playPocongScream(force: boolean = false): void {
+    if (!this.ctx || !this.sfxGain) {
+      this.init();
+      if (!this.ctx || !this.sfxGain) return;
+    }
+    this.resume();
+
+    const now = this.ctx.currentTime;
+    if (!force && (now - this.lastPocongScreamTime < 0.85)) {
+      return; // Avoid repeated overlapping playback
+    }
+    this.lastPocongScreamTime = now;
+
+    if (this.pocongAudioBuffer) {
+      try {
+        const source = this.ctx.createBufferSource();
+        source.buffer = this.pocongAudioBuffer;
+
+        const gainNode = this.ctx.createGain();
+        gainNode.gain.setValueAtTime(1.0, now);
+
+        source.connect(gainNode);
+        gainNode.connect(this.sfxGain);
+        source.start(now);
+        return;
+      } catch (err) {
+        console.warn('Error playing pocong scream buffer:', err);
+      }
+    }
+
+    // Graceful fallback to synthesized monster scream if audio buffer is not ready or failed
+    this.playSyntheticMonsterScream();
+  }
+
+  // Standard monster scream event routed to Pocong sound
   public playMonsterScream(): void {
+    this.playPocongScream(false);
+  }
+
+  // Monster Bloodcurdling Scream (FM synth screech fallback)
+  private playSyntheticMonsterScream(): void {
     if (!this.ctx || !this.sfxGain) return;
     const now = this.ctx.currentTime;
 

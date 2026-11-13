@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>MONSTER DUMB - HUD AUDIT</title>
+  <link rel="stylesheet" href="../src/style.css" />
+  <style>
+    body {
+      background: radial-gradient(ellipse at center, #1b2838 0%, #0d1218 70%, #05070a 100%);
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    /* Simulated 3D First Person Perspective */
+    .simulated-gameplay-scene {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, #101721 0%, #1a2736 45%, #0f161f 50%, #1b1612 100%);
+      z-index: 1;
+    }
+    .simulated-monster-silhouette {
+      position: absolute;
+      top: 38%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80px;
+      height: 220px;
+      background: #e8eaed;
+      border-radius: 40px 40px 10px 10px;
+      box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
+      border: 2px solid #5f6368;
+    }
+    .simulated-monster-tie {
+      position: absolute;
+      top: -15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 25px;
+      height: 25px;
+      background: #d1d5db;
+      border-radius: 50%;
+      border: 2px solid #5f6368;
+    }
+  </style>
+</head>
+<body>
+  <div class="simulated-gameplay-scene">
+    <div class="simulated-monster-silhouette">
+      <div class="simulated-monster-tie"></div>
+    </div>
+  </div>
+
+  <div id="ui-root">
+    <!-- Active Gameplay HUD -->
+    <div id="hud-gameplay" class="ui-hud active">
+      <div id="crosshair">
+        <div class="ch-dot"></div>
+      </div>
+
+      <div class="hud-top">
+        <div class="hud-status" id="hud-status-text">DEKATI POCONG DARI BELAKANG DAN PUKUL TUBUHNYA!</div>
+        <div class="hud-top-right">
+          <div class="hud-pause-btn">&#10074;&#10074;</div>
+        </div>
+      </div>
+
+      <!-- Detection Meter -->
+      <div id="detection-meter-container">
+        <div class="meter-label">ALERT</div>
+        <div class="meter-bar"><div id="detection-meter-fill" style="width: 65%;"></div></div>
+      </div>
+
+      <!-- SINGLE MONSTER ALERT: Only Black Background Banner (Prominently Center-Screen) -->
+      <div id="desktop-attack-prompt" class="attack-prompt-banner">
+        <div class="prompt-icon">&#9876;</div>
+        <div class="prompt-title">PUKUL POCONG!</div>
+        <div class="prompt-key">[SPASI / KLIK KIRI / ENTER / TAP TOMBOL]</div>
+      </div>
+
+      <!-- DUPLICATE RED ALERT IS COMPLETELY HIDDEN VIA CSS -->
+      <div id="contextual-attack-wrapper">
+        <button id="btn-contextual-attack" class="attack-button">
+          <span class="attack-icon">&#9876;</span>
+          <span class="attack-text">PUKUL POCONG</span>
+          <span class="attack-key-hint">[KLIK KIRI / SPASI]</span>
+        </button>
+      </div>
+
+      <!-- Mobile Touch Controls -->
+      <div id="touch-controls-container">
+        <!-- Left Movement Joystick -->
+        <div id="joystick-container-left" class="joystick-zone">
+          <div id="joystick-base-left" class="joystick-base">
+            <div id="joystick-knob-left" class="joystick-knob"></div>
+          </div>
+        </div>
+
+        <!-- Ergonomic Right Thumb Attack Button (Shifted upward and to the left) -->
+        <button id="btn-mobile-attack" class="touch-attack-btn can-strike" type="button">
+          <span class="touch-attack-icon">&#9876;</span>
+          <span class="touch-attack-label">PUKUL!</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Ensure alert toggle state based on URL hash
+    if (window.location.hash.includes('no_alert')) {
+      document.getElementById('desktop-attack-prompt').classList.add('hidden');
+      document.getElementById('btn-mobile-attack').classList.remove('can-strike');
+      document.querySelector('.touch-attack-label').textContent = 'PUKUL';
+      document.getElementById('hud-status-text').textContent = 'CARI POCONG DAN PUKUL TUBUHNYA';
+    }
+  </script>
+</body>
+</html>

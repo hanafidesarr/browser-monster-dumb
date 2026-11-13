@@ -11,7 +11,6 @@ export class MonsterModel {
   private eyeLight: THREE.PointLight;
   private leftEyeGlow: THREE.Mesh;
   private rightEyeGlow: THREE.Mesh;
-  private auraParticles: THREE.Points;
 
   // Animation states
   public isLoaded: boolean = false;
@@ -45,11 +44,7 @@ export class MonsterModel {
     this.eyeLight.position.set(0, 1.62, 0.35);
     this.innerGroup.add(this.eyeLight);
 
-    // 3. Eerie Floating Mist / Aura Particles
-    this.auraParticles = this.createAuraParticles();
-    this.innerGroup.add(this.auraParticles);
-
-    // 4. Load the actual pocong.fbx 3D model
+    // 3. Load the actual pocong.fbx 3D model
     this.loadPocongFBX();
   }
 
@@ -85,31 +80,6 @@ export class MonsterModel {
     group.add(knot);
 
     return group;
-  }
-
-  // Create eerie supernatural mist particles floating around pocong
-  private createAuraParticles(): THREE.Points {
-    const count = 35;
-    const geo = new THREE.BufferGeometry();
-    const positions = new Float32Array(count * 3);
-
-    for (let i = 0; i < count; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * 0.9;
-      positions[i * 3 + 1] = Math.random() * 2.1;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 0.9;
-    }
-
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-    const mat = new THREE.PointsMaterial({
-      color: 0x88ffaa,
-      size: 0.06,
-      transparent: true,
-      opacity: 0.45,
-      blending: THREE.AdditiveBlending,
-    });
-
-    return new THREE.Points(geo, mat);
   }
 
   // Load pocong.fbx with custom patched loader and assign textures
