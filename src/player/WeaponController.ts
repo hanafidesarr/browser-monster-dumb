@@ -36,9 +36,9 @@ export class WeaponController {
     if (weaponId === 'chair') {
       this.defaultPos.set(0.35, -0.25, -0.55);
       this.defaultRot.set(0.35, -0.4, 0.25);
-    } else if (weaponId === 'signboard') {
-      this.defaultPos.set(0.34, -0.26, -0.52);
-      this.defaultRot.set(0.25, -0.35, 0.18);
+    } else if (weaponId === 'grenade' || weaponId === 'signboard') {
+      this.defaultPos.set(0.28, -0.26, -0.42);
+      this.defaultRot.set(0.15, -0.2, 0.1);
     } else if (weaponId === 'electric_fan') {
       this.defaultPos.set(0.33, -0.28, -0.5);
       this.defaultRot.set(0.2, -0.3, 0.15);
@@ -77,11 +77,19 @@ export class WeaponController {
     this.isAttackDisabled = true;
   }
 
+  public setVisible(visible: boolean): void {
+    if (this.weaponMesh) {
+      this.weaponMesh.visible = visible;
+    }
+    this.group.visible = visible;
+  }
+
   public reset(): void {
     this.isSwinging = false;
     this.swingProgress = 0;
     this.hitTriggered = false;
     this.isAttackDisabled = false;
+    this.setVisible(true);
     if (this.weaponMesh) {
       this.weaponMesh.position.copy(this.defaultPos);
       this.weaponMesh.rotation.copy(this.defaultRot);
@@ -190,6 +198,31 @@ export class WeaponController {
           this.isSwinging = false;
           this.weaponMesh.position.copy(this.defaultPos);
           this.weaponMesh.rotation.copy(this.defaultRot);
+        }
+      } else if (def.swingType === 'throw') {
+        // Hand Grenade: Cock arm back, then thrust forward to launch!
+        if (this.swingProgress < 0.28) {
+          const t = this.swingProgress / 0.28;
+          this.weaponMesh.position.set(0.28 + t * 0.08, -0.26 + t * 0.12, -0.42 + t * 0.15);
+          this.weaponMesh.rotation.set(0.15 - t * 0.5, -0.2 + t * 0.15, 0.1 + t * 0.2);
+        } else if (this.swingProgress < 0.52) {
+          const t = (this.swingProgress - 0.28) / 0.24;
+          this.weaponMesh.position.set(
+            THREE.MathUtils.lerp(0.36, 0.12, t),
+            THREE.MathUtils.lerp(-0.14, -0.36, t),
+            THREE.MathUtils.lerp(-0.27, -0.68, t)
+          );
+          this.weaponMesh.rotation.set(
+            THREE.MathUtils.lerp(-0.35, 0.95, t),
+            THREE.MathUtils.lerp(-0.05, -0.35, t),
+            THREE.MathUtils.lerp(0.3, -0.2, t)
+          );
+        } else {
+          // Grenade has left player's hand! Temporarily hide viewmodel mesh until resolved
+          this.weaponMesh.visible = false;
+          if (this.swingProgress >= 1.0) {
+            this.isSwinging = false;
+          }
         }
       } else {
         // Standard (Baseball Bat, Broom)

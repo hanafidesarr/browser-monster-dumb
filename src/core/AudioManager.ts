@@ -224,11 +224,11 @@ export class AudioManager {
   }
 
   // Weapon Swing Whoosh depending on swing type
-  public playWeaponSwing(type: 'standard' | 'heavy' | 'fast' | 'overhead' = 'standard'): void {
+  public playWeaponSwing(type: 'standard' | 'heavy' | 'fast' | 'overhead' | 'throw' = 'standard'): void {
     if (!this.ctx || !this.sfxGain) return;
     const now = this.ctx.currentTime;
 
-    const duration = type === 'heavy' ? 0.38 : type === 'fast' ? 0.18 : 0.25;
+    const duration = type === 'heavy' ? 0.38 : type === 'fast' ? 0.18 : type === 'throw' ? 0.22 : 0.25;
     const bufferSize = Math.floor(this.ctx.sampleRate * duration);
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -247,11 +247,11 @@ export class AudioManager {
       filter.frequency.exponentialRampToValueAtTime(750, now + duration * 0.45);
       filter.frequency.exponentialRampToValueAtTime(160, now + duration);
       filter.Q.setValueAtTime(2.5, now);
-    } else if (type === 'fast') {
-      filter.frequency.setValueAtTime(600, now);
-      filter.frequency.exponentialRampToValueAtTime(2200, now + duration * 0.45);
-      filter.frequency.exponentialRampToValueAtTime(450, now + duration);
-      filter.Q.setValueAtTime(4.0, now);
+    } else if (type === 'fast' || type === 'throw') {
+      filter.frequency.setValueAtTime(500, now);
+      filter.frequency.exponentialRampToValueAtTime(1800, now + duration * 0.45);
+      filter.frequency.exponentialRampToValueAtTime(400, now + duration);
+      filter.Q.setValueAtTime(3.8, now);
     } else {
       filter.frequency.setValueAtTime(300, now);
       filter.frequency.exponentialRampToValueAtTime(1200, now + duration * 0.45);
@@ -278,11 +278,16 @@ export class AudioManager {
   }
 
   // Generic or weapon-specific impact sound
-  public playWeaponImpact(sound: 'bat' | 'metallic' | 'slap' | 'wooden' | 'boing' | 'fan'): void {
+  public playWeaponImpact(sound: 'bat' | 'metallic' | 'slap' | 'wooden' | 'boing' | 'fan' | 'explosion'): void {
     if (!this.ctx || !this.sfxGain) return;
     const now = this.ctx.currentTime;
 
     switch (sound) {
+      case 'explosion': {
+        this.playExplosion();
+        break;
+      }
+
       case 'metallic': {
         // High-pitched ringing frying pan / metal sign "TENGGG!"
         const osc1 = this.ctx.createOscillator();
@@ -969,5 +974,63 @@ export class AudioManager {
 
     osc.start(now);
     osc.stop(now + 1.35);
+  }
+
+  // Grenade explosion boom & rumble
+  public playExplosion(): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+
+    // 1. Deep low-frequency shockwave punch
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(140, now);
+    subOsc.frequency.exponentialRampToValueAtTime(32, now + 0.85);
+    subGain.gain.setValueAtTime(1.0, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 1.25);
+    subOsc.connect(subGain);
+    subGain.connect(this.sfxGain);
+    subOsc.start(now);
+    subOsc.stop(now + 1.3);
+
+    // 2. Heavy explosive noise burst
+    const duration = 1.3;
+    const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const noiseFilter = this.ctx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.setValueAtTime(1200, now);
+    noiseFilter.frequency.exponentialRampToValueAtTime(180, now + duration);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(1.0, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.sfxGain);
+    noise.start(now);
+    noise.stop(now + duration + 0.05);
+
+    // 3. Crackle / Debris crunch
+    const crackleOsc = this.ctx.createOscillator();
+    const crackleGain = this.ctx.createGain();
+    crackleOsc.type = 'triangle';
+    crackleOsc.frequency.setValueAtTime(260, now);
+    crackleOsc.frequency.exponentialRampToValueAtTime(55, now + 0.35);
+    crackleGain.gain.setValueAtTime(0.7, now);
+    crackleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+    crackleOsc.connect(crackleGain);
+    crackleGain.connect(this.sfxGain);
+    crackleOsc.start(now);
+    crackleOsc.stop(now + 0.42);
   }
 }

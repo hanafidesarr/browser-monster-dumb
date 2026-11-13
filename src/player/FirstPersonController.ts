@@ -289,13 +289,20 @@ export class FirstPersonController {
       // Lateral distance from ramp center line
       const v = dx * ramp.normX + dz * ramp.normZ;
 
-      const halfWidth = ramp.width / 2 + 0.3;
+      const halfWidth = ramp.width / 2 + 0.6;
       if (Math.abs(v) > halfWidth) continue;
 
       // Longitudinal bounds with smooth approach landings at bottom and top
       if (u >= -0.8 && u <= ramp.length + 0.8) {
         const t = Math.max(0, Math.min(1, u / ramp.length));
         const groundY = ramp.startWorld.y + t * (ramp.endWorld.y - ramp.startWorld.y);
+        const expectedCamY = groundY + this.playerHeight;
+
+        // Verify player is vertically close to the ramp slope surface (within 1.35m).
+        // This ensures a player on an upper floor above the foot of the stairs,
+        // or on a lower floor underneath the upper landing, is not mistakenly snapped to the ramp.
+        if (Math.abs(wy - expectedCamY) > 1.35) continue;
+
         return { ramp, t, groundY, lateralDist: Math.abs(v) };
       }
     }
@@ -347,7 +354,21 @@ export class FirstPersonController {
       }
     }
 
-    // 4. Custom Box Colliders (e.g. Safety Balustrades / Railings around upper-floor openings)
+    // 4. Stair / Ramp Check (Checked BEFORE upper balustrades and grid walls):
+    // If the test position (wx, wz) is on a ramp, the walking slope is completely clear of walls.
+    // Smoothly constrain lateral distance to the inner handrail boundary so player slides along rails.
+    if (this.ramps.length > 0) {
+      const rampInfo = this.findRampForPosition(wx, wz, this.position.y);
+      if (rampInfo) {
+        const maxLateral = Math.max(0.4, rampInfo.ramp.width / 2 - this.playerRadius);
+        if (rampInfo.lateralDist > maxLateral) {
+          return true; // Lateral side handrail blocks player from falling off stair edge
+        }
+        return false; // Clear stair walking path! Never get stuck on steps or balustrades!
+      }
+    }
+
+    // 5. Custom Box Colliders (e.g. Safety Balustrades / Railings around upper-floor openings)
     if (this.collisionConfig && this.collisionConfig.boxColliders) {
       for (let i = 0; i < this.collisionConfig.boxColliders.length; i++) {
         const b = this.collisionConfig.boxColliders[i];
@@ -358,26 +379,14 @@ export class FirstPersonController {
           wz <= b.maxZ + this.playerRadius
         ) {
           if (b.minY !== undefined && b.maxY !== undefined) {
-            if (this.position.y >= b.minY - 0.2 && this.position.y <= b.maxY + this.playerHeight) {
+            // Only block player who is actually on the upper floor level where the railing exists
+            if (this.position.y >= b.minY + 0.3 && this.position.y <= b.maxY + this.playerHeight) {
               return true;
             }
           } else {
             return true;
           }
         }
-      }
-    }
-
-    // 5. Stair / Ramp Check (ONLY when ramps exist):
-    // If the test position (wx, wz) is on a ramp, the walking slope is clear of walls.
-    // Constrain lateral distance to keep player on the stairs and prevent clipping into corridor walls.
-    if (this.ramps.length > 0) {
-      const rampInfo = this.findRampForPosition(wx, wz, this.position.y);
-      if (rampInfo) {
-        if (rampInfo.lateralDist > rampInfo.ramp.width / 2) {
-          return true; // Lateral side boundary blocks player from falling off stair edge
-        }
-        return false; // Clear stair path!
       }
     }
 

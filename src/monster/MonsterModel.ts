@@ -120,16 +120,30 @@ export class MonsterModel {
     // Reaching arms
     const armGeo = new THREE.CylinderGeometry(0.06, 0.05, 0.6, 6);
     const leftArm = new THREE.Mesh(armGeo, skinMat);
-    leftArm.position.set(-0.25, 0.2, 0.35);
+    leftArm.position.set(-0.32, 0.15, 0.35);
     leftArm.rotation.x = Math.PI / 4;
-    leftArm.rotation.z = -Math.PI / 8;
+    leftArm.rotation.z = -Math.PI / 6;
     group.add(leftArm);
 
     const rightArm = new THREE.Mesh(armGeo, skinMat);
-    rightArm.position.set(0.25, 0.2, 0.35);
+    rightArm.position.set(0.32, 0.15, 0.35);
     rightArm.rotation.x = Math.PI / 4;
-    rightArm.rotation.z = Math.PI / 8;
+    rightArm.rotation.z = Math.PI / 6;
     group.add(rightArm);
+
+    // Splayed hind legs for gecko/cicak crawling stance
+    const legGeo = new THREE.CylinderGeometry(0.065, 0.05, 0.62, 6);
+    const leftLeg = new THREE.Mesh(legGeo, skinMat);
+    leftLeg.position.set(-0.35, 0.16, -0.32);
+    leftLeg.rotation.x = -Math.PI / 4;
+    leftLeg.rotation.z = Math.PI / 5;
+    group.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(legGeo, skinMat);
+    rightLeg.position.set(0.35, 0.16, -0.32);
+    rightLeg.rotation.x = -Math.PI / 4;
+    rightLeg.rotation.z = -Math.PI / 5;
+    group.add(rightLeg);
 
     return group;
   }
@@ -329,17 +343,21 @@ export class MonsterModel {
   public applySittingPosture(time: number): void {
     if (this.monsterType === 'kunti') {
       if (this.mixer) {
-        // Evaluate at subtle breathing frame
-        this.mixer.setTime(0.08 + Math.sin(time * 1.5) * 0.02);
+        // Evaluate at natural wide-splayed limb frame (~0.12s)
+        this.mixer.setTime(0.12 + Math.sin(time * 1.5) * 0.012);
       }
-      const breathe = Math.sin(time * 1.8) * 0.015;
-      this.innerGroup.position.set(0, breathe, 0);
-      this.innerGroup.rotation.set(0, 0, Math.sin(time * 1.2) * 0.015);
+      const breathe = Math.sin(time * 1.8) * 0.012;
+      // Clinging to vertical wall surface like a cicak (lizard/gecko):
+      // Belly, palms of hands, and soles of feet pressed flush against the wall surface (-Z).
+      // Body is oriented vertically flat along the wall (rotX = -PI/2, rotZ = PI),
+      // with head facing up (+Y) and glowing red eyes looking into the room.
+      this.innerGroup.position.set(0, breathe, -0.06);
+      this.innerGroup.rotation.set(-Math.PI / 2, 0, Math.PI + Math.sin(time * 1.2) * 0.02);
 
-      const eyeIntensity = 0.9 + Math.sin(time * 3.0) * 0.4;
+      const eyeIntensity = 1.3 + Math.sin(time * 3.0) * 0.5;
       this.eyeLight.intensity = eyeIntensity;
-      (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xcc1111);
-      (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xcc1111);
+      (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff1111);
+      (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff1111);
       return;
     }
 
@@ -366,9 +384,12 @@ export class MonsterModel {
     const flinch = Math.sin(p * Math.PI);
 
     if (this.monsterType === 'kunti') {
-      // Kuntilanak flinches sharply backwards and jerks on the floor
-      this.innerGroup.position.set(0, flinch * 0.12, -flinch * 0.35);
-      this.innerGroup.rotation.set(flinch * 0.35, (Math.random() - 0.5) * 0.2, 0);
+      // Recoils and smoothly transitions from wall-clinging cicak posture (-PI/2, 0, PI) to floor crawl posture (0, 0, 0)
+      const rotX = THREE.MathUtils.lerp(-Math.PI / 2, 0, p);
+      const rotZ = THREE.MathUtils.lerp(Math.PI, 0, p);
+      const posZ = THREE.MathUtils.lerp(-0.06, 0, p);
+      this.innerGroup.rotation.set(rotX - flinch * 0.35, 0, rotZ + (Math.random() - 0.5) * flinch * 0.25);
+      this.innerGroup.position.set(0, flinch * 0.1, posZ + flinch * 0.25);
       this.eyeLight.intensity = 3.0;
       return;
     }
@@ -523,10 +544,10 @@ export class MonsterModel {
   // 7. CATCH PLAYER: Jumpscare leap right into player camera
   public applyCatch(time: number): void {
     if (this.monsterType === 'kunti') {
-      this.innerGroup.position.set(0, 0.25, 0.55);
+      this.innerGroup.position.set(0, 0.25, 0.45);
       this.innerGroup.rotation.set(-0.25, Math.sin(time * 30) * 0.12, 0);
-      this.innerGroup.scale.set(1.2, 1.2, 1.2);
-      this.eyeLight.intensity = 4.0;
+      this.innerGroup.scale.set(1.35, 1.35, 1.35);
+      this.eyeLight.intensity = 4.5;
       (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
       (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
       return;

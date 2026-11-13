@@ -1,5 +1,6 @@
 export type WeaponId =
   | 'baseball_bat'
+  | 'grenade'
   | 'signboard'
   | 'frying_pan'
   | 'slipper'
@@ -9,7 +10,7 @@ export type WeaponId =
   | 'toy_hammer'
   | 'electric_fan';
 
-export type WeaponSwingType = 'standard' | 'heavy' | 'fast' | 'overhead';
+export type WeaponSwingType = 'standard' | 'heavy' | 'fast' | 'overhead' | 'throw';
 
 export type WeaponImpactSound =
   | 'bat'
@@ -17,7 +18,8 @@ export type WeaponImpactSound =
   | 'slap'
   | 'wooden'
   | 'boing'
-  | 'fan';
+  | 'fan'
+  | 'explosion';
 
 export type MonsterReactionType =
   | 'snap'
@@ -51,13 +53,13 @@ export const ALL_WEAPONS: WeaponDefinition[] = [
     defaultUnlocked: true,
   },
   {
-    id: 'signboard',
-    name: 'Advertising Billboard',
-    nameId: 'Plang Iklan',
-    description: 'Papan seng promosi warung pinggir jalan. Ayunan lebar dan berisik!',
-    swingDuration: 0.52,
-    swingType: 'heavy',
-    impactSound: 'metallic',
+    id: 'grenade',
+    name: 'Hand Grenade',
+    nameId: 'Granat Nanas',
+    description: 'Granat militer berdaya ledak tinggi. Dapat dilempar dari jauh ke arah monster!',
+    swingDuration: 0.55,
+    swingType: 'throw',
+    impactSound: 'explosion',
     monsterReaction: 'stagger',
   },
   {
@@ -139,3 +141,8 @@ export const WEAPON_MAP: Record<WeaponId, WeaponDefinition> = ALL_WEAPONS.reduce
   },
   {} as Record<WeaponId, WeaponDefinition>
 );
+
+// Backward-compatibility alias for signboard
+if (WEAPON_MAP['grenade']) {
+  WEAPON_MAP['signboard'] = WEAPON_MAP['grenade'];
+}

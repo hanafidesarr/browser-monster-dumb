@@ -268,7 +268,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     floorHeight: 0,
     monsterCount: 1,
     weaponPickups: [
-      { weaponId: 'signboard', x: 16, z: 4 },
+      { weaponId: 'grenade', x: 16, z: 4 },
       { weaponId: 'slipper', x: 4, z: 16 },
     ],
     monsterConfig: {
@@ -611,7 +611,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       { id: 'switch_beta', x: 17, z: 17, name: 'TERMINAL BETA' },
     ],
     weaponPickups: [
-      { weaponId: 'signboard', x: 17, z: 3 },
+      { weaponId: 'grenade', x: 17, z: 3 },
     ],
     monsterConfig: {
       detectionFovDeg: 96,

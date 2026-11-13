@@ -89,18 +89,18 @@ export function runWeaponPersistenceVerification() {
   console.log('--- TEST 1: Pristine State ---');
   assert('Default unlocked weapon is only baseball_bat',
     save.isWeaponUnlocked('baseball_bat') &&
-    !save.isWeaponUnlocked('signboard') &&
+    !save.isWeaponUnlocked('grenade') &&
     !save.isWeaponUnlocked('slipper') &&
     !save.isWeaponUnlocked('frying_pan')
   );
 
   const level1 = ALL_LEVELS[0];
   const build1Initial = LabyrinthBuilder.buildLevel(level1);
-  assert('Level 1 initial weapon pickups has 2 weapons (signboard & slipper)',
+  assert('Level 1 initial weapon pickups has 2 weapons (grenade & slipper)',
     build1Initial.weaponPickups.length === 2
   );
-  assert('Level 1 pickups contain signboard',
-    build1Initial.weaponPickups.some(p => p.weaponId === 'signboard')
+  assert('Level 1 pickups contain grenade',
+    build1Initial.weaponPickups.some(p => p.weaponId === 'grenade')
   );
   assert('Level 1 pickups contain slipper',
     build1Initial.weaponPickups.some(p => p.weaponId === 'slipper')
@@ -115,9 +115,9 @@ export function runWeaponPersistenceVerification() {
   // 3. Re-enter Level 1 (Retry / Reload)
   console.log('\n--- TEST 3: Re-entering Level 1 (Retry / Game Over) ---');
   const build1AfterSlipper = LabyrinthBuilder.buildLevel(level1);
-  assert('Level 1 now only spawns 1 pickup (signboard)',
+  assert('Level 1 now only spawns 1 pickup (grenade)',
     build1AfterSlipper.weaponPickups.length === 1 &&
-    build1AfterSlipper.weaponPickups[0].weaponId === 'signboard'
+    build1AfterSlipper.weaponPickups[0].weaponId === 'grenade'
   );
   assert('Slipper pickup is NOT spawned in Level 1 rootGroup',
     !build1AfterSlipper.weaponPickups.some(p => p.weaponId === 'slipper')
@@ -134,13 +134,14 @@ export function runWeaponPersistenceVerification() {
     build8.weaponPickups.length === 0
   );
 
-  // 5. Collect 'signboard'
-  console.log('\n--- TEST 5: Collecting "signboard" ---');
-  const unlockedSignboard = save.unlockWeapon('signboard');
-  assert('SaveManager unlocks signboard successfully', unlockedSignboard === true);
+  // 5. Collect 'grenade' (and test legacy signboard compatibility)
+  console.log('\n--- TEST 5: Collecting "grenade" ---');
+  const unlockedGrenade = save.unlockWeapon('grenade');
+  assert('SaveManager unlocks grenade successfully', unlockedGrenade === true);
   assert('Duplicate unlock returns false (no duplicate toast/sound)',
-    save.unlockWeapon('signboard') === false
+    save.unlockWeapon('grenade') === false
   );
+  assert('Legacy signboard alias confirms unlocked', save.isWeaponUnlocked('signboard') === true);
 
   // 6. Re-enter Level 1 (both weapons collected)
   console.log('\n--- TEST 6: Re-entering Level 1 (All weapons collected) ---');
@@ -149,14 +150,14 @@ export function runWeaponPersistenceVerification() {
     build1AllCollected.weaponPickups.length === 0
   );
 
-  // 7. Visit Level 9 (which also defines 'signboard')
-  console.log('\n--- TEST 7: Visiting Level 9 (Contains signboard) ---');
+  // 7. Visit Level 9 (which also defines 'grenade')
+  console.log('\n--- TEST 7: Visiting Level 9 (Contains grenade) ---');
   const level9 = ALL_LEVELS[8];
   const build9 = LabyrinthBuilder.buildLevel(level9);
-  assert('Level 9 defines signboard in level definition',
-    level9.weaponPickups?.some(p => p.weaponId === 'signboard') === true
+  assert('Level 9 defines grenade in level definition',
+    level9.weaponPickups?.some(p => p.weaponId === 'grenade') === true
   );
-  assert('Level 9 world pickup for signboard is HIDDEN because signboard is globally unlocked',
+  assert('Level 9 world pickup for grenade is HIDDEN because grenade is globally unlocked',
     build9.weaponPickups.length === 0
   );
 
@@ -187,9 +188,9 @@ export function runWeaponPersistenceVerification() {
 
   // Re-read from stored JSON
   const parsed = JSON.parse(rawSaved!);
-  assert('Stored JSON contains unlocked slipper and signboard',
+  assert('Stored JSON contains unlocked slipper and grenade',
     parsed.unlockedWeapons.includes('slipper') &&
-    parsed.unlockedWeapons.includes('signboard') &&
+    parsed.unlockedWeapons.includes('grenade') &&
     parsed.unlockedWeapons.includes('baseball_bat')
   );
 

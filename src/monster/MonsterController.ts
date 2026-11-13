@@ -42,6 +42,10 @@ export class MonsterController {
   private bridges: WorldBridge[] = [];
   private floorHeight: number = 3.8;
   private baseGroundY: number = 0;
+  public isWallClinging: boolean = false;
+  public wallClingY: number = 0;
+  private wallAttachPos: THREE.Vector3 | null = null;
+  private wallLandPos: THREE.Vector3 | null = null;
 
   public treeColliders: Array<{ x: number; z: number; radius: number }> = [];
 
@@ -125,10 +129,17 @@ export class MonsterController {
     }
 
     this.baseGroundY = spawn.y || 0;
-    this.position.set(spawn.x, spawn.y || 0, spawn.z);
-    this.rotationY = spawn.rotationY;
-    this.group.position.copy(this.position);
-    this.group.rotation.y = this.rotationY;
+    this.wallClingY = this.baseGroundY + 1.85;
+
+    if (this.monsterType === 'kunti') {
+      this.attachKuntiToWall(spawn);
+    } else {
+      this.isWallClinging = false;
+      this.position.set(spawn.x, spawn.y || 0, spawn.z);
+      this.rotationY = spawn.rotationY;
+      this.group.position.copy(this.position);
+      this.group.rotation.y = this.rotationY;
+    }
 
     this.state = 'SITTING_IDLE';
     this.isAwake = false;
@@ -145,6 +156,120 @@ export class MonsterController {
 
   public getForwardVector(): THREE.Vector3 {
     return new THREE.Vector3(Math.sin(this.rotationY), 0, Math.cos(this.rotationY)).normalize();
+  }
+
+  // Cling Kuntilanak firmly onto the nearest solid wall before being hit
+  private attachKuntiToWall(spawn: { x: number; y?: number; z: number; rotationY?: number }): void {
+    const grid = this.effectiveGrid || (this.levelDef ? this.levelDef.grid : null);
+    const cellSize = this.levelDef?.cellSize || 3.8;
+    if (!grid) {
+      this.position.set(spawn.x, this.wallClingY, spawn.z);
+      this.rotationY = spawn.rotationY || 0;
+      this.isWallClinging = true;
+      this.group.position.copy(this.position);
+      this.group.rotation.y = this.rotationY;
+      return;
+    }
+
+    const gridW = grid[0].length;
+    const gridH = grid.length;
+    const halfW = (gridW * cellSize) / 2;
+    const halfH = (gridH * cellSize) / 2;
+
+    const currentCellX = Math.floor((spawn.x + halfW) / cellSize);
+    const currentCellZ = Math.floor((spawn.z + halfH) / cellSize);
+
+    interface WallCandidate {
+      wallDist: number;
+      x: number;
+      z: number;
+      rotY: number;
+      roomDirX: number;
+      roomDirZ: number;
+    }
+    const candidates: WallCandidate[] = [];
+
+    const dirs = [
+      { dir: 'EAST', dx: 1, dz: 0 },
+      { dir: 'WEST', dx: -1, dz: 0 },
+      { dir: 'NORTH', dx: 0, dz: -1 },
+      { dir: 'SOUTH', dx: 0, dz: 1 },
+    ];
+
+    for (const d of dirs) {
+      const maxSteps = Math.max(gridW, gridH);
+      for (let step = 1; step <= maxSteps; step++) {
+        const nx = currentCellX + d.dx * step;
+        const nz = currentCellZ + d.dz * step;
+        const isWall = nx < 0 || nx >= gridW || nz < 0 || nz >= gridH || grid[nz][nx] === 1;
+        if (isWall) {
+          if (d.dir === 'EAST') {
+            const wallSurfaceX = nx * cellSize - halfW;
+            candidates.push({
+              wallDist: Math.abs(spawn.x - wallSurfaceX),
+              x: wallSurfaceX - 0.16,
+              z: spawn.z,
+              rotY: -Math.PI / 2, // Facing west into the room
+              roomDirX: -1,
+              roomDirZ: 0,
+            });
+          } else if (d.dir === 'WEST') {
+            const wallSurfaceX = (nx + 1) * cellSize - halfW;
+            candidates.push({
+              wallDist: Math.abs(spawn.x - wallSurfaceX),
+              x: wallSurfaceX + 0.16,
+              z: spawn.z,
+              rotY: Math.PI / 2, // Facing east into the room
+              roomDirX: 1,
+              roomDirZ: 0,
+            });
+          } else if (d.dir === 'NORTH') {
+            const wallSurfaceZ = (nz + 1) * cellSize - halfH;
+            candidates.push({
+              wallDist: Math.abs(spawn.z - wallSurfaceZ),
+              x: spawn.x,
+              z: wallSurfaceZ + 0.16,
+              rotY: 0, // Facing south into the room
+              roomDirX: 0,
+              roomDirZ: 1,
+            });
+          } else if (d.dir === 'SOUTH') {
+            const wallSurfaceZ = nz * cellSize - halfH;
+            candidates.push({
+              wallDist: Math.abs(spawn.z - wallSurfaceZ),
+              x: spawn.x,
+              z: wallSurfaceZ - 0.16,
+              rotY: Math.PI, // Facing north into the room
+              roomDirX: 0,
+              roomDirZ: -1,
+            });
+          }
+          break; // Stop at the first wall encountered in this direction
+        }
+      }
+    }
+
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => a.wallDist - b.wallDist);
+      const chosen = candidates[0];
+      this.position.set(chosen.x, this.wallClingY, chosen.z);
+      this.rotationY = chosen.rotY;
+      this.wallAttachPos = new THREE.Vector3(chosen.x, this.wallClingY, chosen.z);
+      this.wallLandPos = new THREE.Vector3(
+        chosen.x + chosen.roomDirX * 0.65,
+        this.baseGroundY,
+        chosen.z + chosen.roomDirZ * 0.65
+      );
+    } else {
+      this.position.set(spawn.x, this.wallClingY, spawn.z);
+      this.rotationY = spawn.rotationY || 0;
+      this.wallAttachPos = new THREE.Vector3(spawn.x, this.wallClingY, spawn.z);
+      this.wallLandPos = new THREE.Vector3(spawn.x, this.baseGroundY, spawn.z);
+    }
+
+    this.isWallClinging = true;
+    this.group.position.copy(this.position);
+    this.group.rotation.y = this.rotationY;
   }
 
   // 3D Spatial and Line-of-Sight Interaction Validation (Stage 2: Floor Separation & Occlusion)
@@ -277,10 +402,24 @@ export class MonsterController {
     if (this.state !== 'SITTING_IDLE' || this.isAwake) return;
 
     this.isAwake = true;
-    this.state = 'STAND_UP';
+    if (this.isWallClinging) {
+      this.isWallClinging = false;
+      if (this.wallLandPos) {
+        this.position.copy(this.wallLandPos);
+      } else {
+        this.position.y = this.baseGroundY;
+      }
+    }
+    this.state = this.monsterType === 'kunti' ? 'CHASE' : 'STAND_UP';
     this.stateTime = 0;
     this.animProgress = 0;
     this.detectionPercent = 0;
+    if (this.monsterType === 'kunti') {
+      AudioManager.getInstance().startKuntiChaseAudio();
+      if (this.onChaseStarted) {
+        this.onChaseStarted();
+      }
+    }
   }
 
   // Legacy wrapper for baseball bat strike
@@ -342,7 +481,11 @@ export class MonsterController {
   // In chase phase (after at least one monster struck), un-struck monsters awaken if player approaches.
   private updateSittingIdle(dt: number, totalTime: number, playerPos: THREE.Vector3, isChasePhase: boolean = false): void {
     this.model.applySittingPosture(totalTime);
-    this.position.y = this.baseGroundY;
+    if (this.monsterType === 'kunti' && this.isWallClinging) {
+      this.position.y = this.wallClingY;
+    } else {
+      this.position.y = this.baseGroundY;
+    }
 
     if (!this.levelDef) return;
 
@@ -435,7 +578,34 @@ export class MonsterController {
     this.animProgress = Math.min(1.0, this.stateTime / hitDuration);
     this.model.applyHitReaction(this.animProgress, this.currentHitReaction);
 
+    // If Kuntilanak was clinging to the wall, she drops and steps forward out to the open floor!
+    if (this.monsterType === 'kunti' && this.isWallClinging) {
+      const dropProgress = Math.pow(this.animProgress, 1.6);
+      if (this.wallAttachPos && this.wallLandPos) {
+        this.position.x = THREE.MathUtils.lerp(this.wallAttachPos.x, this.wallLandPos.x, dropProgress);
+        this.position.y = THREE.MathUtils.lerp(this.wallAttachPos.y, this.wallLandPos.y, dropProgress);
+        this.position.z = THREE.MathUtils.lerp(this.wallAttachPos.z, this.wallLandPos.z, dropProgress);
+      } else {
+        this.position.y = THREE.MathUtils.lerp(this.wallClingY, this.baseGroundY, dropProgress);
+      }
+
+      if (this.animProgress >= 1.0) {
+        if (this.wallLandPos) {
+          this.position.copy(this.wallLandPos);
+        } else {
+          this.position.y = this.baseGroundY;
+        }
+        this.isWallClinging = false;
+      }
+    }
+
     if (this.stateTime >= hitDuration) {
+      this.isWallClinging = false;
+      if (this.wallLandPos) {
+        this.position.copy(this.wallLandPos);
+      } else {
+        this.position.y = this.baseGroundY;
+      }
       this.state = 'SCREAM';
       this.stateTime = 0;
       this.animProgress = 0;
@@ -450,9 +620,21 @@ export class MonsterController {
     this.model.applyScream(this.animProgress, totalTime);
 
     if (this.stateTime >= screamDuration) {
-      this.state = 'STAND_UP';
-      this.stateTime = 0;
-      this.animProgress = 0;
+      if (this.monsterType === 'kunti') {
+        // Kuntilanak: drops straight into fast crawl chase immediately after scream!
+        this.state = 'CHASE';
+        this.stateTime = 0;
+        this.hopTimer = 0;
+        this.pathRecalcTimer = 0.35;
+        AudioManager.getInstance().startKuntiChaseAudio();
+        if (this.onChaseStarted) {
+          this.onChaseStarted();
+        }
+      } else {
+        this.state = 'STAND_UP';
+        this.stateTime = 0;
+        this.animProgress = 0;
+      }
     }
   }
 
@@ -670,11 +852,35 @@ export class MonsterController {
       const shouldUseGrid = this.collisionConfig ? this.collisionConfig.useGridWalls : false;
       if (shouldUseGrid) {
         const grid = (this.collisionConfig && this.collisionConfig.wallGrid) || this.effectiveGrid || this.levelDef!.grid;
-        if (!this.testGridWallCollision(nextX, this.position.z, grid, cellSize, halfW, halfH)) {
+        if (!this.testGridWallCollision(nextX, this.position.z, grid, cellSize, halfW, halfH, this.position.x, this.position.z)) {
           this.position.x = nextX;
         }
-        if (!this.testGridWallCollision(this.position.x, nextZ, grid, cellSize, halfW, halfH)) {
+        if (!this.testGridWallCollision(this.position.x, nextZ, grid, cellSize, halfW, halfH, this.position.x, this.position.z)) {
           this.position.z = nextZ;
+        }
+
+        // Automatic wall push-out resolution so monster NEVER gets pinned or stuck inside boundary margin
+        const curCenterGx = Math.floor((this.position.x + halfW) / cellSize);
+        const curCenterGz = Math.floor((this.position.z + halfH) / cellSize);
+        const safeMargin = 0.40;
+        for (let gz = curCenterGz - 1; gz <= curCenterGz + 1; gz++) {
+          for (let gx = curCenterGx - 1; gx <= curCenterGx + 1; gx++) {
+            if (gx >= 0 && gx < grid[0].length && gz >= 0 && gz < grid.length && grid[gz][gx] === 1) {
+              const minX = gx * cellSize - halfW;
+              const maxX = (gx + 1) * cellSize - halfW;
+              const minZ = gz * cellSize - halfH;
+              const maxZ = (gz + 1) * cellSize - halfH;
+              const closestX = Math.max(minX, Math.min(this.position.x, maxX));
+              const closestZ = Math.max(minZ, Math.min(this.position.z, maxZ));
+              const pushDx = this.position.x - closestX;
+              const pushDz = this.position.z - closestZ;
+              const pushDist = Math.hypot(pushDx, pushDz);
+              if (pushDist < safeMargin && pushDist > 0.0001) {
+                this.position.x = closestX + (pushDx / pushDist) * safeMargin;
+                this.position.z = closestZ + (pushDz / pushDist) * safeMargin;
+              }
+            }
+          }
         }
       } else {
         // Open environments (Level 1): advance freely
@@ -730,13 +936,18 @@ export class MonsterController {
     grid: number[][],
     cellSize: number,
     halfW: number,
-    halfH: number
+    halfH: number,
+    curX?: number,
+    curZ?: number
   ): boolean {
-    const monsterRadius = 0.45;
+    const monsterRadius = 0.40;
     const centerGx = Math.floor((wx + halfW) / cellSize);
     const centerGz = Math.floor((wz + halfH) / cellSize);
     const gridW = grid[0].length;
     const gridH = grid.length;
+
+    let minDistanceSq = Infinity;
+    let minCurDistanceSq = Infinity;
 
     for (let gz = centerGz - 1; gz <= centerGz + 1; gz++) {
       for (let gx = centerGx - 1; gx <= centerGx + 1; gx++) {
@@ -749,11 +960,29 @@ export class MonsterController {
 
           const closestX = Math.max(minX, Math.min(wx, maxX));
           const closestZ = Math.max(minZ, Math.min(wz, maxZ));
-          if ((wx - closestX) ** 2 + (wz - closestZ) ** 2 < monsterRadius * monsterRadius) {
-            return true;
+          const distSq = (wx - closestX) ** 2 + (wz - closestZ) ** 2;
+          if (distSq < minDistanceSq) {
+            minDistanceSq = distSq;
+          }
+
+          if (curX !== undefined && curZ !== undefined) {
+            const curClosestX = Math.max(minX, Math.min(curX, maxX));
+            const curClosestZ = Math.max(minZ, Math.min(curZ, maxZ));
+            const curDistSq = (curX - curClosestX) ** 2 + (curZ - curClosestZ) ** 2;
+            if (curDistSq < minCurDistanceSq) {
+              minCurDistanceSq = curDistSq;
+            }
           }
         }
       }
+    }
+
+    if (minDistanceSq < monsterRadius * monsterRadius) {
+      // Anti-pin rule: If moving from (curX, curZ) to (wx, wz) increases distance from the wall (moving away), allow it!
+      if (curX !== undefined && curZ !== undefined && minDistanceSq > minCurDistanceSq) {
+        return false;
+      }
+      return true;
     }
     return false;
   }

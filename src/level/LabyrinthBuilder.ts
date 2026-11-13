@@ -590,8 +590,8 @@ export class LabyrinthBuilder {
           minGz,
           maxGz,
           box: new THREE.Box3(
-            new THREE.Vector3(minWx, r.toFloor * floorHeight - 0.5, minWz),
-            new THREE.Vector3(maxWx, r.toFloor * floorHeight + 2.5, maxWz)
+            new THREE.Vector3(minWx - 0.25, r.toFloor * floorHeight - 0.5, minWz - 0.25),
+            new THREE.Vector3(maxWx + 0.25, r.toFloor * floorHeight + 2.5, maxWz + 0.25)
           ),
         });
       });

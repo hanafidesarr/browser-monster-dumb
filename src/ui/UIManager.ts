@@ -149,7 +149,8 @@ export class UIManager {
 
     const weaponIcons: Record<string, string> = {
       baseball_bat: '&#9876;',
-      signboard: '&#129534;',
+      grenade: '&#128163;',
+      signboard: '&#128163;',
       frying_pan: '&#127859;',
       slipper: '&#128094;',
       chair: '&#129681;',
@@ -248,14 +249,14 @@ export class UIManager {
     }, 4500);
   }
 
-  public showGameplayHUD(): void {
+  public showGameplayHUD(actionVerb: string = 'PUKUL'): void {
     this.hideAllScreens();
     this.hudGameplay.classList.add('active');
     if (this.btnMobileAttack) {
       this.btnMobileAttack.style.display = 'flex';
       this.btnMobileAttack.classList.remove('can-strike');
       const label = this.btnMobileAttack.querySelector('.touch-attack-label');
-      if (label) label.textContent = 'PUKUL';
+      if (label) label.textContent = actionVerb;
     }
     if (this.btnSprint) {
       this.btnSprint.style.display = 'none';
@@ -325,13 +326,23 @@ export class UIManager {
     this.hudStatusText.textContent = text;
   }
 
-  public setAttackPromptVisible(visible: boolean, monsterName: string = 'POCONG'): void {
+  public setAttackPromptVisible(visible: boolean, monsterName: string = 'POCONG', actionVerb: string = 'PUKUL'): void {
+    const isThrow = actionVerb === 'LEMPAR';
+    const icon = isThrow ? '&#128163;' : '&#9876;';
+    const title = isThrow ? `LEMPAR GRANAT KE ${monsterName.toUpperCase()}!` : `PUKUL ${monsterName.toUpperCase()}!`;
+    const btnText = isThrow ? 'LEMPAR!' : 'PUKUL!';
+    const btnTextIdle = isThrow ? 'LEMPAR' : 'PUKUL';
+
     // 1. Single Monster Alert: Only show the black-background banner prompt
     if (this.desktopAttackPrompt) {
       if (visible) {
         const titleEl = this.desktopAttackPrompt.querySelector('.prompt-title');
         if (titleEl) {
-          titleEl.textContent = `PUKUL ${monsterName.toUpperCase()}!`;
+          titleEl.textContent = title;
+        }
+        const iconEl = this.desktopAttackPrompt.querySelector('.prompt-icon');
+        if (iconEl) {
+          iconEl.innerHTML = icon;
         }
         this.desktopAttackPrompt.classList.remove('hidden');
       } else {
@@ -349,10 +360,10 @@ export class UIManager {
       const label = this.btnMobileAttack.querySelector('.touch-attack-label');
       if (visible) {
         this.btnMobileAttack.classList.add('can-strike');
-        if (label) label.textContent = 'PUKUL!';
+        if (label) label.textContent = btnText;
       } else {
         this.btnMobileAttack.classList.remove('can-strike');
-        if (label) label.textContent = 'PUKUL';
+        if (label) label.textContent = btnTextIdle;
       }
     }
   }

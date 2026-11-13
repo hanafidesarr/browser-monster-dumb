@@ -10,7 +10,8 @@ import { InputManager } from './InputManager.ts';
 import { SaveManager } from './SaveManager.ts';
 import { SettingsManager } from './SettingsManager.ts';
 import { UIManager } from '../ui/UIManager.ts';
-import { WeaponId, WEAPON_MAP } from '../weapon/WeaponData.ts';
+import { WeaponId, WeaponDefinition, WEAPON_MAP } from '../weapon/WeaponData.ts';
+import { GrenadeSystem } from '../weapon/GrenadeSystem.ts';
 
 export type GameState =
   | 'MAIN_MENU'
@@ -334,6 +335,7 @@ export class GameManager {
 
     // Remove existing monsters and dispose hierarchy
     AudioManager.getInstance().stopKuntiChaseAudio();
+    GrenadeSystem.getInstance().reset(this.scene);
     if (this.monsters.length > 0) {
       for (const m of this.monsters) {
         this.scene.remove(m.group);
@@ -509,24 +511,58 @@ export class GameManager {
         this.state = 'STEALTH';
         this.isTimerRunning = true;
 
-        UIManager.getInstance().showGameplayHUD();
+        const currentWeaponId = this.fpController.weapon.getWeaponId();
+        const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
+        const actionVerb = isGrenade ? 'LEMPAR' : 'PUKUL';
+        UIManager.getInstance().showGameplayHUD(actionVerb);
+
         const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
         const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
         const weaponDef = this.fpController.weapon.getWeaponDef();
         const weaponName = weaponDef ? weaponDef.name.toUpperCase() : 'SENJATA';
         if (this.currentLevelDef.exitLockedInitially) {
-          UIManager.getInstance().setStatusText(`PUKUL ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
+          if (isGrenade) {
+            UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
+          } else {
+            UIManager.getInstance().setStatusText(`PUKUL ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
+          }
         } else {
-          UIManager.getInstance().setStatusText(`CARI & PUKUL ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`);
+          if (isGrenade) {
+            UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ARAH ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERKENA LEDAKAN.`);
+          } else {
+            UIManager.getInstance().setStatusText(`CARI & PUKUL ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`);
+          }
         }
       }
     );
   }
 
-  // Execute Weapon Attack on Monster
+  // Execute Weapon Attack or Throwable Launch on Monster
   private performAttack(): void {
     if (this.state !== 'STEALTH' || this.isAttackSuccessful) return;
 
+    const currentWeaponId = this.fpController.weapon.getWeaponId();
+    const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
+
+    // Ranged Throwable: Hand Grenade
+    if (isGrenade) {
+      if (GrenadeSystem.getInstance().isGrenadeInFlight()) return;
+
+      const weaponDef = this.fpController.weapon.getWeaponDef();
+      this.fpController.weapon.swing(() => {
+        // Projectile launched from hand into 3D world
+        GrenadeSystem.getInstance().throwGrenade(
+          this.scene,
+          this.fpController.camera,
+          (impactPos) => {
+            this.handleGrenadeDetonation(impactPos, weaponDef);
+          }
+        );
+      });
+      return;
+    }
+
+    // Standard Melee Strike (Baseball Bat, Frying Pan, Slipper, Chair, etc.)
     const blocking = this.levelBuild ? this.levelBuild.blockingMeshes : [];
     const forward = this.fpController.getForwardVector();
     let hitMonster: MonsterController | null = null;
@@ -592,11 +628,75 @@ export class GameManager {
     }
   }
 
+  // Handle Grenade Detonation Blast: Impact on Monster vs Miss
+  private handleGrenadeDetonation(impactPos: THREE.Vector3, weaponDef: WeaponDefinition): void {
+    if (this.state !== 'STEALTH') return;
+
+    // Check if any sleeping monster is within blast radius (4.6m horizontal, 3.2m vertical for wall-clinging height)
+    let hitMonster: MonsterController | null = null;
+    for (const m of this.monsters) {
+      const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : 0.9;
+      const monsterCenter = new THREE.Vector3(m.position.x, m.position.y + monsterCenterY, m.position.z);
+      const hDist = Math.hypot(impactPos.x - monsterCenter.x, impactPos.z - monsterCenter.z);
+      const vDist = Math.abs(impactPos.y - monsterCenter.y);
+      if (hDist <= 4.6 && vDist <= 3.2) {
+        if (!this.pathfinding || this.pathfinding.hasLineOfSight(impactPos.x, impactPos.z, m.position.x, m.position.z)) {
+          hitMonster = m;
+          break;
+        }
+      }
+    }
+
+    if (hitMonster) {
+      // RULE: When grenade hits / triggers the monster, grenade disappears from player screen and monster awakens
+      this.state = 'ATTACK';
+      this.isAttackSuccessful = true;
+
+      // Reveal exit door
+      if (this.levelBuild?.exitDoorMesh) {
+        this.levelBuild.exitDoorMesh.visible = true;
+      }
+
+      // Clear obstacle & switch mobile controls to SPRINT
+      this.fpController.setMonsterObstacle(null);
+      UIManager.getInstance().switchToChaseControls();
+
+      // Permanently disable attack and hide grenade viewmodel from player's screen!
+      this.fpController.weapon.disableAttackPermanently();
+      this.fpController.weapon.setVisible(false);
+
+      // Trigger hit reaction, explosion impact, and scream
+      hitMonster.triggerWeaponHit(weaponDef);
+      this.triggerScreenShake(0.65);
+
+      const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
+      if (this.currentLevelDef.exitLockedInitially) {
+        UIManager.getInstance().setStatusText(`${monsterName} TERKENA LEDAKAN GRANAT! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`);
+      } else {
+        UIManager.getInstance().setStatusText(`${monsterName} TERKENA LEDAKAN GRANAT & PINTU EXIT TELAH MUNCUL! CEPAT LARI MENUJU PINTU EXIT!`);
+      }
+    } else {
+      // RULE: When grenade misses, it remains on the player's screen and player can throw again!
+      this.fpController.weapon.setVisible(true);
+      this.fpController.weapon.reset();
+      this.triggerScreenShake(0.25);
+
+      const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
+      const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
+      UIManager.getInstance().setStatusText(`LEMPARAN MELESET! ARAHKAN KE DEKAT ${monsterName} DAN LEMPAR LAGI!`);
+      setTimeout(() => {
+        if (this.state === 'STEALTH') {
+          UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ARAH ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERKENA LEDAKAN.`);
+        }
+      }, 2400);
+    }
+  }
+
   private triggerScreenShake(amount: number): void {
     this.shakeIntensity = amount;
   }
 
-  // Handle monster catching player (routes Level 1 to Capture Jumpscare, other levels to direct Game Over)
+  // Handle monster catching player (Face Jumpscare presentation directly in front of player)
   private handlePlayerCaught(m?: MonsterController, reason: string = 'Monster berhasil menangkapmu!'): void {
     if (this.state === 'GAME_OVER' || this.state === 'JUMPSCARE' || this.isJumpscareActive) return;
 
@@ -605,15 +705,12 @@ export class GameManager {
       ? `${monsterName} berhasil menangkapmu!`
       : reason;
 
-    if (this.currentLevelDef && this.currentLevelDef.id === 1) {
-      this.triggerCaptureJumpscare(m, effectiveReason);
-    } else {
-      this.triggerGameOver(effectiveReason);
-    }
+    // Trigger face jumpscare directly in front of player for all monsters
+    this.triggerCaptureJumpscare(m, effectiveReason);
   }
 
-  // Level 1 Short Capture Jumpscare Presentation
-  private triggerCaptureJumpscare(m?: MonsterController, reason: string = 'Pocong berhasil menangkapmu!'): void {
+  // Capture Jumpscare Presentation: Monster face positioned directly in front of player
+  private triggerCaptureJumpscare(m?: MonsterController, reason: string = 'Monster berhasil menangkapmu!'): void {
     if (this.state === 'GAME_OVER' || this.state === 'JUMPSCARE' || this.isJumpscareActive) return;
     this.isJumpscareActive = true;
     this.state = 'JUMPSCARE';
@@ -635,14 +732,19 @@ export class GameManager {
     ui.hidePickupPrompt();
     ui.showJumpscareOverlay();
 
-    // 2. Play supplied Pocong scream audio & stinger
-    AudioManager.getInstance().playPocongScream(true);
+    const catchingMonster = m || this.monsters[0];
+    this.activeCatchingMonster = catchingMonster;
+    const isKunti = (this.currentLevelDef?.id === 2 || catchingMonster?.monsterType === 'kunti');
+
+    // 2. Play monster scream audio & stinger
+    if (isKunti) {
+      AudioManager.getInstance().playKuntiSound(true);
+    } else {
+      AudioManager.getInstance().playPocongScream(true);
+    }
     AudioManager.getInstance().playCaughtStinger();
 
     // 3. Camera presentation & Monster Face Framing
-    const catchingMonster = m || this.monsters[0];
-    this.activeCatchingMonster = catchingMonster;
-
     // Hide weapon model during jumpscare so it doesn't obstruct the monster face
     this.fpController.weapon.group.visible = false;
 
@@ -659,20 +761,25 @@ export class GameManager {
     this.fpController.setLookAngles(currentYaw, 0);
 
     if (catchingMonster) {
-      // Place Pocong directly in front of the camera (0.82m) at eye level
-      // Pocong head is at ~1.62m height on its local group
+      // Place monster face EXACTLY in front of the camera (0.68m) at eye level
       const camPos = this.fpController.camera.position;
-      catchingMonster.position.copy(camPos).addScaledVector(forward, 0.82);
-      catchingMonster.position.y = camPos.y - 1.62;
+      catchingMonster.position.copy(camPos).addScaledVector(forward, 0.68);
 
-      // Face Pocong directly into player camera
+      // Vertical offset so eyes and face are precisely at camPos.y
+      if (isKunti) {
+        catchingMonster.position.y = camPos.y - 0.55;
+      } else {
+        catchingMonster.position.y = camPos.y - 1.62;
+      }
+
+      // Face monster directly into player camera
       catchingMonster.rotationY = Math.atan2(-forward.x, -forward.z);
       catchingMonster.state = 'CATCH_PLAYER';
       catchingMonster.model.applyCatch(0);
     }
 
     // Heavy violent initial screen shake
-    this.shakeIntensity = 0.55;
+    this.shakeIntensity = 0.65;
   }
 
   // Trigger Game Over
@@ -833,6 +940,12 @@ export class GameManager {
       // Animate world weapon pickups
       this.animateWorldPickups(this.totalTime);
 
+      // Update Grenade Projectile & Explosion Smoke/Fire Particles
+      const blockingMeshes = this.levelBuild ? this.levelBuild.blockingMeshes : [];
+      const monsterPositions = this.monsters.map((m) => m.position);
+      const groundY = this.levelBuild?.playerWorldSpawn?.y || 0;
+      GrenadeSystem.getInstance().update(dt, this.scene, blockingMeshes, monsterPositions, groundY);
+
       // 3. Attack Check & Weapon Pickup Discovery (during STEALTH phase)
       if (this.state === 'STEALTH') {
         const blocking = this.levelBuild ? this.levelBuild.blockingMeshes : [];
@@ -874,10 +987,27 @@ export class GameManager {
           this.fpController.setMonsterObstacle(nearestMonster.position);
         }
 
+        const currentWeaponId = this.fpController.weapon.getWeaponId();
+        const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
+        const actionVerb = isGrenade ? 'LEMPAR' : 'PUKUL';
+
+        if (isGrenade) {
+          const isFlying = GrenadeSystem.getInstance().isGrenadeInFlight();
+          const target = nearestAttackableMonster || nearestMonster;
+          const alertDist = target?.levelDef?.monsterConfig?.detectionDistance || 9.5;
+          const floorHeight = this.levelBuild?.floorHeight || 3.8;
+          const monsterFloor = target ? Math.max(0, Math.round(target.position.y / floorHeight)) : 0;
+          const sameFloor = target
+            ? (this.fpController.currentFloor === monsterFloor || Math.abs(this.fpController.position.y - target.position.y) < 2.5)
+            : false;
+          const isNearMonster = nearestDist <= alertDist && sameFloor;
+          canAttackAny = !isFlying && isNearMonster;
+        }
+
         // Single Monster Alert: Only one prompt banner is updated
         const targetMonster = nearestAttackableMonster || nearestMonster;
         const targetMonsterName = targetMonster?.monsterType === 'kunti' ? 'Kuntilanak' : 'Pocong';
-        UIManager.getInstance().setAttackPromptVisible(canAttackAny, targetMonsterName);
+        UIManager.getInstance().setAttackPromptVisible(canAttackAny, targetMonsterName, actionVerb);
         UIManager.getInstance().setDetectionMeter(maxDetection);
 
         if (inputMgr.consumeAttackRequest()) {
@@ -1113,6 +1243,10 @@ export class GameManager {
     const wasNewlyUnlocked = SaveManager.getInstance().unlockWeapon(pickup.weaponId);
     SaveManager.getInstance().setSelectedWeapon(pickup.weaponId);
     this.fpController.weapon.setWeapon(pickup.weaponId);
+
+    const isGrenade = pickup.weaponId === 'grenade' || pickup.weaponId === 'signboard';
+    const actionVerb = isGrenade ? 'LEMPAR' : 'PUKUL';
+    UIManager.getInstance().showGameplayHUD(actionVerb);
 
     // Hide all other world pickups of the same weapon ID in the active level environment
     if (this.levelBuild?.weaponPickups) {

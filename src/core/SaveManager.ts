@@ -60,6 +60,15 @@ export class SaveManager {
         if (!settings.touchSensitivity || settings.touchSensitivity <= 5) {
           settings.touchSensitivity = 8;
         }
+
+        // Migrate legacy 'signboard' weapon id to 'grenade'
+        if (parsed.unlockedWeapons && Array.isArray(parsed.unlockedWeapons)) {
+          parsed.unlockedWeapons = parsed.unlockedWeapons.map((w: string) => w === 'signboard' ? 'grenade' : w);
+        }
+        if (parsed.selectedWeapon === 'signboard') {
+          parsed.selectedWeapon = 'grenade';
+        }
+
         return {
           ...DEFAULT_SAVE,
           ...parsed,
@@ -112,18 +121,20 @@ export class SaveManager {
   }
 
   public isWeaponUnlocked(weaponId: string): boolean {
+    const effectiveId = weaponId === 'signboard' ? 'grenade' : weaponId;
     if (!this.data.unlockedWeapons) {
       this.data.unlockedWeapons = ['baseball_bat'];
     }
-    return this.data.unlockedWeapons.includes(weaponId);
+    return this.data.unlockedWeapons.includes(effectiveId);
   }
 
   public unlockWeapon(weaponId: string): boolean {
+    const effectiveId = weaponId === 'signboard' ? 'grenade' : weaponId;
     if (!this.data.unlockedWeapons) {
       this.data.unlockedWeapons = ['baseball_bat'];
     }
-    if (!this.data.unlockedWeapons.includes(weaponId)) {
-      this.data.unlockedWeapons.push(weaponId);
+    if (!this.data.unlockedWeapons.includes(effectiveId)) {
+      this.data.unlockedWeapons.push(effectiveId);
       this.save();
       return true;
     }

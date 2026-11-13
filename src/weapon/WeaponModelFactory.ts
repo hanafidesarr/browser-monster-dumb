@@ -62,39 +62,93 @@ export class WeaponModelFactory {
   }
 
   // 2. Advertising Billboard / Signboard
-  private static createSignboardModel(): THREE.Group {
+  // 2. Hand Grenade (Military Pineapple Grenade)
+  public static createGrenadeModel(): THREE.Group {
     const group = new THREE.Group();
-    group.name = 'SignboardMesh';
+    group.name = 'GrenadeMesh';
 
-    const poleMat = new THREE.MeshLambertMaterial({ color: 0x5a636e, roughness: 0.8 });
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.85, 8), poleMat);
-    pole.position.set(0, 0, 0);
-    group.add(pole);
-
-    const boardTex = this.getOrCreateTexture('signboard', (ctx, size) => {
-      ctx.fillStyle = '#dc2626';
+    const grenadeTex = this.getOrCreateTexture('grenade_metal', (ctx, size) => {
+      ctx.fillStyle = '#3d4f28'; // Military olive drab
       ctx.fillRect(0, 0, size, size);
-      ctx.strokeStyle = '#fef08a';
-      ctx.lineWidth = 6;
-      ctx.strokeRect(4, 4, size - 8, size - 8);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 22px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('PROMO', size / 2, 45);
-      ctx.font = 'bold 20px monospace';
-      ctx.fillStyle = '#fef08a';
-      ctx.fillText('WARUNG', size / 2, 80);
-      ctx.font = '14px monospace';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText('DISCOUNT', size / 2, 108);
+
+      // Ribbed waffle grid pattern
+      ctx.strokeStyle = '#222f18';
+      ctx.lineWidth = 4;
+      const step = size / 6;
+      for (let x = 0; x <= size; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, size);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= size; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(size, y);
+        ctx.stroke();
+      }
+
+      // Metal highlights & subtle scratches
+      for (let i = 0; i < 60; i++) {
+        const rx = Math.random() * size;
+        const ry = Math.random() * size;
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(78, 100, 60, 0.4)' : 'rgba(20, 28, 14, 0.5)';
+        ctx.fillRect(rx, ry, 3, 3);
+      }
     });
 
-    const boardMat = new THREE.MeshLambertMaterial({ map: boardTex, roughness: 0.6 });
-    const board = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.42, 0.035), boardMat);
-    board.position.set(0, 0.35, 0);
-    group.add(board);
+    const bodyMat = new THREE.MeshLambertMaterial({ map: grenadeTex, roughness: 0.7 });
+    const metalMat = new THREE.MeshLambertMaterial({ color: 0x475569, roughness: 0.4 });
+    const yellowBandMat = new THREE.MeshLambertMaterial({ color: 0xfacc15, roughness: 0.5 });
+    const leverMat = new THREE.MeshLambertMaterial({ color: 0x64748b, roughness: 0.3 });
+
+    // 1. Oval ribbed body
+    const bodyGeom = new THREE.CylinderGeometry(0.08, 0.075, 0.18, 12);
+    const body = new THREE.Mesh(bodyGeom, bodyMat);
+    body.position.set(0, 0.09, 0);
+    group.add(body);
+
+    const bottomCap = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), bodyMat);
+    bottomCap.position.set(0, 0.01, 0);
+    bottomCap.rotation.x = Math.PI;
+    group.add(bottomCap);
+
+    const topCap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), bodyMat);
+    topCap.position.set(0, 0.17, 0);
+    group.add(topCap);
+
+    // 2. Yellow identification ring band near neck
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.081, 0.081, 0.02, 12), yellowBandMat);
+    band.position.set(0, 0.165, 0);
+    group.add(band);
+
+    // 3. Fuze / Neck collar
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.06, 10), metalMat);
+    neck.position.set(0, 0.22, 0);
+    group.add(neck);
+
+    const topFuze = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.04, 0.04), metalMat);
+    topFuze.position.set(0, 0.26, 0);
+    group.add(topFuze);
+
+    // 4. Safety Lever (Spoon)
+    const lever = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.22, 0.008), leverMat);
+    lever.position.set(0.088, 0.16, 0);
+    lever.rotation.z = -0.05;
+    group.add(lever);
+
+    // 5. Safety Pull Ring & Pin
+    const ringGeom = new THREE.TorusGeometry(0.028, 0.005, 6, 12);
+    const ring = new THREE.Mesh(ringGeom, metalMat);
+    ring.position.set(-0.045, 0.26, 0);
+    ring.rotation.y = Math.PI / 2;
+    group.add(ring);
 
     return group;
+  }
+
+  private static createSignboardModel(): THREE.Group {
+    return this.createGrenadeModel();
   }
 
   // 3. Frying Pan
@@ -387,8 +441,9 @@ export class WeaponModelFactory {
       case 'baseball_bat':
         mesh = this.createBatModel();
         break;
+      case 'grenade':
       case 'signboard':
-        mesh = this.createSignboardModel();
+        mesh = this.createGrenadeModel();
         break;
       case 'frying_pan':
         mesh = this.createFryingPanModel();
