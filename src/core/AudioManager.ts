@@ -17,6 +17,15 @@ export class AudioManager {
   private isPocongAudioLoading: boolean = false;
   private lastPocongScreamTime: number = 0;
 
+  // Kuntilanak Audio (loaded from user supplied kuntilanak (mp3cut.net).mp3)
+  private kuntiAudioBuffer: AudioBuffer | null = null;
+  private isKuntiAudioLoading: boolean = false;
+  private lastKuntiSoundTime: number = 0;
+  private lastKuntiCrawlTime: number = 0;
+  private kuntiChaseSource: AudioBufferSourceNode | null = null;
+  private kuntiChaseGain: GainNode | null = null;
+  private isKuntiChaseActive: boolean = false;
+
   private constructor() {}
 
   public static getInstance(): AudioManager {
@@ -43,6 +52,7 @@ export class AudioManager {
       this.updateVolumes();
       this.isInitialized = true;
       this.loadPocongAudio();
+      this.loadKuntiAudio();
     } catch (e) {
       console.warn('Web Audio not available:', e);
     }
@@ -525,9 +535,235 @@ export class AudioManager {
     this.playSyntheticMonsterScream();
   }
 
-  // Standard monster scream event routed to Pocong sound
-  public playMonsterScream(): void {
-    this.playPocongScream(false);
+  // Load supplied Kuntilanak audio asset (/Users/hanafidesar/.../kuntilanak (mp3cut.net).mp3)
+  public async loadKuntiAudio(): Promise<void> {
+    if (this.kuntiAudioBuffer || this.isKuntiAudioLoading) return;
+    this.isKuntiAudioLoading = true;
+
+    const candidateUrls = [
+      './audio/kuntilanak.mp3',
+      './audio/kuntilanak (mp3cut.net).mp3',
+      './kuntilanak (mp3cut.net).mp3',
+      '/audio/kuntilanak.mp3',
+      '/audio/kuntilanak (mp3cut.net).mp3',
+      '/kuntilanak (mp3cut.net).mp3',
+    ];
+
+    for (const url of candidateUrls) {
+      try {
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const ab = await resp.arrayBuffer();
+          if (!this.ctx) this.init();
+          if (this.ctx) {
+            this.kuntiAudioBuffer = await this.ctx.decodeAudioData(ab);
+            this.isKuntiAudioLoading = false;
+            return;
+          }
+        }
+      } catch (_) {
+        // Fallback to next candidate path
+      }
+    }
+    this.isKuntiAudioLoading = false;
+  }
+
+  // Play supplied Kuntilanak audio (with anti-overlap cooldown & graceful fallback)
+  public playKuntiSound(force: boolean = false): void {
+    if (!this.ctx || !this.sfxGain) {
+      this.init();
+      if (!this.ctx || !this.sfxGain) return;
+    }
+    this.resume();
+
+    const now = this.ctx.currentTime;
+    if (!force && (now - this.lastKuntiSoundTime < 0.85)) {
+      return; // Avoid repeated overlapping playback
+    }
+    this.lastKuntiSoundTime = now;
+
+    if (this.kuntiAudioBuffer) {
+      try {
+        const source = this.ctx.createBufferSource();
+        source.buffer = this.kuntiAudioBuffer;
+
+        const gainNode = this.ctx.createGain();
+        gainNode.gain.setValueAtTime(1.0, now);
+
+        source.connect(gainNode);
+        gainNode.connect(this.sfxGain);
+        source.start(now);
+        return;
+      } catch (err) {
+        console.warn('Error playing kuntilanak audio buffer:', err);
+      }
+    }
+
+    // Graceful fallback to synthesized monster scream if audio buffer is not ready or failed
+    this.playSyntheticMonsterScream();
+  }
+
+  // Kuntilanak rapid crawling hand drag / shuffle sound on floor
+  public playKuntiCrawl(distance: number): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+    // Rapid crawling cadence (~0.22s)
+    if (now - this.lastKuntiCrawlTime < 0.22) return;
+    this.lastKuntiCrawlTime = now;
+
+    // Distance attenuation
+    const maxAudibleDist = 28.0;
+    const clampedDist = Math.max(0, Math.min(distance, maxAudibleDist));
+    const distFactor = Math.max(0, 1.0 - clampedDist / maxAudibleDist);
+    if (distFactor <= 0.01) return;
+
+    try {
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.08);
+      const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.35));
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(380 + Math.random() * 150, now);
+      filter.Q.setValueAtTime(2.2, now);
+
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.35 * distFactor, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain);
+      noise.start(now);
+    } catch (_) {}
+  }
+
+  // Calculate Kuntilanak chase volume based on distance (always audible during chase)
+  public calcKuntiChaseVolume(distance: number): number {
+    // 0 - 2m: 0.95 (maximum horror intensity)
+    // 2 - 15m: 0.85 -> 0.45
+    // 15 - 35m: 0.45 -> 0.20
+    // > 35m: 0.12 (minimum audible presence so sound is continuously heard)
+    const maxDist = 38.0;
+    const clampedDist = Math.max(0, distance);
+    if (clampedDist <= 2.0) return 0.95;
+    const factor = Math.max(0, 1.0 - (clampedDist - 2.0) / (maxDist - 2.0));
+    return 0.12 + 0.83 * Math.pow(factor, 1.35);
+  }
+
+  // Start continuous Kuntilanak chase audio loop (kuntilanak mp3 repeats throughout chase)
+  public startKuntiChaseAudio(distance: number = 10.0): void {
+    if (!this.ctx || !this.sfxGain) {
+      this.init();
+      if (!this.ctx || !this.sfxGain) return;
+    }
+    this.resume();
+
+    this.isKuntiChaseActive = true;
+
+    // If source is already playing, just update volume
+    if (this.kuntiChaseSource && this.kuntiChaseGain) {
+      this.updateKuntiChaseAudio(distance);
+      return;
+    }
+
+    if (this.kuntiAudioBuffer) {
+      try {
+        const now = this.ctx.currentTime;
+        const source = this.ctx.createBufferSource();
+        source.buffer = this.kuntiAudioBuffer;
+        source.loop = true;
+        source.loopStart = 0;
+        source.loopEnd = this.kuntiAudioBuffer.duration;
+
+        const gainNode = this.ctx.createGain();
+        const initialVol = this.calcKuntiChaseVolume(distance);
+        gainNode.gain.setValueAtTime(initialVol, now);
+
+        source.connect(gainNode);
+        gainNode.connect(this.sfxGain);
+        source.start(now);
+
+        this.kuntiChaseSource = source;
+        this.kuntiChaseGain = gainNode;
+
+        source.onended = () => {
+          if (this.kuntiChaseSource === source) {
+            this.kuntiChaseSource = null;
+            this.kuntiChaseGain = null;
+          }
+        };
+      } catch (err) {
+        console.warn('Error starting kunti chase audio:', err);
+      }
+    } else {
+      this.loadKuntiAudio();
+    }
+  }
+
+  // Update Kuntilanak chase audio volume dynamically as distance changes
+  public updateKuntiChaseAudio(distance: number): void {
+    if (!this.isKuntiChaseActive) {
+      this.startKuntiChaseAudio(distance);
+      return;
+    }
+
+    if (!this.kuntiChaseSource || !this.kuntiChaseGain) {
+      if (this.kuntiAudioBuffer) {
+        this.startKuntiChaseAudio(distance);
+      }
+      return;
+    }
+
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const targetVol = this.calcKuntiChaseVolume(distance);
+    this.kuntiChaseGain.gain.setTargetAtTime(targetVol, now, 0.08);
+  }
+
+  // Stop Kuntilanak continuous chase audio loop immediately on catch, game over, or exit
+  public stopKuntiChaseAudio(): void {
+    this.isKuntiChaseActive = false;
+    if (this.kuntiChaseSource) {
+      const src = this.kuntiChaseSource;
+      const gain = this.kuntiChaseGain;
+      this.kuntiChaseSource = null;
+      this.kuntiChaseGain = null;
+
+      try {
+        if (gain && this.ctx) {
+          const now = this.ctx.currentTime;
+          gain.gain.cancelScheduledValues(now);
+          gain.gain.setValueAtTime(gain.gain.value, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.12);
+        }
+        setTimeout(() => {
+          try {
+            src.stop();
+            src.disconnect();
+          } catch (_) {}
+        }, 130);
+      } catch (_) {
+        try {
+          src.stop();
+          src.disconnect();
+        } catch (_) {}
+      }
+    }
+  }
+
+  // Standard monster scream event routed based on monster archetype
+  public playMonsterScream(monsterType: string = 'pocong'): void {
+    if (monsterType === 'kunti') {
+      this.playKuntiSound(false);
+    } else {
+      this.playPocongScream(false);
+    }
   }
 
   // Monster Bloodcurdling Scream (FM synth screech fallback)

@@ -401,6 +401,58 @@ export class LabyrinthBuilder {
     };
   }
 
+  // Helper to merge BufferGeometries with positions, normals, and UVs
+  private static mergeBufferGeometries(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
+    if (geos.length === 0) return new THREE.BufferGeometry();
+    let totalPos = 0;
+    let totalNorm = 0;
+    let totalUv = 0;
+    let totalIndices = 0;
+
+    geos.forEach((g) => {
+      totalPos += g.attributes.position.array.length;
+      totalNorm += g.attributes.normal.array.length;
+      totalUv += g.attributes.uv.array.length;
+      if (g.index) totalIndices += g.index.array.length;
+    });
+
+    const posArr = new Float32Array(totalPos);
+    const normArr = new Float32Array(totalNorm);
+    const uvArr = new Float32Array(totalUv);
+    const indexArr = new Uint32Array(totalIndices);
+
+    let posOffset = 0;
+    let normOffset = 0;
+    let uvOffset = 0;
+    let indexOffset = 0;
+    let vertexOffset = 0;
+
+    geos.forEach((g) => {
+      posArr.set(g.attributes.position.array, posOffset);
+      normArr.set(g.attributes.normal.array, normOffset);
+      uvArr.set(g.attributes.uv.array, uvOffset);
+
+      if (g.index) {
+        for (let i = 0; i < g.index.array.length; i++) {
+          indexArr[indexOffset + i] = g.index.array[i] + vertexOffset;
+        }
+        indexOffset += g.index.array.length;
+      }
+
+      posOffset += g.attributes.position.array.length;
+      normOffset += g.attributes.normal.array.length;
+      uvOffset += g.attributes.uv.array.length;
+      vertexOffset += g.attributes.position.count;
+    });
+
+    const merged = new THREE.BufferGeometry();
+    merged.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+    merged.setAttribute('normal', new THREE.BufferAttribute(normArr, 3));
+    merged.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+    merged.setIndex(new THREE.BufferAttribute(indexArr, 1));
+    return merged;
+  }
+
   // =========================================================================
   // THEMED LEVELS BUILDER (LEVELS 2 TO 10)
   // =========================================================================
@@ -425,8 +477,9 @@ export class LabyrinthBuilder {
       case 'school':
         wallTexture = TextureGenerator.createSchoolWallTexture();
         floorTexture = TextureGenerator.createSchoolFloorTexture();
-        ambientHex = 0x48524b;
+        ambientHex = 0x3d4740;
         lightHex = 0xd6e5d8;
+        lightIntensity = 1.8;
         break;
       case 'labyrinth':
         wallTexture = TextureGenerator.createWallTexture();
@@ -498,19 +551,32 @@ export class LabyrinthBuilder {
     const stairOpenings: StairwellOpening[] = [];
     if (level.ramps && level.ramps.length > 0) {
       level.ramps.forEach((r) => {
-        const dx = r.endCell.x - r.startCell.x;
-        const dz = r.endCell.z - r.startCell.z;
-        const stepX = Math.sign(dx);
-        const stepZ = Math.sign(dz);
+        let minGx: number;
+        let maxGx: number;
+        let minGz: number;
+        let maxGz: number;
 
-        // Open incline on toFloor covers incline cells up to the landing threshold
-        const openEndGx = stepX !== 0 ? r.endCell.x - stepX : r.endCell.x;
-        const openEndGz = stepZ !== 0 ? r.endCell.z - stepZ : r.endCell.z;
+        if (level.theme === 'school' && r.isStair) {
+          // School stair rises along cells 7 and 8 at z = 9, meeting cell 9 floor slab flush
+          minGx = Math.min(r.startCell.x, r.endCell.x - 1);
+          maxGx = Math.max(r.startCell.x, r.endCell.x - 1);
+          minGz = Math.min(r.startCell.z, r.endCell.z);
+          maxGz = Math.max(r.startCell.z, r.endCell.z);
+        } else {
+          const dx = r.endCell.x - r.startCell.x;
+          const dz = r.endCell.z - r.startCell.z;
+          const stepX = Math.sign(dx);
+          const stepZ = Math.sign(dz);
 
-        const minGx = Math.min(r.startCell.x, openEndGx);
-        const maxGx = Math.max(r.startCell.x, openEndGx);
-        const minGz = Math.min(r.startCell.z, openEndGz);
-        const maxGz = Math.max(r.startCell.z, openEndGz);
+          // Open incline on toFloor covers incline cells up to the landing threshold
+          const openEndGx = stepX !== 0 ? r.endCell.x - stepX : r.endCell.x;
+          const openEndGz = stepZ !== 0 ? r.endCell.z - stepZ : r.endCell.z;
+
+          minGx = Math.min(r.startCell.x, openEndGx);
+          maxGx = Math.max(r.startCell.x, openEndGx);
+          minGz = Math.min(r.startCell.z, openEndGz);
+          maxGz = Math.max(r.startCell.z, openEndGz);
+        }
 
         const minWx = minGx * cellSize - halfWidth;
         const maxWx = (maxGx + 1) * cellSize - halfWidth;
@@ -556,8 +622,15 @@ export class LabyrinthBuilder {
       });
     }
 
-    floorTexture.repeat.set(gridWidth * 0.8, gridHeight * 0.8);
-    const floorMat = new THREE.MeshLambertMaterial({ map: floorTexture, roughness: 0.8, side: THREE.DoubleSide });
+    // Themed Props & Obstacles colliders array (available early for structural support pillars)
+    const propColliders: Array<{ x: number; z: number; radius: number; minY?: number; maxY?: number; label?: string }> = [];
+
+    if (level.theme === 'school') {
+      floorTexture.repeat.set(gridWidth * 0.35, gridHeight * 0.35);
+    } else {
+      floorTexture.repeat.set(gridWidth * 0.8, gridHeight * 0.8);
+    }
+    const floorMat = new THREE.MeshLambertMaterial({ map: floorTexture, side: THREE.DoubleSide });
 
     // Ground floor: solid everywhere
     const floorGeo = new THREE.PlaneGeometry(totalW, totalH);
@@ -569,107 +642,211 @@ export class LabyrinthBuilder {
 
     const blockingMeshes: THREE.Object3D[] = [floorMesh];
 
-    // Upper floor platforms: construct with true 3D cutouts for stairwell and bridge openings
+    // Upper floor platforms: construct with true 3D volume, thickness, and underside
     for (let f = 1; f < floorCount; f++) {
       const floorY = f * floorHeight;
-      const floorQuads: THREE.BufferGeometry[] = [];
 
-      for (let gz = 0; gz < gridHeight; gz++) {
-        for (let gx = 0; gx < gridWidth; gx++) {
-          // Check if this cell is part of a stairwell opening or bridge chasm on floor f
-          const inStairOpening = stairOpenings.some(
-            (o) => o.floor === f && gx >= o.minGx && gx <= o.maxGx && gz >= o.minGz && gz <= o.maxGz
-          );
-          const inBridgeOpening = bridgeOpenings.some(
-            (o) => o.floor === f && gx >= o.minGx && gx <= o.maxGx && gz >= o.minGz && gz <= o.maxGz
-          );
-          const inOpening = inStairOpening || inBridgeOpening;
+      if (level.theme === 'school') {
+        const slabThickness = 0.40;
+        const ceilingSlabMat = new THREE.MeshLambertMaterial({
+          map: TextureGenerator.createSchoolCeilingSlabTexture(),
+        });
+        const slabEdgeMat = new THREE.MeshLambertMaterial({
+          map: TextureGenerator.createSchoolSlabEdgeTexture(),
+        });
 
-          if (!inOpening) {
-            const quad = new THREE.PlaneGeometry(cellSize, cellSize);
-            quad.rotateX(-Math.PI / 2);
-            const cWx = (gx + 0.5) * cellSize - halfWidth;
-            const cWz = (gz + 0.5) * cellSize - halfHeight;
-            quad.translate(cWx, floorY, cWz);
+        const topQuads: THREE.BufferGeometry[] = [];
+        const bottomQuads: THREE.BufferGeometry[] = [];
+        const edgeQuads: THREE.BufferGeometry[] = [];
 
-            // Seamless UVs across the floor
-            const uvs = quad.attributes.uv;
-            const u0 = (gx / gridWidth) * (gridWidth * 0.8);
-            const u1 = ((gx + 1) / gridWidth) * (gridWidth * 0.8);
-            const v0 = (gz / gridHeight) * (gridHeight * 0.8);
-            const v1 = ((gz + 1) / gridHeight) * (gridHeight * 0.8);
+        for (let gz = 0; gz < gridHeight; gz++) {
+          for (let gx = 0; gx < gridWidth; gx++) {
+            const inStairOpening = stairOpenings.some(
+              (o) => o.floor === f && gx >= o.minGx && gx <= o.maxGx && gz >= o.minGz && gz <= o.maxGz
+            );
+            const inBridgeOpening = bridgeOpenings.some(
+              (o) => o.floor === f && gx >= o.minGx && gx <= o.maxGx && gz >= o.minGz && gz <= o.maxGz
+            );
+            const inOpening = inStairOpening || inBridgeOpening;
 
-            uvs.setXY(0, u0, v1);
-            uvs.setXY(1, u1, v1);
-            uvs.setXY(2, u0, v0);
-            uvs.setXY(3, u1, v0);
-            uvs.needsUpdate = true;
+            if (!inOpening) {
+              const cWx = (gx + 0.5) * cellSize - halfWidth;
+              const cWz = (gz + 0.5) * cellSize - halfHeight;
 
-            floorQuads.push(quad);
+              // Top walkable surface (Faces UP)
+              const topQuad = new THREE.PlaneGeometry(cellSize, cellSize);
+              topQuad.rotateX(-Math.PI / 2);
+              topQuad.translate(cWx, floorY, cWz);
+              const uvsTop = topQuad.attributes.uv;
+              const u0 = (gx / gridWidth) * (gridWidth * 0.35);
+              const u1 = ((gx + 1) / gridWidth) * (gridWidth * 0.35);
+              const v0 = (gz / gridHeight) * (gridHeight * 0.35);
+              const v1 = ((gz + 1) / gridHeight) * (gridHeight * 0.35);
+              uvsTop.setXY(0, u0, v1);
+              uvsTop.setXY(1, u1, v1);
+              uvsTop.setXY(2, u0, v0);
+              uvsTop.setXY(3, u1, v0);
+              uvsTop.needsUpdate = true;
+              topQuads.push(topQuad);
+
+              // Bottom soffit surface (Faces DOWN)
+              const bottomQuad = new THREE.PlaneGeometry(cellSize, cellSize);
+              bottomQuad.rotateX(Math.PI / 2);
+              bottomQuad.translate(cWx, floorY - slabThickness, cWz);
+              const uvsBot = bottomQuad.attributes.uv;
+              uvsBot.setXY(0, u0, v0);
+              uvsBot.setXY(1, u1, v0);
+              uvsBot.setXY(2, u0, v1);
+              uvsBot.setXY(3, u1, v1);
+              uvsBot.needsUpdate = true;
+              bottomQuads.push(bottomQuad);
+
+              // Vertical slab edges along openings or perimeter
+              // North (gz - 1)
+              const northOpen = gz === 0 || stairOpenings.some(o => o.floor === f && gx >= o.minGx && gx <= o.maxGx && (gz - 1) >= o.minGz && (gz - 1) <= o.maxGz) || bridgeOpenings.some(o => o.floor === f && gx >= o.minGx && gx <= o.maxGx && (gz - 1) >= o.minGz && (gz - 1) <= o.maxGz);
+              if (northOpen) {
+                const edgeN = new THREE.PlaneGeometry(cellSize, slabThickness);
+                edgeN.rotateY(Math.PI);
+                edgeN.translate(cWx, floorY - slabThickness / 2, gz * cellSize - halfHeight);
+                edgeQuads.push(edgeN);
+              }
+
+              // South (gz + 1)
+              const southOpen = gz === gridHeight - 1 || stairOpenings.some(o => o.floor === f && gx >= o.minGx && gx <= o.maxGx && (gz + 1) >= o.minGz && (gz + 1) <= o.maxGz) || bridgeOpenings.some(o => o.floor === f && gx >= o.minGx && gx <= o.maxGx && (gz + 1) >= o.minGz && (gz + 1) <= o.maxGz);
+              if (southOpen) {
+                const edgeS = new THREE.PlaneGeometry(cellSize, slabThickness);
+                edgeS.translate(cWx, floorY - slabThickness / 2, (gz + 1) * cellSize - halfHeight);
+                edgeQuads.push(edgeS);
+              }
+
+              // West (gx - 1)
+              const westOpen = gx === 0 || stairOpenings.some(o => o.floor === f && (gx - 1) >= o.minGx && (gx - 1) <= o.maxGx && gz >= o.minGz && gz <= o.maxGz) || bridgeOpenings.some(o => o.floor === f && (gx - 1) >= o.minGx && (gx - 1) <= o.maxGx && gz >= o.minGz && gz <= o.maxGz);
+              if (westOpen) {
+                const edgeW = new THREE.PlaneGeometry(cellSize, slabThickness);
+                edgeW.rotateY(-Math.PI / 2);
+                edgeW.translate(gx * cellSize - halfWidth, floorY - slabThickness / 2, cWz);
+                edgeQuads.push(edgeW);
+              }
+
+              // East (gx + 1)
+              const eastOpen = gx === gridWidth - 1 || stairOpenings.some(o => o.floor === f && (gx + 1) >= o.minGx && (gx + 1) <= o.maxGx && gz >= o.minGz && gz <= o.maxGz) || bridgeOpenings.some(o => o.floor === f && (gx + 1) >= o.minGx && (gx + 1) <= o.maxGx && gz >= o.minGz && gz <= o.maxGz);
+              if (eastOpen) {
+                const edgeE = new THREE.PlaneGeometry(cellSize, slabThickness);
+                edgeE.rotateY(Math.PI / 2);
+                edgeE.translate((gx + 1) * cellSize - halfWidth, floorY - slabThickness / 2, cWz);
+                edgeQuads.push(edgeE);
+              }
+            }
           }
         }
-      }
 
-      if (floorQuads.length > 0) {
-        let totalPos = 0;
-        let totalNorm = 0;
-        let totalUv = 0;
-        let totalIndices = 0;
+        if (topQuads.length > 0) {
+          const topMesh = new THREE.Mesh(this.mergeBufferGeometries(topQuads), floorMat);
+          topMesh.name = `SchoolFloorTop_${f}`;
+          topMesh.receiveShadow = true;
+          rootGroup.add(topMesh);
+          blockingMeshes.push(topMesh);
+        }
 
-        floorQuads.forEach((q) => {
-          totalPos += q.attributes.position.array.length;
-          totalNorm += q.attributes.normal.array.length;
-          totalUv += q.attributes.uv.array.length;
-          if (q.index) totalIndices += q.index.array.length;
+        if (bottomQuads.length > 0) {
+          const bottomMesh = new THREE.Mesh(this.mergeBufferGeometries(bottomQuads), ceilingSlabMat);
+          bottomMesh.name = `SchoolFloorBottom_${f}`;
+          rootGroup.add(bottomMesh);
+          blockingMeshes.push(bottomMesh);
+        }
+
+        if (edgeQuads.length > 0) {
+          const edgeMesh = new THREE.Mesh(this.mergeBufferGeometries(edgeQuads), slabEdgeMat);
+          edgeMesh.name = `SchoolFloorEdge_${f}`;
+          rootGroup.add(edgeMesh);
+          blockingMeshes.push(edgeMesh);
+        }
+
+        // Structural Support Columns in School Hallway & Atrium
+        const pillarCoords = [
+          { gx: 6, gz: 7 },
+          { gx: 11, gz: 7 },
+          { gx: 16, gz: 7 },
+          { gx: 6, gz: 13 },
+          { gx: 11, gz: 13 },
+          { gx: 16, gz: 13 },
+          { gx: 6, gz: 9 },
+          { gx: 10, gz: 9 },
+          { gx: 12, gz: 8 },
+          { gx: 15, gz: 8 },
+          { gx: 12, gz: 10 },
+          { gx: 15, gz: 10 },
+        ];
+        const pillarHeight = floorHeight - slabThickness;
+        pillarCoords.forEach((p) => {
+          const px = (p.gx + 0.5) * cellSize - halfWidth;
+          const pz = (p.gz + 0.5) * cellSize - halfHeight;
+          const pillarGroup = EnvironmentPropFactory.createSchoolSupportPillar(pillarHeight);
+          pillarGroup.position.set(px, 0, pz);
+          rootGroup.add(pillarGroup);
+
+          propColliders.push({
+            x: px,
+            z: pz,
+            radius: 0.35,
+            minY: 0,
+            maxY: pillarHeight,
+            label: 'support_pillar',
+          });
         });
+      } else {
+        const floorQuads: THREE.BufferGeometry[] = [];
 
-        const posArr = new Float32Array(totalPos);
-        const normArr = new Float32Array(totalNorm);
-        const uvArr = new Float32Array(totalUv);
-        const indexArr = new Uint32Array(totalIndices);
+        for (let gz = 0; gz < gridHeight; gz++) {
+          for (let gx = 0; gx < gridWidth; gx++) {
+            const inStairOpening = stairOpenings.some(
+              (o) => o.floor === f && gx >= o.minGx && gx <= o.maxGx && gz >= o.minGz && gz <= o.maxGz
+            );
+            const inBridgeOpening = bridgeOpenings.some(
+              (o) => o.floor === f && gx >= o.minGx && gx <= o.maxGx && gz >= o.minGz && gz <= o.maxGz
+            );
+            const inOpening = inStairOpening || inBridgeOpening;
 
-        let posOffset = 0;
-        let normOffset = 0;
-        let uvOffset = 0;
-        let indexOffset = 0;
-        let vertexOffset = 0;
+            if (!inOpening) {
+              const quad = new THREE.PlaneGeometry(cellSize, cellSize);
+              quad.rotateX(-Math.PI / 2);
+              const cWx = (gx + 0.5) * cellSize - halfWidth;
+              const cWz = (gz + 0.5) * cellSize - halfHeight;
+              quad.translate(cWx, floorY, cWz);
 
-        floorQuads.forEach((q) => {
-          posArr.set(q.attributes.position.array, posOffset);
-          normArr.set(q.attributes.normal.array, normOffset);
-          uvArr.set(q.attributes.uv.array, uvOffset);
+              // Seamless UVs across the floor
+              const uvs = quad.attributes.uv;
+              const u0 = (gx / gridWidth) * (gridWidth * 0.8);
+              const u1 = ((gx + 1) / gridWidth) * (gridWidth * 0.8);
+              const v0 = (gz / gridHeight) * (gridHeight * 0.8);
+              const v1 = ((gz + 1) / gridHeight) * (gridHeight * 0.8);
 
-          if (q.index) {
-            for (let i = 0; i < q.index.array.length; i++) {
-              indexArr[indexOffset + i] = q.index.array[i] + vertexOffset;
+              uvs.setXY(0, u0, v1);
+              uvs.setXY(1, u1, v1);
+              uvs.setXY(2, u0, v0);
+              uvs.setXY(3, u1, v0);
+              uvs.needsUpdate = true;
+
+              floorQuads.push(quad);
             }
-            indexOffset += q.index.array.length;
           }
+        }
 
-          posOffset += q.attributes.position.array.length;
-          normOffset += q.attributes.normal.array.length;
-          uvOffset += q.attributes.uv.array.length;
-          vertexOffset += q.attributes.position.count;
-        });
-
-        const mergedFloorGeo = new THREE.BufferGeometry();
-        mergedFloorGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
-        mergedFloorGeo.setAttribute('normal', new THREE.BufferAttribute(normArr, 3));
-        mergedFloorGeo.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
-        mergedFloorGeo.setIndex(new THREE.BufferAttribute(indexArr, 1));
-
-        const uFloorMesh = new THREE.Mesh(mergedFloorGeo, floorMat);
-        uFloorMesh.name = `FloorPlatform_${f}`;
-        uFloorMesh.receiveShadow = true;
-        rootGroup.add(uFloorMesh);
-        blockingMeshes.push(uFloorMesh);
+        if (floorQuads.length > 0) {
+          const mergedFloorGeo = this.mergeBufferGeometries(floorQuads);
+          const uFloorMesh = new THREE.Mesh(mergedFloorGeo, floorMat);
+          uFloorMesh.name = `FloorPlatform_${f}`;
+          uFloorMesh.receiveShadow = true;
+          rootGroup.add(uFloorMesh);
+          blockingMeshes.push(uFloorMesh);
+        }
       }
     }
 
     // 3. Themed Ceiling (Topmost Floor)
     const ceilingTex = TextureGenerator.createCeilingTexture();
     ceilingTex.repeat.set(gridWidth, gridHeight);
-    const ceilingMat = new THREE.MeshLambertMaterial({ map: ceilingTex, roughness: 0.9, side: THREE.DoubleSide });
+    const ceilingMat = new THREE.MeshLambertMaterial({ map: ceilingTex, side: THREE.DoubleSide });
     const ceilingGeo = new THREE.PlaneGeometry(totalW, totalH);
     ceilingGeo.rotateX(Math.PI / 2);
     const ceilingMesh = new THREE.Mesh(ceilingGeo, ceilingMat);
@@ -679,7 +856,7 @@ export class LabyrinthBuilder {
 
     // 4. Merged Denser Walls Mesh for High Performance
     wallTexture.repeat.set(1, 1);
-    const wallMat = new THREE.MeshLambertMaterial({ map: wallTexture, roughness: 0.7 });
+    const wallMat = new THREE.MeshLambertMaterial({ map: wallTexture });
     const unitWallBox = new THREE.BoxGeometry(cellSize, floorHeight, cellSize);
     const mergedGeos: THREE.BufferGeometry[] = [];
 
@@ -774,7 +951,6 @@ export class LabyrinthBuilder {
     const exitWz = selectedSpawns.exit.z;
 
     // 6. Themed Props & Navigation Obstacles
-    const propColliders: Array<{ x: number; z: number; radius: number }> = [];
     this.spawnThemedProps(level, halfWidth, halfHeight, cellSize, rootGroup, propColliders, selectedSpawns);
 
     // 7. Themed Exit Door
@@ -846,12 +1022,26 @@ export class LabyrinthBuilder {
     const railingBoxes: BoxCollider[] = [];
     if (level.ramps && level.ramps.length > 0) {
       level.ramps.forEach((ramp) => {
-        const startWx = (ramp.startCell.x + 0.5) * cellSize - halfWidth;
-        const startWz = (ramp.startCell.z + 0.5) * cellSize - halfHeight;
-        const startY = ramp.fromFloor * floorHeight;
+        const isSchoolStair = level.theme === 'school' && ramp.isStair;
+        let startWx: number;
+        let startWz: number;
+        let endWx: number;
+        let endWz: number;
 
-        const endWx = (ramp.endCell.x + 0.5) * cellSize - halfWidth;
-        const endWz = (ramp.endCell.z + 0.5) * cellSize - halfHeight;
+        if (isSchoolStair) {
+          // School stair starts cleanly at west edge of cell 7 and connects flush to cell 9 slab edge
+          startWx = ramp.startCell.x * cellSize - halfWidth;
+          startWz = (ramp.startCell.z + 0.5) * cellSize - halfHeight;
+          endWx = ramp.endCell.x * cellSize - halfWidth;
+          endWz = (ramp.endCell.z + 0.5) * cellSize - halfHeight;
+        } else {
+          startWx = (ramp.startCell.x + 0.5) * cellSize - halfWidth;
+          startWz = (ramp.startCell.z + 0.5) * cellSize - halfHeight;
+          endWx = (ramp.endCell.x + 0.5) * cellSize - halfWidth;
+          endWz = (ramp.endCell.z + 0.5) * cellSize - halfHeight;
+        }
+
+        const startY = ramp.fromFloor * floorHeight;
         const endY = ramp.toFloor * floorHeight;
 
         const dx = endWx - startWx;
@@ -866,7 +1056,9 @@ export class LabyrinthBuilder {
         const normZ = dirX;
 
         const rampWidth = cellSize * 0.75;
-        const stairMesh = EnvironmentPropFactory.createStaircase(rampWidth, height, length);
+        const stairMesh = isSchoolStair
+          ? EnvironmentPropFactory.createSchoolStaircase(rampWidth, height, length)
+          : EnvironmentPropFactory.createStaircase(rampWidth, height, length);
         const midX = (startWx + endWx) / 2;
         const midZ = (startWz + endWz) / 2;
 
@@ -875,8 +1067,8 @@ export class LabyrinthBuilder {
         rootGroup.add(stairMesh);
 
         // Safety Balustrades around the 3 closed sides of the upper-floor stairwell opening
-        const openMinX = Math.min(startWx, endWx) - rampWidth / 2;
-        const openMaxX = Math.max(startWx, endWx) + rampWidth / 2;
+        const openMinX = isSchoolStair ? startWx : Math.min(startWx, endWx) - rampWidth / 2;
+        const openMaxX = isSchoolStair ? endWx : Math.max(startWx, endWx) + rampWidth / 2;
         const openMinZ = Math.min(startWz, endWz) - rampWidth / 2;
         const openMaxZ = Math.max(startWz, endWz) + rampWidth / 2;
         const upperY = ramp.toFloor * floorHeight;
@@ -885,7 +1077,9 @@ export class LabyrinthBuilder {
         if (Math.abs(dx) >= Math.abs(dz)) {
           // Stairs run horizontally along X: balustrades on North & South sides, plus back end
           const sideLength = openMaxX - openMinX;
-          const bNorth = EnvironmentPropFactory.createStairwellBalustrade(sideLength);
+          const bNorth = isSchoolStair
+            ? EnvironmentPropFactory.createSchoolStairwellRailing(sideLength)
+            : EnvironmentPropFactory.createStairwellBalustrade(sideLength);
           bNorth.position.set(midX, upperY, openMinZ);
           bNorth.rotation.y = Math.PI / 2;
           rootGroup.add(bNorth);
@@ -899,7 +1093,9 @@ export class LabyrinthBuilder {
             label: 'balustrade_north',
           });
 
-          const bSouth = EnvironmentPropFactory.createStairwellBalustrade(sideLength);
+          const bSouth = isSchoolStair
+            ? EnvironmentPropFactory.createSchoolStairwellRailing(sideLength)
+            : EnvironmentPropFactory.createStairwellBalustrade(sideLength);
           bSouth.position.set(midX, upperY, openMaxZ);
           bSouth.rotation.y = Math.PI / 2;
           rootGroup.add(bSouth);
@@ -915,7 +1111,9 @@ export class LabyrinthBuilder {
 
           // Back railing above the foot of the stairs
           const backX = dx > 0 ? openMinX : openMaxX;
-          const bBack = EnvironmentPropFactory.createStairwellBalustrade(rampWidth);
+          const bBack = isSchoolStair
+            ? EnvironmentPropFactory.createSchoolStairwellRailing(rampWidth)
+            : EnvironmentPropFactory.createStairwellBalustrade(rampWidth);
           bBack.position.set(backX, upperY, midZ);
           rootGroup.add(bBack);
           railingBoxes.push({
@@ -1120,7 +1318,14 @@ export class LabyrinthBuilder {
       perimeterMargin: 1.0,
       useGridWalls: true, // Structured indoor/maze levels use grid wall cubes
       wallGrid: grid,
-      cylinderColliders: propColliders.map((p) => ({ x: p.x, z: p.z, radius: p.radius, label: 'themed_prop' })),
+      cylinderColliders: propColliders.map((p) => ({
+        x: p.x,
+        z: p.z,
+        radius: p.radius,
+        minY: p.minY,
+        maxY: p.maxY,
+        label: p.label || 'themed_prop',
+      })),
       boxColliders: railingBoxes,
       hasStairs: worldRamps.length > 0,
       ramps: worldRamps,
@@ -1167,9 +1372,14 @@ export class LabyrinthBuilder {
     halfHeight: number,
     cellSize: number,
     rootGroup: THREE.Group,
-    colliders: Array<{ x: number; z: number; radius: number }>,
+    colliders: Array<{ x: number; z: number; radius: number; minY?: number; maxY?: number; label?: string }>,
     selectedSpawns?: SelectedSpawns
   ): void {
+    if (level.theme === 'school') {
+      this.spawnSchoolLevelProps(level, halfWidth, halfHeight, cellSize, rootGroup, colliders);
+      return;
+    }
+
     const { grid, gridWidth, gridHeight, theme } = level;
 
     // Scan for open corridor cells suitable for props (avoid spawns & exit)
@@ -1308,6 +1518,215 @@ export class LabyrinthBuilder {
     }
   }
 
+  // Dedicated School Props Population across Floor 0 and Floor 1
+  private static spawnSchoolLevelProps(
+    level: LevelDefinition,
+    halfWidth: number,
+    halfHeight: number,
+    cellSize: number,
+    rootGroup: THREE.Group,
+    colliders: Array<{ x: number; z: number; radius: number; minY?: number; maxY?: number; label?: string }>
+  ): void {
+    const fHeight = level.floorHeight || 3.8;
+
+    const addProp = (
+      group: THREE.Group,
+      gx: number,
+      gz: number,
+      floor: number,
+      rotY: number = 0,
+      radius: number = 0,
+      label: string = 'school_prop'
+    ) => {
+      const wx = (gx + 0.5) * cellSize - halfWidth;
+      const wy = floor * fHeight;
+      const wz = (gz + 0.5) * cellSize - halfHeight;
+
+      group.position.set(wx, wy, wz);
+      group.rotation.y = rotY;
+      rootGroup.add(group);
+
+      if (radius > 0) {
+        colliders.push({
+          x: wx,
+          z: wz,
+          radius,
+          minY: wy,
+          maxY: wy + 2.8,
+          label,
+        });
+      }
+    };
+
+    const addWallProp = (
+      group: THREE.Group,
+      gx: number,
+      gz: number,
+      floor: number,
+      rotY: number = 0,
+      offsetZ: number = 0,
+      offsetX: number = 0
+    ) => {
+      const wx = (gx + 0.5) * cellSize - halfWidth + offsetX;
+      const wy = floor * fHeight;
+      const wz = (gz + 0.5) * cellSize - halfHeight + offsetZ;
+      group.position.set(wx, wy, wz);
+      group.rotation.y = rotY;
+      rootGroup.add(group);
+    };
+
+    // =========================================================================
+    // FLOOR 0: GROUND CLASSROOMS & CORRIDORS
+    // =========================================================================
+
+    // North Wing Classrooms (Floor 0)
+    // Room 1 (gx 1-4, gz 1-5): Player spawn at (3, 3)
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 2.5, 0.5, 0, 0, 0.4);
+    addProp(EnvironmentPropFactory.createTeacherDesk(), 2.0, 4.2, 0, Math.PI, 0.65, 'teacher_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 1.6, 2.2, 0, 0, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 1.6, 3.4, 0, 0, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createTrashBin(), 3.6, 5.2, 0, 0, 0.25, 'trash_bin');
+
+    // Room 2 (gx 6-10, gz 1-5): Door at (8, 6)
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 8.0, 0.5, 0, 0, 0.4);
+    addProp(EnvironmentPropFactory.createTeacherDesk(), 7.2, 4.4, 0, Math.PI, 0.65, 'teacher_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 6.8, 2.2, 0, 0, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 9.2, 2.2, 0, 0, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 6.8, 3.4, 0, 0, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 9.2, 3.4, 0, 0, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolBookshelf(), 6.2, 2.0, 0, Math.PI / 2, 0.50, 'bookshelf');
+    addProp(EnvironmentPropFactory.createTrashBin(), 8.6, 5.2, 0, 0, 0.25, 'trash_bin');
+
+    // Room 3 (gx 12-15, gz 1-5): Door at (13, 6)
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 13.5, 0.5, 0, 0, 0.4);
+    addProp(EnvironmentPropFactory.createTeacherDesk(), 14.0, 4.4, 0, Math.PI, 0.65, 'teacher_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 12.8, 2.4, 0, 0, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 14.5, 2.4, 0, 0, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createMetalStorageCabinet(), 12.2, 3.8, 0, Math.PI / 2, 0.55, 'cabinet');
+
+    // Room 4 (gx 17-19, gz 1-5): Door at (17, 6), Frying pan pickup at (17, 3)
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 18.2, 0.5, 0, 0, 0.4);
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 18.5, 1.8, 0, 0, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 18.5, 4.5, 0, 0, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 19.2, 3.2, 0, -Math.PI / 2, 0.60, 'lockers');
+
+    // South Wing Classrooms (Floor 0)
+    // Room 5 (gx 1-4, gz 15-19): Door at (3, 14)
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 2.5, 19.5, 0, Math.PI, -0.4);
+    addProp(EnvironmentPropFactory.createTeacherDesk(), 2.2, 15.5, 0, 0, 0.65, 'teacher_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 1.8, 17.5, 0, Math.PI, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 3.5, 17.5, 0, Math.PI, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolBookshelf(), 1.2, 18.5, 0, Math.PI / 2, 0.50, 'bookshelf');
+    addProp(EnvironmentPropFactory.createTrashBin(), 3.6, 15.2, 0, 0, 0.25, 'trash_bin');
+
+    // Room 6 (gx 6-10, gz 15-19): Door at (8, 14)
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 8.0, 19.5, 0, Math.PI, -0.4);
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 6.8, 16.5, 0, Math.PI, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 9.2, 16.5, 0, Math.PI, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 6.8, 18.2, 0, Math.PI, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createStackedChairsObstacle(), 8.0, 17.5, 0, 0.4, 0.55, 'stacked_chairs');
+
+    // Room 7 (gx 12-15, gz 15-19): Door at (13, 14)
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 13.5, 19.5, 0, Math.PI, -0.4);
+    addProp(EnvironmentPropFactory.createMetalStorageCabinet(), 12.2, 16.5, 0, Math.PI / 2, 0.55, 'cabinet');
+    addProp(EnvironmentPropFactory.createMetalStorageCabinet(), 12.2, 18.2, 0, Math.PI / 2, 0.55, 'cabinet');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 14.0, 17.2, 0, Math.PI, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createCardboardBoxesStack(), 14.5, 15.5, 0, 0.2, 0.45, 'box_stack');
+
+    // Room 8 (gx 17-19, gz 15-19): Exit Door at (18, 18)
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 17.2, 16.5, 0, Math.PI / 2, 0.60, 'lockers');
+    addProp(EnvironmentPropFactory.createTrashBin(), 17.5, 19.0, 0, 0, 0.25, 'trash_bin');
+
+    // Floor 0 Central Hallway & Atrium (gz 7-13)
+    addWallProp(EnvironmentPropFactory.createNoticeBoard(), 5.5, 5.5, 0, 0, 0.4);
+    addWallProp(EnvironmentPropFactory.createNoticeBoard(), 15.5, 5.5, 0, 0, 0.4);
+    addWallProp(EnvironmentPropFactory.createNoticeBoard(), 5.5, 14.5, 0, Math.PI, -0.4);
+    addWallProp(EnvironmentPropFactory.createNoticeBoard(), 15.5, 14.5, 0, Math.PI, -0.4);
+
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 4.0, 6.8, 0, 0, 0.60, 'lockers');
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 18.0, 6.8, 0, 0, 0.60, 'lockers');
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 4.0, 13.2, 0, Math.PI, 0.60, 'lockers');
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 18.0, 13.2, 0, Math.PI, 0.60, 'lockers');
+
+    addProp(EnvironmentPropFactory.createStackedChairsObstacle(), 4.5, 10.0, 0, 0.3, 0.55, 'stacked_chairs');
+    addProp(EnvironmentPropFactory.createOverturnedDesk(), 16.5, 10.0, 0, 0.7, 0.55, 'overturned_desk');
+    addProp(EnvironmentPropFactory.createFallenBookshelfObstacle(), 10.5, 12.0, 0, -0.2, 0.65, 'fallen_shelf');
+    addProp(EnvironmentPropFactory.createCardboardBoxesStack(), 5.0, 8.0, 0, 0.5, 0.45, 'box_stack');
+
+    addProp(EnvironmentPropFactory.createScatteredPapersDebris(), 7.0, 11.0, 0, 0.1, 0);
+    addProp(EnvironmentPropFactory.createScatteredPapersDebris(), 13.0, 11.0, 0, -0.4, 0);
+    addProp(EnvironmentPropFactory.createScatteredPapersDebris(), 10.0, 8.0, 0, 0.8, 0);
+
+    // =========================================================================
+    // FLOOR 1: UPPER MEZZANINE, SCIENCE LAB, LIBRARY ARCHIVE & CLASSROOMS
+    // =========================================================================
+
+    // North Wing Classrooms (Floor 1)
+    // Room 1 (Floor 1): Computer / Electronics Lab
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 2.5, 0.5, 1, 0, 0.4);
+    addProp(EnvironmentPropFactory.createLabCounterWithCRT(), 2.0, 2.5, 1, Math.PI / 2, 0.60, 'crt_lab');
+    addProp(EnvironmentPropFactory.createLabCounterWithCRT(), 2.0, 4.2, 1, Math.PI / 2, 0.60, 'crt_lab');
+    addProp(EnvironmentPropFactory.createCardboardBoxesStack(), 3.5, 2.0, 1, 0.3, 0.45, 'box_stack');
+
+    // Room 2 (Floor 1): Dilapidated classroom
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 8.0, 0.5, 1, 0, 0.4);
+    addProp(EnvironmentPropFactory.createStackedChairsObstacle(), 8.5, 3.5, 1, 0.5, 0.55, 'stacked_chairs');
+    addProp(EnvironmentPropFactory.createOverturnedDesk(), 7.0, 2.5, 1, -0.4, 0.55, 'overturned_desk');
+    addProp(EnvironmentPropFactory.createMetalStorageCabinet(), 10.0, 2.0, 1, -Math.PI / 2, 0.55, 'cabinet');
+    addProp(EnvironmentPropFactory.createScatteredPapersDebris(), 8.0, 2.5, 1, 0, 0);
+
+    // Room 3 (Floor 1): School Library Archive
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 13.5, 0.5, 1, 0, 0.4);
+    addProp(EnvironmentPropFactory.createSchoolBookshelf(), 13.5, 2.2, 1, 0, 0.50, 'bookshelf');
+    addProp(EnvironmentPropFactory.createSchoolBookshelf(), 13.5, 4.4, 1, 0, 0.50, 'bookshelf');
+    addProp(EnvironmentPropFactory.createSchoolDesk(), 14.5, 3.2, 1, -Math.PI / 2, 0.45, 'school_desk');
+    addProp(EnvironmentPropFactory.createCardboardBoxesStack(), 12.5, 3.5, 1, 0.4, 0.45, 'box_stack');
+
+    // Room 4 (Floor 1): Records Storage
+    addProp(EnvironmentPropFactory.createMetalStorageCabinet(), 18.5, 2.0, 1, Math.PI, 0.55, 'cabinet');
+    addProp(EnvironmentPropFactory.createMetalStorageCabinet(), 18.5, 4.4, 1, Math.PI, 0.55, 'cabinet');
+    addProp(EnvironmentPropFactory.createCardboardBoxesStack(), 17.5, 4.4, 1, -0.3, 0.45, 'box_stack');
+
+    // South Wing Classrooms (Floor 1)
+    // Room 5 (Floor 1): Classroom with fallen bookshelf
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 2.5, 19.5, 1, Math.PI, -0.4);
+    addProp(EnvironmentPropFactory.createFallenBookshelfObstacle(), 2.5, 17.0, 1, 0.3, 0.65, 'fallen_shelf');
+    addProp(EnvironmentPropFactory.createOverturnedDesk(), 3.5, 18.2, 1, 0.8, 0.55, 'overturned_desk');
+
+    // Room 6 (Floor 1): Science Chemistry Lab
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 8.0, 19.5, 1, Math.PI, -0.4);
+    addProp(EnvironmentPropFactory.createLabCounterWithCRT(), 7.5, 16.5, 1, 0, 0.60, 'crt_lab');
+    addProp(EnvironmentPropFactory.createLabCounterWithCRT(), 7.5, 18.5, 1, 0, 0.60, 'crt_lab');
+    addProp(EnvironmentPropFactory.createMetalStorageCabinet(), 9.8, 17.2, 1, -Math.PI / 2, 0.55, 'cabinet');
+
+    // Room 7 (Floor 1): Storage & broken furniture
+    addWallProp(EnvironmentPropFactory.createBlackboard(), 13.5, 19.5, 1, Math.PI, -0.4);
+    addProp(EnvironmentPropFactory.createOverturnedDesk(), 13.5, 16.5, 1, 0.5, 0.55, 'overturned_desk');
+    addProp(EnvironmentPropFactory.createStackedChairsObstacle(), 14.5, 18.0, 1, -0.4, 0.55, 'stacked_chairs');
+
+    // Room 8 (Floor 1): Upper archive
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 17.2, 16.5, 1, Math.PI / 2, 0.60, 'lockers');
+    addProp(EnvironmentPropFactory.createCardboardBoxesStack(), 18.5, 16.0, 1, 0.2, 0.45, 'box_stack');
+
+    // Upper Mezzanine Corridor & Walkways (Floor 1)
+    addWallProp(EnvironmentPropFactory.createNoticeBoard(), 5.5, 5.5, 1, 0, 0.4);
+    addWallProp(EnvironmentPropFactory.createNoticeBoard(), 15.5, 5.5, 1, 0, 0.4);
+    addWallProp(EnvironmentPropFactory.createNoticeBoard(), 5.5, 14.5, 1, Math.PI, -0.4);
+    addWallProp(EnvironmentPropFactory.createNoticeBoard(), 15.5, 14.5, 1, Math.PI, -0.4);
+
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 4.0, 6.8, 1, 0, 0.60, 'lockers');
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 18.0, 6.8, 1, 0, 0.60, 'lockers');
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 4.0, 13.2, 1, Math.PI, 0.60, 'lockers');
+    addProp(EnvironmentPropFactory.createSchoolLocker(), 18.0, 13.2, 1, Math.PI, 0.60, 'lockers');
+
+    addProp(EnvironmentPropFactory.createStackedChairsObstacle(), 10.5, 8.0, 1, 0.2, 0.55, 'stacked_chairs');
+    addProp(EnvironmentPropFactory.createOverturnedDesk(), 16.5, 9.0, 1, -0.6, 0.55, 'overturned_desk');
+    addProp(EnvironmentPropFactory.createCardboardBoxesStack(), 5.5, 12.0, 1, 0.5, 0.45, 'box_stack');
+
+    addProp(EnvironmentPropFactory.createScatteredPapersDebris(), 10.0, 10.0, 1, 0.4, 0);
+    addProp(EnvironmentPropFactory.createScatteredPapersDebris(), 14.0, 8.0, 1, -0.3, 0);
+  }
+
   // =========================================================================
   // ATMOSPHERIC CORRIDOR LIGHTS
   // =========================================================================
@@ -1346,6 +1765,13 @@ export class LabyrinthBuilder {
       const lightGroup = EnvironmentPropFactory.createHangingCageLight(lightHex);
       lightGroup.position.set(wx, 0, wz);
       rootGroup.add(lightGroup);
+
+      if (level.theme === 'school' && level.floorCount && level.floorCount > 1) {
+        // Floor 1 corridor lighting for balanced multi-floor atmosphere
+        const upperLight = EnvironmentPropFactory.createHangingCageLight(lightHex);
+        upperLight.position.set(wx, level.floorHeight || 3.8, wz);
+        rootGroup.add(upperLight);
+      }
     });
   }
 

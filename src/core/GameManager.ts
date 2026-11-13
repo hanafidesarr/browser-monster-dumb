@@ -162,12 +162,29 @@ export class GameManager {
       this.applyAuditView(qView);
     }
 
-    // Canvas click requests pointer lock when playing
-    this.canvas.addEventListener('click', () => {
-      AudioManager.getInstance().resume();
+    // User click or mousedown requests pointer lock when playing (desktop mouse look)
+    const requestGamePointerLock = (e?: Event) => {
       if (this.state === 'STEALTH' || this.state === 'CHASE') {
+        if (e && e.target) {
+          const target = e.target as HTMLElement;
+          if (
+            target &&
+            target.closest(
+              '#btn-hud-pause, #btn-toggle-fullscreen, .retro-btn, button, input, select, textarea'
+            )
+          ) {
+            return;
+          }
+        }
+        AudioManager.getInstance().resume();
         InputManager.getInstance().requestPointerLock(this.canvas);
       }
+    };
+
+    this.canvas.addEventListener('click', requestGamePointerLock);
+    window.addEventListener('click', requestGamePointerLock);
+    window.addEventListener('mousedown', (e: MouseEvent) => {
+      if (e.button === 0) requestGamePointerLock(e);
     });
   }
 
@@ -280,22 +297,24 @@ export class GameManager {
 
   private setupMonsterCallbacks(m: MonsterController): void {
     const ui = UIManager.getInstance();
+    const monsterName = m.monsterType === 'kunti' ? 'Kuntilanak' : 'Pocong';
 
     m.onPlayerDetected = () => {
       if (this.state === 'STEALTH') {
-        this.triggerGameOver('Pocong mendeteksi keberadaanmu!');
+        this.triggerGameOver(`${monsterName} mendeteksi keberadaanmu!`);
       }
     };
 
     m.onPlayerCaught = () => {
-      this.handlePlayerCaught(m, 'Pocong berhasil menangkapmu!');
+      this.handlePlayerCaught(m, `${monsterName} berhasil menangkapmu!`);
     };
 
     m.onChaseStarted = () => {
       if (this.state !== 'CHASE') {
         this.state = 'CHASE';
         ui.switchToChaseControls();
-        ui.setStatusText('POCONG MELONCAT MENGEJAR! CEPAT LARI KE PINTU KELUAR!');
+        const actionVerb = m.monsterType === 'kunti' ? 'MERANGKAK' : 'MELONCAT';
+        ui.setStatusText(`${monsterName.toUpperCase()} ${actionVerb} MENGEJAR! CEPAT LARI KE PINTU KELUAR!`);
       }
     };
   }
@@ -314,6 +333,7 @@ export class GameManager {
     }
 
     // Remove existing monsters and dispose hierarchy
+    AudioManager.getInstance().stopKuntiChaseAudio();
     if (this.monsters.length > 0) {
       for (const m of this.monsters) {
         this.scene.remove(m.group);
@@ -350,10 +370,15 @@ export class GameManager {
     this.fpController.weapon.setWeapon(savedWeaponId);
 
     // Setup Monsters with isolated level-specific collision configuration
+    const isLevel2 = this.currentLevelDef.id === 2;
+    const monsterType = this.currentLevelDef.monsterType || (isLevel2 ? 'kunti' : 'pocong');
+    if (monsterType === 'kunti') {
+      AudioManager.getInstance().loadKuntiAudio();
+    }
     const monsterSpawns = this.levelBuild.monsterWorldSpawns || [this.levelBuild.monsterWorldSpawn];
     for (let i = 0; i < monsterSpawns.length; i++) {
-      const m = new MonsterController();
-      m.id = `pocong_${i + 1}`;
+      const m = new MonsterController(monsterType);
+      m.id = `${monsterType}_${i + 1}`;
       this.scene.add(m.group);
       m.setLevel(
         this.currentLevelDef,
@@ -441,6 +466,9 @@ export class GameManager {
   private startLevelTransition(): void {
     if (this.state !== 'LEVEL_OVERVIEW' || !this.levelBuild) return;
 
+    // Synchronously request pointer lock within direct user gesture from START LEVEL button
+    InputManager.getInstance().requestPointerLock(this.canvas);
+
     // Hide overview markers for first-person gameplay
     this.levelBuild.playerMarker.visible = false;
     if (this.levelBuild.monsterMarkers) {
@@ -474,7 +502,10 @@ export class GameManager {
         this.isTimerRunning = true;
 
         UIManager.getInstance().showGameplayHUD();
-        if (this.currentLevelDef.exitLockedInitially) {
+        const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
+        if (isKunti) {
+          UIManager.getInstance().setStatusText('CARI KUNTILANAK DAN PUKUL TUBUHNYA DENGAN WAJAN!');
+        } else if (this.currentLevelDef.exitLockedInitially) {
           UIManager.getInstance().setStatusText('PUKUL POCONG & AKTIFKAN 2 TERMINAL UNTUK BUKA EXIT!');
         } else {
           UIManager.getInstance().setStatusText('CARI POCONG DAN PUKUL TUBUHNYA');
@@ -524,7 +555,9 @@ export class GameManager {
       // 2. Immediately trigger hit reaction on struck monster with weapon characteristics, scream, and chase!
       hitMonster.triggerWeaponHit(weaponDef);
       this.triggerScreenShake(0.4);
-      UIManager.getInstance().setStatusText('POCONG TERBANGUN & MENGEJAR! CEPAT LARI KE PINTU EXIT!');
+      const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
+      const actionVerb = hitMonster.monsterType === 'kunti' ? 'MERANGKAK' : 'MELONCAT';
+      UIManager.getInstance().setStatusText(`${monsterName} TERSTUN & AKAN MENGEJAR! CEPAT PUTAR BADAN DAN LARI!`);
 
       // Awaken all other resting monsters to join the chase
       for (const m of this.monsters) {
@@ -555,14 +588,19 @@ export class GameManager {
     this.shakeIntensity = amount;
   }
 
-  // Handle Pocong catching player (routes Level 1 to Capture Jumpscare, other levels to direct Game Over)
-  private handlePlayerCaught(m?: MonsterController, reason: string = 'Pocong berhasil menangkapmu!'): void {
+  // Handle monster catching player (routes Level 1 to Capture Jumpscare, other levels to direct Game Over)
+  private handlePlayerCaught(m?: MonsterController, reason: string = 'Monster berhasil menangkapmu!'): void {
     if (this.state === 'GAME_OVER' || this.state === 'JUMPSCARE' || this.isJumpscareActive) return;
 
+    const monsterName = (this.currentLevelDef?.id === 2 || m?.monsterType === 'kunti') ? 'Kuntilanak' : 'Pocong';
+    const effectiveReason = reason.includes('Pocong') || reason.includes('Monster')
+      ? `${monsterName} berhasil menangkapmu!`
+      : reason;
+
     if (this.currentLevelDef && this.currentLevelDef.id === 1) {
-      this.triggerCaptureJumpscare(m, reason);
+      this.triggerCaptureJumpscare(m, effectiveReason);
     } else {
-      this.triggerGameOver(reason);
+      this.triggerGameOver(effectiveReason);
     }
   }
 
@@ -635,6 +673,7 @@ export class GameManager {
     this.state = 'GAME_OVER';
     this.isTimerRunning = false;
     this.fpController.setEnabled(false);
+    AudioManager.getInstance().stopKuntiChaseAudio();
     InputManager.getInstance().exitPointerLock();
     try {
       if (document.exitPointerLock) {
@@ -650,6 +689,7 @@ export class GameManager {
     this.state = 'LEVEL_COMPLETE';
     this.isTimerRunning = false;
     this.fpController.setEnabled(false);
+    AudioManager.getInstance().stopKuntiChaseAudio();
     InputManager.getInstance().exitPointerLock();
 
     AudioManager.getInstance().playLevelComplete();
@@ -690,6 +730,7 @@ export class GameManager {
   // Exit to Main Menu
   private exitToMainMenu(): void {
     this.state = 'MAIN_MENU';
+    AudioManager.getInstance().stopKuntiChaseAudio();
     this.scene.fog = new THREE.Fog(0x101416, 100, 240);
     this.isTimerRunning = false;
     this.fpController.setEnabled(false);
@@ -825,7 +866,9 @@ export class GameManager {
         }
 
         // Single Monster Alert: Only one prompt banner is updated
-        UIManager.getInstance().setAttackPromptVisible(canAttackAny);
+        const targetMonster = nearestAttackableMonster || nearestMonster;
+        const targetMonsterName = targetMonster?.monsterType === 'kunti' ? 'Kuntilanak' : 'Pocong';
+        UIManager.getInstance().setAttackPromptVisible(canAttackAny, targetMonsterName);
         UIManager.getInstance().setDetectionMeter(maxDetection);
 
         if (inputMgr.consumeAttackRequest()) {
@@ -848,8 +891,9 @@ export class GameManager {
             m.position.z - this.fpController.position.z
           );
           const verticalDiff = Math.abs(m.position.y - (this.fpController.position.y - 1.65));
-          if (m.stateTime > 0.8 && horizontalDist <= 1.5 && verticalDiff <= 1.5) {
-            this.handlePlayerCaught(m, 'Pocong berhasil menangkapmu!');
+          if (m.stateTime > MonsterController.CATCH_GRACE_PERIOD && horizontalDist <= 1.5 && verticalDiff <= 1.5) {
+            const mName = m.monsterType === 'kunti' ? 'Kuntilanak' : 'Pocong';
+            this.handlePlayerCaught(m, `${mName} berhasil menangkapmu!`);
             return;
           }
         }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { MonsterModel } from './MonsterModel.ts';
-import { LevelDefinition } from '../level/LevelData.ts';
+import { LevelDefinition, MonsterType } from '../level/LevelData.ts';
 import { GridPathfinding, Point2D } from '../pathfinding/GridPathfinding.ts';
 import { AudioManager } from '../core/AudioManager.ts';
 import { WeaponDefinition, WEAPON_MAP, MonsterReactionType } from '../weapon/WeaponData.ts';
@@ -16,7 +16,15 @@ export type MonsterState =
   | 'CATCH_PLAYER';
 
 export class MonsterController {
+  // Post-hit grace period & melee distance constants
+  public static readonly MELEE_ATTACK_DISTANCE = 2.40;  // Must be closer to monster to hit
+  public static readonly HIT_REACTION_DURATION = 0.60;  // Stagger & recoil after hit
+  public static readonly SCREAM_DURATION = 0.70;        // Enraged roar before chase
+  public static readonly STAND_UP_DURATION = 0.50;      // Stance preparation
+  public static readonly CATCH_GRACE_PERIOD = 1.80;     // Grace period in chase before player can be caught
+
   public id: string = 'pocong_1';
+  public monsterType: MonsterType = 'pocong';
   public otherMonsters: MonsterController[] = [];
   public model: MonsterModel;
   public group: THREE.Group;
@@ -65,8 +73,10 @@ export class MonsterController {
   public onPlayerCaught: (() => void) | null = null;
   public onChaseStarted: (() => void) | null = null;
 
-  constructor() {
-    this.model = new MonsterModel();
+  constructor(monsterType: MonsterType = 'pocong') {
+    this.monsterType = monsterType;
+    this.id = `${monsterType}_1`;
+    this.model = new MonsterModel(monsterType);
     this.group = this.model.group;
   }
 
@@ -81,6 +91,23 @@ export class MonsterController {
   ): void {
     this.levelDef = level;
     this.pathfinding = pathfinding;
+
+    if (level.monsterType) {
+      this.monsterType = level.monsterType;
+    } else if (level.id === 2) {
+      this.monsterType = 'kunti';
+    }
+
+    // Recreate model if monsterType changed
+    if (this.model.monsterType !== this.monsterType) {
+      this.group.remove(this.model.innerGroup);
+      this.model = new MonsterModel(this.monsterType);
+      this.group.add(this.model.innerGroup);
+    }
+
+    if (this.monsterType === 'kunti') {
+      AudioManager.getInstance().stopKuntiChaseAudio();
+    }
 
     if (collisionConfigOrGrid && 'environmentId' in collisionConfigOrGrid) {
       this.collisionConfig = collisionConfigOrGrid as LevelCollisionConfig;
@@ -147,10 +174,13 @@ export class MonsterController {
       }
     }
 
-    // 3. True 3D Distance check (within melee striking reach)
-    const monsterCenter = new THREE.Vector3(this.position.x, this.position.y + 0.9, this.position.z);
+    // 3. True 3D & 2D Distance check (must be closer to monster to strike)
+    const maxAttackDist = this.levelDef?.monsterConfig?.attackDistance || MonsterController.MELEE_ATTACK_DISTANCE;
+    const monsterCenterY = this.monsterType === 'kunti' ? 0.45 : 0.9;
+    const monsterCenter = new THREE.Vector3(this.position.x, this.position.y + monsterCenterY, this.position.z);
     const dist3D = playerPos.distanceTo(monsterCenter);
-    if (dist3D > 4.5) {
+    const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
+    if (dist3D > maxAttackDist || horizontalDist > maxAttackDist) {
       return false;
     }
 
@@ -197,10 +227,12 @@ export class MonsterController {
       return false;
     }
 
+    const maxAttackDist = this.levelDef?.monsterConfig?.attackDistance || MonsterController.MELEE_ATTACK_DISTANCE;
+
     // 1. Precise raycast from crosshair against all monster meshes (head, body, shroud, face)
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-    raycaster.far = 4.5;
+    raycaster.far = maxAttackDist;
     const hits = raycaster.intersectObjects(this.group.children, true);
     if (hits.length > 0) {
       // Ensure crosshair raycast is not blocked by a wall or floor in between
@@ -214,10 +246,11 @@ export class MonsterController {
     }
 
     // 2. Proximity strike (within close striking distance and facing monster)
-    const monsterCenter = new THREE.Vector3(this.position.x, this.position.y + 0.9, this.position.z);
+    const monsterCenterY = this.monsterType === 'kunti' ? 0.45 : 0.9;
+    const monsterCenter = new THREE.Vector3(this.position.x, this.position.y + monsterCenterY, this.position.z);
     const dirToMonster = new THREE.Vector3().subVectors(monsterCenter, playerPos).normalize();
 
-    // Generous striking arc facing Pocong
+    // Striking arc facing monster
     if (playerForward.dot(dirToMonster) > 0.2) {
       return true;
     }
@@ -352,13 +385,13 @@ export class MonsterController {
       this.detectionPercent = Math.min(1, this.detectionTimer / delay);
 
       if (this.detectionTimer >= delay) {
-        // Pocong awakens, screams, and begins hopping chase!
+        // Monster awakens, screams, and begins chase!
         this.isAwake = true;
         this.state = 'SCREAM';
         this.stateTime = 0;
         this.animProgress = 0;
         this.detectionPercent = 1;
-        AudioManager.getInstance().playMonsterScream();
+        AudioManager.getInstance().playMonsterScream(this.monsterType);
         if (this.onChaseStarted) {
           this.onChaseStarted();
         }
@@ -389,22 +422,22 @@ export class MonsterController {
 
   // 3. HIT_REACTION (Head / body reacts based on selected weapon)
   private updateHitReaction(dt: number): void {
-    const hitDuration = 0.22;
-    this.animProgress = this.stateTime / hitDuration;
+    const hitDuration = MonsterController.HIT_REACTION_DURATION;
+    this.animProgress = Math.min(1.0, this.stateTime / hitDuration);
     this.model.applyHitReaction(this.animProgress, this.currentHitReaction);
 
     if (this.stateTime >= hitDuration) {
       this.state = 'SCREAM';
       this.stateTime = 0;
       this.animProgress = 0;
-      AudioManager.getInstance().playMonsterScream();
+      AudioManager.getInstance().playMonsterScream(this.monsterType);
     }
   }
 
   // 4. SCREAM (Unhinged jaw, shriek)
   private updateScream(dt: number, totalTime: number): void {
-    const screamDuration = 0.38;
-    this.animProgress = this.stateTime / screamDuration;
+    const screamDuration = MonsterController.SCREAM_DURATION;
+    this.animProgress = Math.min(1.0, this.stateTime / screamDuration);
     this.model.applyScream(this.animProgress, totalTime);
 
     if (this.stateTime >= screamDuration) {
@@ -416,8 +449,8 @@ export class MonsterController {
 
   // 5. STAND_UP (Rises to towering height)
   private updateStandUp(dt: number): void {
-    const standDuration = 0.28;
-    this.animProgress = this.stateTime / standDuration;
+    const standDuration = MonsterController.STAND_UP_DURATION;
+    this.animProgress = Math.min(1.0, this.stateTime / standDuration);
     this.model.applyStandUp(this.animProgress);
 
     if (this.stateTime >= standDuration) {
@@ -425,30 +458,21 @@ export class MonsterController {
       this.stateTime = 0;
       this.hopTimer = 0;
       this.pathRecalcTimer = 0.35;
+      if (this.monsterType === 'kunti') {
+        AudioManager.getInstance().startKuntiChaseAudio();
+      }
       if (this.onChaseStarted) {
         this.onChaseStarted();
       }
     }
   }
 
-  // 6. CHASE (Pocong Hopping Navigation: leaping in terrifying vertical arcs tracking player)
+  // 6. CHASE (Pocong Hopping / Kuntilanak Merangkak Navigation)
   private updateChase(dt: number, totalTime: number, playerPos: THREE.Vector3): void {
     const cfg = this.levelDef!.monsterConfig;
 
     // Use 2D horizontal distance on the floor
     const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
-
-    // Hopping Rhythm Cycle
-    const hopDuration = 0.52; // each jump cycle takes ~0.52s
-    this.hopTimer += dt;
-    const cycle = (this.hopTimer % hopDuration) / hopDuration; // 0.0 to 1.0
-    const isAirborne = cycle < 0.70;
-
-    // Heavy landing impact thud on ground contact
-    if (this.wasAirborne && !isAirborne) {
-      AudioManager.getInstance().playPocongHop(horizontalDist);
-    }
-    this.wasAirborne = isAirborne;
 
     // Update vertical elevation (Ramps, Bridges, Multi-Floor)
     let groundY = 0;
@@ -482,23 +506,51 @@ export class MonsterController {
     }
     this.baseGroundY = groundY;
 
-    // Vertical parabolic jump height (up to 0.95m high in air!)
-    if (isAirborne) {
-      const airP = cycle / 0.70;
-      this.position.y = this.baseGroundY + Math.sin(airP * Math.PI) * 0.95;
-    } else {
+    let isAirborne = false;
+    let cycle = 0;
+
+    if (this.monsterType === 'kunti') {
+      // Kuntilanak: mengejar dengan cara merangkak (crawls flush along the floor/stairs)
       this.position.y = this.baseGroundY;
+      this.model.applyCrawl(dt, cfg.chaseSpeed);
+      AudioManager.getInstance().playKuntiCrawl(horizontalDist);
+      AudioManager.getInstance().updateKuntiChaseAudio(horizontalDist);
+    } else {
+      // Pocong: Hopping Rhythm Cycle (parabolic airborne leaping)
+      const hopDuration = 0.52; // each jump cycle takes ~0.52s
+      this.hopTimer += dt;
+      cycle = (this.hopTimer % hopDuration) / hopDuration; // 0.0 to 1.0
+      isAirborne = cycle < 0.70;
+
+      // Heavy landing impact thud on ground contact
+      if (this.wasAirborne && !isAirborne) {
+        AudioManager.getInstance().playPocongHop(horizontalDist);
+      }
+      this.wasAirborne = isAirborne;
+
+      // Vertical parabolic jump height (up to 0.95m high in air!)
+      if (isAirborne) {
+        const airP = cycle / 0.70;
+        this.position.y = this.baseGroundY + Math.sin(airP * Math.PI) * 0.95;
+      } else {
+        this.position.y = this.baseGroundY;
+      }
+
+      // Animate the pocong body (forward pitch in air, squash on landing)
+      this.model.applyHopAnimation(cycle, isAirborne);
     }
 
-    // Animate the pocong body (forward pitch in air, squash on landing)
-    this.model.applyHopAnimation(cycle, isAirborne);
-
-    // Check catch distance (grace period: 0.8s after chase begins so player can turn and sprint)
+    // Check catch distance (grace period: CATCH_GRACE_PERIOD seconds after chase begins so player can turn and sprint)
     const catchDist = Math.max(1.5, cfg.catchDistance);
-    if (this.stateTime > 0.8 && horizontalDist <= catchDist) {
+    if (this.stateTime > MonsterController.CATCH_GRACE_PERIOD && horizontalDist <= catchDist) {
       this.state = 'CATCH_PLAYER';
-      this.position.y = this.baseGroundY + 0.15;
-      AudioManager.getInstance().playCaughtStinger();
+      this.position.y = this.baseGroundY + (this.monsterType === 'kunti' ? 0.05 : 0.15);
+      if (this.monsterType === 'kunti') {
+        AudioManager.getInstance().stopKuntiChaseAudio();
+        AudioManager.getInstance().playKuntiSound(true);
+      } else {
+        AudioManager.getInstance().playCaughtStinger();
+      }
       if (this.onPlayerCaught) {
         this.onPlayerCaught();
       }
@@ -574,10 +626,12 @@ export class MonsterController {
         Math.min(1, 14 * dt)
       );
 
-      // Movement bursts forward while airborne in jump arc!
-      const speedMultiplier = isAirborne
-        ? Math.sin((cycle / 0.70) * Math.PI) * 1.85
-        : 0.15;
+      // Movement speed: continuous smooth crawl for Kunti, hopping bursts for Pocong
+      // Smooth initial acceleration over first 1.2s to prevent instantaneous teleporting catch
+      const accel = Math.min(1.0, 0.45 + (this.stateTime / 1.2) * 0.55);
+      const speedMultiplier = (this.monsterType === 'kunti'
+        ? 1.0
+        : (isAirborne ? Math.sin((cycle / 0.70) * Math.PI) * 1.85 : 0.15)) * accel;
       const moveStep = cfg.chaseSpeed * speedMultiplier * dt;
       let nextX = this.position.x + normX * moveStep;
       let nextZ = this.position.z + normZ * moveStep;
@@ -624,6 +678,11 @@ export class MonsterController {
       const cylinders = this.collisionConfig ? this.collisionConfig.cylinderColliders : this.treeColliders;
       for (let i = 0; i < cylinders.length; i++) {
         const c = cylinders[i];
+        if (c.minY !== undefined && c.maxY !== undefined) {
+          if (this.position.y < c.minY - 0.5 || this.position.y > c.maxY + 1.5) {
+            continue;
+          }
+        }
         const cdx = this.position.x - c.x;
         const cdz = this.position.z - c.z;
         const cdist = Math.hypot(cdx, cdz);

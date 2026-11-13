@@ -121,6 +121,13 @@ export class UIManager {
   public showOverview(level: LevelDefinition): void {
     this.hideAllScreens();
     this.overviewLevelTitle.textContent = `LEVEL ${level.id} — ${level.title}`;
+    const monsterLegend = document.querySelector('.legend-item:nth-child(2)');
+    if (monsterLegend) {
+      const isKunti = level.monsterType === 'kunti' || level.id === 2;
+      const count = level.monsterCount || 1;
+      const countLabel = count > 1 ? ` (${count} Hantu)` : '';
+      monsterLegend.innerHTML = `<span class="legend-dot monster-dot"></span> ${isKunti ? 'Kuntilanak' : 'Pocong'} (Tertidur)${countLabel}`;
+    }
     this.populateWeaponSelection();
     this.screenOverview.classList.add('active');
   }
@@ -312,10 +319,14 @@ export class UIManager {
     this.hudStatusText.textContent = text;
   }
 
-  public setAttackPromptVisible(visible: boolean): void {
+  public setAttackPromptVisible(visible: boolean, monsterName: string = 'POCONG'): void {
     // 1. Single Monster Alert: Only show the black-background banner prompt
     if (this.desktopAttackPrompt) {
       if (visible) {
+        const titleEl = this.desktopAttackPrompt.querySelector('.prompt-title');
+        if (titleEl) {
+          titleEl.textContent = `PUKUL ${monsterName.toUpperCase()}!`;
+        }
         this.desktopAttackPrompt.classList.remove('hidden');
       } else {
         this.desktopAttackPrompt.classList.add('hidden');
@@ -705,6 +716,9 @@ export class UIManager {
     ALL_LEVELS.forEach((level) => {
       const isUnlocked = save.isLevelUnlocked(level.id);
       const isCompleted = save.isLevelCompleted(level.id);
+      const monsterType = level.monsterType || (level.id === 2 ? 'kunti' : 'pocong');
+      const monsterName = monsterType === 'kunti' ? 'Kuntilanak' : 'Pocong';
+      const monsterCount = level.monsterCount || 1;
 
       const card = document.createElement('div');
       card.className = `level-card ${isUnlocked ? 'unlocked' : 'locked'}`;
@@ -712,6 +726,13 @@ export class UIManager {
       card.innerHTML = `
         <div class="level-number">LEVEL ${level.id.toString().padStart(2, '0')}</div>
         <div class="level-name">${level.title}</div>
+        <div class="level-meta-row">
+          <span class="level-monster-badge" title="${monsterCount} ${monsterName}">
+            <span class="monster-icon">&#128123;</span>
+            <span class="monster-count-text">${monsterCount} ${monsterName}</span>
+          </span>
+          <span class="level-floor-badge">&#127970; ${level.floorCount || 1} Lantai</span>
+        </div>
         <div class="level-status-row">
           <span>${isCompleted ? 'COMPLETED' : (isUnlocked ? 'AVAILABLE' : 'LOCKED')}</span>
           <span class="${isCompleted ? 'badge-completed' : (isUnlocked ? 'badge-unlocked' : 'badge-locked')}">

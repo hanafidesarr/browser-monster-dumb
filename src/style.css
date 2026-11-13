@@ -317,6 +317,47 @@ html, body {
   letter-spacing: 1px;
 }
 
+.level-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 2px 0 4px 0;
+}
+
+.level-monster-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(220, 38, 38, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.38);
+  color: #fca5a5;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.level-monster-badge .monster-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.level-floor-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #94a3b8;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
 .level-status-row {
   margin-top: auto;
   display: flex;
@@ -999,6 +1040,13 @@ html, body {
   z-index: 1;
 }
 
+/* Ensure touch look zone does not intercept desktop mouse clicks or block pointer lock */
+@media (hover: hover) and (pointer: fine) {
+  #touch-look-zone {
+    pointer-events: none !important;
+  }
+}
+
 .joystick-zone {
   position: absolute;
   width: 150px;
@@ -1353,6 +1401,17 @@ html, body {
     font-size: 22px;
   }
 
+  .level-meta-row {
+    gap: 6px;
+    margin: 1px 0 3px 0;
+  }
+
+  .level-monster-badge,
+  .level-floor-badge {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
   /* Settings Screen on Mobile */
   .settings-content {
     gap: 16px;
@@ -1647,6 +1706,17 @@ html, body {
 
   .level-name {
     font-size: 18px;
+  }
+
+  .level-meta-row {
+    gap: 4px;
+    margin: 0;
+  }
+
+  .level-monster-badge,
+  .level-floor-badge {
+    font-size: 10px;
+    padding: 1px 5px;
   }
 
   .level-status-row {

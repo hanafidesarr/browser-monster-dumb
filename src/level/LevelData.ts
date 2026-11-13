@@ -1,5 +1,7 @@
 import { WeaponId } from '../weapon/WeaponData.ts';
 
+export type MonsterType = 'pocong' | 'kunti';
+
 export type LevelTheme =
   | 'banana_garden'
   | 'school'
@@ -62,6 +64,7 @@ export interface LevelDefinition {
   floorCount?: number;          // Multi-floor: 1 up to 10 floors
   floorHeight?: number;         // Height separation between floors
   monsterCount?: number;        // Total monsters for this level (Part 3.6)
+  monsterType?: MonsterType;    // Level monster archetype ('pocong' or 'kunti')
   ramps?: FloorRamp[];          // Stairs / Ramps connecting floors
   bridges?: WoodenBridge[];     // Wooden bridges across gaps
   monsterConfig: {
@@ -273,7 +276,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 9.0,
       reactionDelaySeconds: 0.85,
       rearAttackAngleDeg: 200,
-      attackDistance: 5.0,
+      attackDistance: 2.4,
       chaseSpeed: 5.10, // 85% of player sprint (6.0)
       catchDistance: 1.6,
     },
@@ -288,9 +291,10 @@ export const ALL_LEVELS: LevelDefinition[] = [
     id: 2,
     title: 'THE ABANDONED SCHOOL',
     subtitle: 'SECTOR 02 — DESERTED HALLWAYS (2 FLOORS)',
-    description: 'Sekolah tua berdebu 2 lantai dengan tangga dan jembatan mezanin. Carilah Wajan Penggorengan untuk memukul Pocong!',
+    description: 'Sekolah tua berdebu 2 lantai dengan tangga dan jembatan mezanin. Carilah Wajan Penggorengan untuk memukul Kuntilanak!',
     difficultyRating: 2,
     theme: 'school',
+    monsterType: 'kunti',
     gridWidth: 21,
     gridHeight: 21,
     cellSize: 3.8,
@@ -316,7 +320,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 9.5,
       reactionDelaySeconds: 0.80,
       rearAttackAngleDeg: 195,
-      attackDistance: 5.0,
+      attackDistance: 2.4,
       chaseSpeed: 5.16, // 86% of player sprint (6.0)
       catchDistance: 1.6,
     },
@@ -356,7 +360,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 10.0,
       reactionDelaySeconds: 0.75,
       rearAttackAngleDeg: 190,
-      attackDistance: 5.0,
+      attackDistance: 2.4,
       chaseSpeed: 5.22, // 87% of player sprint (6.0)
       catchDistance: 1.6,
     },
@@ -397,7 +401,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 10.5,
       reactionDelaySeconds: 0.70,
       rearAttackAngleDeg: 185,
-      attackDistance: 5.0,
+      attackDistance: 2.4,
       chaseSpeed: 5.28, // 88% of player sprint (6.0)
       catchDistance: 1.6,
     },
@@ -438,7 +442,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 11.0,
       reactionDelaySeconds: 0.65,
       rearAttackAngleDeg: 180,
-      attackDistance: 5.0,
+      attackDistance: 2.4,
       chaseSpeed: 5.34, // 89% of player sprint (6.0)
       catchDistance: 1.6,
     },
@@ -479,7 +483,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 11.5,
       reactionDelaySeconds: 0.60,
       rearAttackAngleDeg: 175,
-      attackDistance: 5.0,
+      attackDistance: 2.4,
       chaseSpeed: 5.46, // 91% of player sprint (6.0)
       catchDistance: 1.6,
     },
@@ -523,7 +527,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 12.0,
       reactionDelaySeconds: 0.55,
       rearAttackAngleDeg: 170,
-      attackDistance: 5.0,
+      attackDistance: 2.4,
       chaseSpeed: 5.52, // 92% of player sprint (6.0)
       catchDistance: 1.6,
     },
@@ -565,7 +569,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 12.5,
       reactionDelaySeconds: 0.50,
       rearAttackAngleDeg: 165,
-      attackDistance: 5.0,
+      attackDistance: 2.4,
       chaseSpeed: 5.58, // 93% of player sprint (6.0)
       catchDistance: 1.6,
     },
@@ -614,7 +618,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 13.0,
       reactionDelaySeconds: 0.45,
       rearAttackAngleDeg: 160,
-      attackDistance: 5.0,
+      attackDistance: 2.4,
       chaseSpeed: 5.64, // 94% of player sprint (6.0)
       catchDistance: 1.6,
     },
@@ -664,7 +668,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       detectionDistance: 13.5,
       reactionDelaySeconds: 0.40,
       rearAttackAngleDeg: 150,
-      attackDistance: 5.0,
+      attackDistance: 2.4,
       chaseSpeed: 5.70, // 95% of player sprint (6.0)
       catchDistance: 1.6,
     },

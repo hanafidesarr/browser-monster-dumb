@@ -334,6 +334,11 @@ export class FirstPersonController {
     const cylinders = this.collisionConfig ? this.collisionConfig.cylinderColliders : this.treeColliders;
     for (let i = 0; i < cylinders.length; i++) {
       const t = cylinders[i];
+      if (t.minY !== undefined && t.maxY !== undefined) {
+        if (this.position.y < t.minY - 0.2 || this.position.y > t.maxY + this.playerHeight) {
+          continue;
+        }
+      }
       const dx = wx - t.x;
       const dz = wz - t.z;
       const totalR = this.playerRadius + t.radius;

@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { FBXLoader } from '../loaders/FBXLoader.js';
+import { MonsterType } from '../level/LevelData.ts';
 
 export class MonsterModel {
   public group: THREE.Group;
   public innerGroup: THREE.Group;
+  public monsterType: MonsterType;
 
   // Visual components
   private fbxRoot: THREE.Group | null = null;
@@ -12,40 +14,200 @@ export class MonsterModel {
   private leftEyeGlow: THREE.Mesh;
   private rightEyeGlow: THREE.Mesh;
 
+  // Animation mixer for skinned / animated models (Kunti)
+  private mixer: THREE.AnimationMixer | null = null;
+  private crawlAction: THREE.AnimationAction | null = null;
+
   // Animation states
   public isLoaded: boolean = false;
   private baseScale: number = 0.0115;
 
-  constructor() {
+  constructor(monsterType: MonsterType = 'pocong') {
+    this.monsterType = monsterType;
     this.group = new THREE.Group();
-    this.group.name = 'PocongRoot';
+    this.group.name = monsterType === 'kunti' ? 'KuntiRoot' : 'PocongRoot';
 
     this.innerGroup = new THREE.Group();
-    this.innerGroup.name = 'PocongBody';
+    this.innerGroup.name = monsterType === 'kunti' ? 'KuntiBody' : 'PocongBody';
     this.group.add(this.innerGroup);
 
-    // 1. Temporary immediate placeholder while FBX is streaming (zero black/missing frame)
-    this.placeholderMesh = this.createPocongPlaceholder();
-    this.innerGroup.add(this.placeholderMesh);
+    if (this.monsterType === 'kunti') {
+      // 1. Temporary immediate placeholder for crawling Kuntilanak while FBX is streaming
+      this.placeholderMesh = this.createKuntiPlaceholder();
+      this.innerGroup.add(this.placeholderMesh);
 
-    // 2. Sinister Red Eyes (Hollow glowing sockets)
-    const eyeGeo = new THREE.SphereGeometry(0.035, 6, 6);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff1111 });
+      // 2. Sinister Red Eyes (Positioned at head height ~0.48m for crawling posture)
+      const eyeGeo = new THREE.SphereGeometry(0.025, 6, 6);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2222 });
 
-    this.leftEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
-    this.leftEyeGlow.position.set(-0.1, 1.62, 0.22);
-    this.innerGroup.add(this.leftEyeGlow);
+      this.leftEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
+      this.leftEyeGlow.position.set(-0.08, 0.48, 0.58);
+      this.innerGroup.add(this.leftEyeGlow);
 
-    this.rightEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
-    this.rightEyeGlow.position.set(0.1, 1.62, 0.22);
-    this.innerGroup.add(this.rightEyeGlow);
+      this.rightEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
+      this.rightEyeGlow.position.set(0.08, 0.48, 0.58);
+      this.innerGroup.add(this.rightEyeGlow);
 
-    this.eyeLight = new THREE.PointLight(0xff0000, 1.5, 4.5, 1.5);
-    this.eyeLight.position.set(0, 1.62, 0.35);
-    this.innerGroup.add(this.eyeLight);
+      this.eyeLight = new THREE.PointLight(0xff0000, 1.4, 4.0, 1.5);
+      this.eyeLight.position.set(0, 0.48, 0.65);
+      this.innerGroup.add(this.eyeLight);
 
-    // 3. Load the actual pocong.fbx 3D model
-    this.loadPocongFBX();
+      // 3. Load KuntiMerangkak.fbx
+      this.loadKuntiFBX();
+    } else {
+      // Standard Pocong setup
+      this.placeholderMesh = this.createPocongPlaceholder();
+      this.innerGroup.add(this.placeholderMesh);
+
+      const eyeGeo = new THREE.SphereGeometry(0.035, 6, 6);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff1111 });
+
+      this.leftEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
+      this.leftEyeGlow.position.set(-0.1, 1.62, 0.22);
+      this.innerGroup.add(this.leftEyeGlow);
+
+      this.rightEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
+      this.rightEyeGlow.position.set(0.1, 1.62, 0.22);
+      this.innerGroup.add(this.rightEyeGlow);
+
+      this.eyeLight = new THREE.PointLight(0xff0000, 1.5, 4.5, 1.5);
+      this.eyeLight.position.set(0, 1.62, 0.35);
+      this.innerGroup.add(this.eyeLight);
+
+      this.loadPocongFBX();
+    }
+  }
+
+  // Fallback / immediate procedural crawler mesh for Kuntilanak
+  private createKuntiPlaceholder(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'KuntiPlaceholder';
+
+    const dressMat = new THREE.MeshLambertMaterial({
+      color: 0xdddddd,
+      roughness: 0.85,
+    });
+    const skinMat = new THREE.MeshLambertMaterial({
+      color: 0x948b80,
+      roughness: 0.7,
+    });
+    const hairMat = new THREE.MeshLambertMaterial({
+      color: 0x111111,
+      roughness: 0.9,
+    });
+
+    // Crawling low torso (angled forward)
+    const torsoGeo = new THREE.BoxGeometry(0.45, 0.28, 0.75);
+    const torso = new THREE.Mesh(torsoGeo, dressMat);
+    torso.position.set(0, 0.35, 0);
+    torso.rotation.x = -0.15;
+    torso.castShadow = true;
+    group.add(torso);
+
+    // Head with draped hair
+    const headGeo = new THREE.SphereGeometry(0.18, 8, 8);
+    const head = new THREE.Mesh(headGeo, skinMat);
+    head.position.set(0, 0.45, 0.48);
+    head.castShadow = true;
+    group.add(head);
+
+    const hairGeo = new THREE.BoxGeometry(0.32, 0.42, 0.25);
+    const hair = new THREE.Mesh(hairGeo, hairMat);
+    hair.position.set(0, 0.38, 0.45);
+    hair.castShadow = true;
+    group.add(hair);
+
+    // Reaching arms
+    const armGeo = new THREE.CylinderGeometry(0.06, 0.05, 0.6, 6);
+    const leftArm = new THREE.Mesh(armGeo, skinMat);
+    leftArm.position.set(-0.25, 0.2, 0.35);
+    leftArm.rotation.x = Math.PI / 4;
+    leftArm.rotation.z = -Math.PI / 8;
+    group.add(leftArm);
+
+    const rightArm = new THREE.Mesh(armGeo, skinMat);
+    rightArm.position.set(0.25, 0.2, 0.35);
+    rightArm.rotation.x = Math.PI / 4;
+    rightArm.rotation.z = Math.PI / 8;
+    group.add(rightArm);
+
+    return group;
+  }
+
+  // Load KuntiMerangkak.fbx with custom patched loader and assign materials
+  private loadKuntiFBX(): void {
+    const fbxLoader = new FBXLoader();
+    const candidateUrls = [
+      './models/KuntiMerangkak.fbx',
+      './KuntiMerangkak.fbx',
+      '/models/KuntiMerangkak.fbx',
+      '/KuntiMerangkak.fbx',
+      'KuntiMerangkak.fbx',
+    ];
+
+    const tryLoad = (idx: number) => {
+      if (idx >= candidateUrls.length) {
+        console.warn('Could not load KuntiMerangkak.fbx, retaining procedural crawler placeholder');
+        return;
+      }
+
+      try {
+        fbxLoader.load(
+          candidateUrls[idx],
+          (fbx: THREE.Group) => {
+            fbx.traverse((child: THREE.Object3D) => {
+              if (child instanceof THREE.Mesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                child.frustumCulled = false;
+                if (child.material) {
+                  if (Array.isArray(child.material)) {
+                    child.material.forEach((m) => {
+                      m.side = THREE.DoubleSide;
+                    });
+                  } else {
+                    child.material.side = THREE.DoubleSide;
+                  }
+                }
+              }
+            });
+
+            // Animation setup: embedded Mixamo crawl animation
+            if (fbx.animations && fbx.animations.length > 0) {
+              this.mixer = new THREE.AnimationMixer(fbx);
+              const clip = fbx.animations[0];
+              this.crawlAction = this.mixer.clipAction(clip);
+              this.crawlAction.setLoop(THREE.LoopRepeat, Infinity);
+              this.crawlAction.play();
+              // Start at a slight offset so initial resting posture looks natural
+              this.mixer.setTime(0.08);
+            }
+
+            // Natural human scale: 1.0 matches real-world dimensions (1.62m length, 0.70m height)
+            fbx.scale.set(1.0, 1.0, 1.0);
+            fbx.position.set(0, 0, 0);
+
+            // Remove placeholder and insert FBX model
+            if (this.placeholderMesh && this.placeholderMesh.parent) {
+              this.innerGroup.remove(this.placeholderMesh);
+              this.placeholderMesh = null;
+            }
+
+            this.fbxRoot = fbx;
+            this.innerGroup.add(fbx);
+            this.isLoaded = true;
+          },
+          undefined,
+          () => {
+            tryLoad(idx + 1);
+          }
+        );
+      } catch (_) {
+        tryLoad(idx + 1);
+      }
+    };
+
+    tryLoad(0);
   }
 
   // Fallback / immediate procedural shroud mesh
@@ -112,57 +274,75 @@ export class MonsterModel {
     });
 
     const fbxLoader = new FBXLoader();
-    fbxLoader.load(
-      './models/pocong.fbx',
-      (fbx: THREE.Group) => {
-        // Traverse and assign materials
-        fbx.traverse((child: THREE.Object3D) => {
-          if (child instanceof THREE.Mesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
+    try {
+      fbxLoader.load(
+        './models/pocong.fbx',
+        (fbx: THREE.Group) => {
+          // Traverse and assign materials
+          fbx.traverse((child: THREE.Object3D) => {
+            if (child instanceof THREE.Mesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
 
-            const name = child.name.toLowerCase();
-            if (name.includes('cylinder') || name.includes('cloth') || name.includes('body')) {
-              child.material = shroudMaterial;
-            } else {
-              child.material = faceMaterial;
+              const name = child.name.toLowerCase();
+              if (name.includes('cylinder') || name.includes('cloth') || name.includes('body')) {
+                child.material = shroudMaterial;
+              } else {
+                child.material = faceMaterial;
+              }
             }
+          });
+
+          // Compute bounding box and normalize scale
+          const box = new THREE.Box3().setFromObject(fbx);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+
+          // Target height ~2.1m (tall Indonesian horror ghost)
+          const targetHeight = 2.1;
+          const scaleFactor = size.y > 0 ? targetHeight / size.y : this.baseScale;
+          this.baseScale = scaleFactor;
+
+          fbx.scale.set(scaleFactor, scaleFactor, scaleFactor);
+          // Align base of shroud to floor (Y = 0)
+          fbx.position.set(0, -box.min.y * scaleFactor, 0);
+
+          // Remove placeholder and insert FBX model
+          if (this.placeholderMesh && this.placeholderMesh.parent) {
+            this.innerGroup.remove(this.placeholderMesh);
+            this.placeholderMesh = null;
           }
-        });
 
-        // Compute bounding box and normalize scale
-        const box = new THREE.Box3().setFromObject(fbx);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-
-        // Target height ~2.1m (tall Indonesian horror ghost)
-        const targetHeight = 2.1;
-        const scaleFactor = size.y > 0 ? targetHeight / size.y : this.baseScale;
-        this.baseScale = scaleFactor;
-
-        fbx.scale.set(scaleFactor, scaleFactor, scaleFactor);
-        // Align base of shroud to floor (Y = 0)
-        fbx.position.set(0, -box.min.y * scaleFactor, 0);
-
-        // Remove placeholder and insert FBX model
-        if (this.placeholderMesh && this.placeholderMesh.parent) {
-          this.innerGroup.remove(this.placeholderMesh);
-          this.placeholderMesh = null;
+          this.fbxRoot = fbx;
+          this.innerGroup.add(fbx);
+          this.isLoaded = true;
+        },
+        undefined,
+        (err: unknown) => {
+          console.warn('Could not load pocong.fbx, retaining procedural shroud:', err);
         }
-
-        this.fbxRoot = fbx;
-        this.innerGroup.add(fbx);
-        this.isLoaded = true;
-      },
-      undefined,
-      (err: unknown) => {
-        console.warn('Could not load pocong.fbx, retaining procedural shroud:', err);
-      }
-    );
+      );
+    } catch (_) {}
   }
 
-  // 1. IDLE / SLEEPING: Motionless standing upright, eerie slow swaying in the dark
+  // 1. IDLE / SLEEPING: Motionless or subtle breathing in the dark
   public applySittingPosture(time: number): void {
+    if (this.monsterType === 'kunti') {
+      if (this.mixer) {
+        // Evaluate at subtle breathing frame
+        this.mixer.setTime(0.08 + Math.sin(time * 1.5) * 0.02);
+      }
+      const breathe = Math.sin(time * 1.8) * 0.015;
+      this.innerGroup.position.set(0, breathe, 0);
+      this.innerGroup.rotation.set(0, 0, Math.sin(time * 1.2) * 0.015);
+
+      const eyeIntensity = 0.9 + Math.sin(time * 3.0) * 0.4;
+      this.eyeLight.intensity = eyeIntensity;
+      (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xcc1111);
+      (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xcc1111);
+      return;
+    }
+
     const sway = Math.sin(time * 1.5) * 0.04;
     const tilt = Math.cos(time * 1.1) * 0.03;
     const floatBob = Math.sin(time * 2.0) * 0.02;
@@ -184,6 +364,14 @@ export class MonsterModel {
   public applyHitReaction(progress: number, reactionType: string = 'snap'): void {
     const p = Math.min(1, Math.max(0, progress));
     const flinch = Math.sin(p * Math.PI);
+
+    if (this.monsterType === 'kunti') {
+      // Kuntilanak flinches sharply backwards and jerks on the floor
+      this.innerGroup.position.set(0, flinch * 0.12, -flinch * 0.35);
+      this.innerGroup.rotation.set(flinch * 0.35, (Math.random() - 0.5) * 0.2, 0);
+      this.eyeLight.intensity = 3.0;
+      return;
+    }
 
     switch (reactionType) {
       case 'surprise': {
@@ -231,11 +419,21 @@ export class MonsterModel {
     this.eyeLight.intensity = 2.8;
   }
 
-  // 3. SCREAM: Head snaps back towards night sky, shakes violently, eye flare
+  // 3. SCREAM: Head snaps back towards night sky / shrieks violently
   public applyScream(progress: number, time: number): void {
     const p = Math.min(1, Math.max(0, progress));
     const jitterX = (Math.random() - 0.5) * 0.14;
     const jitterZ = (Math.random() - 0.5) * 0.14;
+
+    if (this.monsterType === 'kunti') {
+      this.innerGroup.position.set(jitterX, 0.08 * Math.sin(p * Math.PI), jitterZ);
+      this.innerGroup.rotation.set(-0.35, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2);
+      const flare = 2.5 + Math.sin(time * 25) * 1.5;
+      this.eyeLight.intensity = flare;
+      (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff1111);
+      (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff1111);
+      return;
+    }
 
     this.innerGroup.position.set(jitterX, 0.08 * Math.sin(p * Math.PI), jitterZ);
     this.innerGroup.rotation.set(-0.45, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.15);
@@ -247,9 +445,18 @@ export class MonsterModel {
     (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff3333);
   }
 
-  // 4. STAND UP: Snaps upright, preparing spring-loaded tension for hopping chase
+  // 4. STAND UP: Transition posture into chase
   public applyStandUp(progress: number): void {
     const t = Math.min(1, Math.max(0, progress));
+
+    if (this.monsterType === 'kunti') {
+      // Drops directly into fast crawling posture
+      this.innerGroup.position.set(0, 0, 0);
+      this.innerGroup.rotation.set(0, 0, 0);
+      this.innerGroup.scale.set(1.0, 1.0, 1.0);
+      this.eyeLight.intensity = 2.2;
+      return;
+    }
 
     this.innerGroup.position.set(0, THREE.MathUtils.lerp(0.08, 0, t), 0);
     this.innerGroup.rotation.set(THREE.MathUtils.lerp(-0.45, 0, t), 0, 0);
@@ -261,7 +468,26 @@ export class MonsterModel {
     this.eyeLight.intensity = 2.0;
   }
 
-  // 5. HOP (MELONCAT): Pitch forward into air, stretch in air, squash on landing impact
+  // 5. CRAWL (MERANGKAK) — Kuntilanak Mixamo Crawl Animation Loop
+  public applyCrawl(dt: number, speed: number): void {
+    if (this.mixer) {
+      // mixamo.com clip duration is ~0.667s
+      // Match crawling limb cycle to movement speed
+      const animRate = Math.max(0.6, speed / 3.2);
+      this.mixer.update(dt * animRate);
+    }
+    // Stay low and grounded
+    this.innerGroup.position.set(0, 0, 0);
+    this.innerGroup.rotation.set(0, 0, 0);
+    this.innerGroup.scale.set(1.0, 1.0, 1.0);
+
+    // Glowing intense red eyes during chase
+    this.eyeLight.intensity = 2.4;
+    (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+    (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+  }
+
+  // 6. HOP (MELONCAT): Pocong Airborne jump animation
   public applyHopAnimation(hopPhase: number, isAirborne: boolean): void {
     if (isAirborne) {
       // Mid-air: pitch forward into the direction of leap (-18 degrees)
@@ -286,13 +512,26 @@ export class MonsterModel {
 
   // Legacy applyRun wrapper
   public applyRun(time: number, speed: number): void {
-    // Handled directly by MonsterController's hopping cycle
-    const cycle = (time * (speed / 2.8)) % 1.0;
-    this.applyHopAnimation(cycle, cycle < 0.7);
+    if (this.monsterType === 'kunti') {
+      this.applyCrawl(0.016, speed);
+    } else {
+      const cycle = (time * (speed / 2.8)) % 1.0;
+      this.applyHopAnimation(cycle, cycle < 0.7);
+    }
   }
 
-  // 6. CATCH PLAYER: Jumpscare leap right into player camera
+  // 7. CATCH PLAYER: Jumpscare leap right into player camera
   public applyCatch(time: number): void {
+    if (this.monsterType === 'kunti') {
+      this.innerGroup.position.set(0, 0.25, 0.55);
+      this.innerGroup.rotation.set(-0.25, Math.sin(time * 30) * 0.12, 0);
+      this.innerGroup.scale.set(1.2, 1.2, 1.2);
+      this.eyeLight.intensity = 4.0;
+      (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+      (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+      return;
+    }
+
     this.innerGroup.position.set(0, 0.4, 0.45);
     this.innerGroup.rotation.set(-0.35, Math.sin(time * 30) * 0.15, 0);
     this.innerGroup.scale.set(1.25, 1.25, 1.25);

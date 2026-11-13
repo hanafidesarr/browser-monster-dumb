@@ -53,6 +53,8 @@ export interface CylinderCollider {
   z: number;
   radius: number;
   height?: number;
+  minY?: number;
+  maxY?: number;
   label?: string;
 }
 

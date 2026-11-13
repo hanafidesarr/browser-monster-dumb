@@ -148,40 +148,79 @@ export class InputManager {
       this.keys[e.code] = false;
     });
 
-    // Mouse movement
-    window.addEventListener('mousemove', (e: MouseEvent) => {
-      if (this.isPointerLocked && this.isEnabled && !this.isOverviewMode) {
-        const sens = SettingsManager.getInstance().settings.mouseSensitivity * 0.0006;
-        this.mouseDeltaX += e.movementX * sens;
-        this.mouseDeltaY += e.movementY * sens;
-      }
-    });
-
-    // Pointer Lock change listener
-    document.addEventListener('pointerlockchange', () => {
-      this.isPointerLocked = !!document.pointerLockElement;
-    });
-
-    // Mouse Click for attack (Left Mouse Button)
+    // Track mouse button state for robust drag-to-look fallback
+    let isMouseDown = false;
     window.addEventListener('mousedown', (e: MouseEvent) => {
+      if (e.button === 0) {
+        isMouseDown = true;
+      }
       if (e.button === 0 && this.isEnabled && !this.isOverviewMode) {
         this.requestAttack();
       }
+    });
+
+    window.addEventListener('mouseup', (e: MouseEvent) => {
+      if (e.button === 0) {
+        isMouseDown = false;
+      }
+    });
+
+    // Mouse movement
+    window.addEventListener('mousemove', (e: MouseEvent) => {
+      if (this.isEnabled && !this.isOverviewMode) {
+        if (this.isPointerLocked || isMouseDown) {
+          const sens = SettingsManager.getInstance().settings.mouseSensitivity * 0.0006;
+          const movementX = e.movementX || (e as any).mozMovementX || (e as any).webkitMovementX || 0;
+          const movementY = e.movementY || (e as any).mozMovementY || (e as any).webkitMovementY || 0;
+          this.mouseDeltaX += movementX * sens;
+          this.mouseDeltaY += movementY * sens;
+        }
+      }
+    });
+
+    // Cross-browser Pointer Lock change listeners
+    const onPointerLockChange = () => {
+      const lockElem =
+        document.pointerLockElement ||
+        (document as any).mozPointerLockElement ||
+        (document as any).webkitPointerLockElement;
+      this.isPointerLocked = !!lockElem;
+    };
+
+    document.addEventListener('pointerlockchange', onPointerLockChange);
+    document.addEventListener('mozpointerlockchange', onPointerLockChange);
+    document.addEventListener('webkitpointerlockchange', onPointerLockChange);
+
+    document.addEventListener('pointerlockerror', () => {
+      this.isPointerLocked = false;
     });
   }
 
   public requestPointerLock(canvas: HTMLElement): void {
     if (!this.isPointerLocked && !this.isOverviewMode) {
       try {
-        canvas.requestPointerLock();
+        const req =
+          canvas.requestPointerLock ||
+          (canvas as any).mozRequestPointerLock ||
+          (canvas as any).webkitRequestPointerLock;
+        if (req) {
+          const promise = req.call(canvas);
+          if (promise && typeof (promise as any).catch === 'function') {
+            (promise as any).catch(() => {});
+          }
+        }
       } catch (_) {}
     }
   }
 
   public exitPointerLock(): void {
     try {
-      if (document.exitPointerLock) {
-        document.exitPointerLock();
+      const exit =
+        document.exitPointerLock ||
+        (document as any).mozExitPointerLock ||
+        (document as any).webkitExitPointerLock;
+      if (exit) {
+        exit.call(document);
       }
     } catch (_) {}
     this.isPointerLocked = false;

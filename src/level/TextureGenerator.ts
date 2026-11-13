@@ -621,16 +621,137 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    const tileSize = 32;
-    for (let y = 0; y < size; y += tileSize) {
-      for (let x = 0; x < size; x += tileSize) {
-        const isChecker = ((x + y) / tileSize) % 2 === 0;
-        ctx.fillStyle = isChecker ? '#8c8574' : '#6b6659';
-        ctx.fillRect(x, y, tileSize, tileSize);
-        ctx.strokeStyle = '#3a362e';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, tileSize, tileSize);
+    // Base aged institutional concrete/terrazzo linoleum
+    ctx.fillStyle = '#3a443e';
+    ctx.fillRect(0, 0, size, size);
+
+    // Subtle large tile divisions (64x64px tiles, calm and non-strobe)
+    const tileSize = 64;
+    for (let ty = 0; ty < size; ty += tileSize) {
+      for (let tx = 0; tx < size; tx += tileSize) {
+        // Very subtle tonal variance per tile (aged school linoleum)
+        const tileAlt = ((tx + ty) / tileSize) % 2 === 0;
+        ctx.fillStyle = tileAlt ? '#3e4842' : '#37413b';
+        ctx.fillRect(tx + 1, ty + 1, tileSize - 2, tileSize - 2);
+
+        // Thin weathered grout seam
+        ctx.strokeStyle = '#252d28';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tx + 0.5, ty + 0.5, tileSize - 1, tileSize - 1);
       }
+    }
+
+    // Dirt noise, aged grime, scuffs & foot traffic discoloration
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const rand = Math.random();
+        if (rand > 0.65) {
+          ctx.fillStyle = `rgba(0, 0, 0, ${Math.random() * 0.12})`;
+          ctx.fillRect(x, y, 2, 2);
+        } else if (rand < 0.08) {
+          // Subtle lighter wear scuffs
+          ctx.fillStyle = `rgba(180, 190, 180, ${Math.random() * 0.08})`;
+          ctx.fillRect(x, y, 2, 2);
+        }
+      }
+    }
+
+    // Water stains and weathered patches
+    ctx.fillStyle = 'rgba(20, 26, 22, 0.18)';
+    ctx.beginPath();
+    ctx.ellipse(36, 42, 18, 12, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.ellipse(98, 88, 22, 14, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Hairline fracture crack
+    ctx.strokeStyle = 'rgba(25, 32, 28, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(18, 80);
+    ctx.lineTo(26, 85);
+    ctx.lineTo(34, 82);
+    ctx.lineTo(44, 90);
+    ctx.stroke();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  public static createSchoolCeilingSlabTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Weathered concrete slab soffit (underside of upper floor slab)
+    ctx.fillStyle = '#2b322d';
+    ctx.fillRect(0, 0, size, size);
+
+    // Architectural formwork panel seams (64px wide sections)
+    ctx.strokeStyle = '#1d231e';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(64, 0);
+    ctx.lineTo(64, size);
+    ctx.moveTo(0, 64);
+    ctx.lineTo(size, 64);
+    ctx.stroke();
+
+    // Concrete texture mottling & aging
+    for (let x = 0; x < size; x += 3) {
+      for (let y = 0; y < size; y += 3) {
+        if (Math.random() > 0.5) {
+          ctx.fillStyle = `rgba(0, 0, 0, ${Math.random() * 0.14})`;
+          ctx.fillRect(x, y, 3, 3);
+        }
+      }
+    }
+
+    // Water discoloration seepage marks
+    ctx.fillStyle = 'rgba(15, 20, 16, 0.25)';
+    ctx.beginPath();
+    ctx.arc(52, 60, 24, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(tex);
+  }
+
+  public static createSchoolSlabEdgeTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Poured concrete edge fascia
+    ctx.fillStyle = '#303833';
+    ctx.fillRect(0, 0, size, size);
+
+    // Horizontal formwork board grooves
+    ctx.strokeStyle = '#222824';
+    ctx.lineWidth = 1;
+    for (let y = 32; y < size; y += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(size, y);
+      ctx.stroke();
+    }
+
+    // Concrete aggregate speckles
+    for (let i = 0; i < 200; i++) {
+      const x = Math.random() * size;
+      const y = Math.random() * size;
+      ctx.fillStyle = Math.random() > 0.5 ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.06)';
+      ctx.fillRect(x, y, 2, 2);
     }
 
     const tex = new THREE.CanvasTexture(canvas);
