@@ -397,6 +397,14 @@ export class GameManager {
       this.fpController.setMonsterObstacle(this.monsters[0].position);
     }
 
+    // Ensure exit door mesh and exit overview marker are hidden initially until monster is hit
+    if (this.levelBuild?.exitDoorMesh) {
+      this.levelBuild.exitDoorMesh.visible = false;
+    }
+    if (this.levelBuild?.exitMarker) {
+      this.levelBuild.exitMarker.visible = false;
+    }
+
     // Setup Overview Camera
     this.overviewCam.setLevel(this.currentLevelDef);
     this.activeCamera = this.overviewCam.camera;
@@ -455,7 +463,7 @@ export class GameManager {
       } else if (this.levelBuild.monsterMarker) {
         this.levelBuild.monsterMarker.visible = true;
       }
-      this.levelBuild.exitMarker.visible = true;
+      this.levelBuild.exitMarker.visible = false;
     }
 
     UIManager.getInstance().showOverview(this.currentLevelDef);
@@ -503,12 +511,13 @@ export class GameManager {
 
         UIManager.getInstance().showGameplayHUD();
         const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
-        if (isKunti) {
-          UIManager.getInstance().setStatusText('CARI KUNTILANAK DAN PUKUL TUBUHNYA DENGAN WAJAN!');
-        } else if (this.currentLevelDef.exitLockedInitially) {
-          UIManager.getInstance().setStatusText('PUKUL POCONG & AKTIFKAN 2 TERMINAL UNTUK BUKA EXIT!');
+        const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
+        const weaponDef = this.fpController.weapon.getWeaponDef();
+        const weaponName = weaponDef ? weaponDef.name.toUpperCase() : 'SENJATA';
+        if (this.currentLevelDef.exitLockedInitially) {
+          UIManager.getInstance().setStatusText(`PUKUL ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
         } else {
-          UIManager.getInstance().setStatusText('CARI POCONG DAN PUKUL TUBUHNYA');
+          UIManager.getInstance().setStatusText(`CARI & PUKUL ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`);
         }
       }
     );
@@ -542,6 +551,11 @@ export class GameManager {
       this.state = 'ATTACK';
       this.isAttackSuccessful = true;
 
+      // Reveal exit door in 3D world now that monster has been struck!
+      if (this.levelBuild?.exitDoorMesh) {
+        this.levelBuild.exitDoorMesh.visible = true;
+      }
+
       // Clear monster obstacle and switch mobile button to SPRINT
       this.fpController.setMonsterObstacle(null);
       UIManager.getInstance().switchToChaseControls();
@@ -556,18 +570,10 @@ export class GameManager {
       hitMonster.triggerWeaponHit(weaponDef);
       this.triggerScreenShake(0.4);
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
-      const actionVerb = hitMonster.monsterType === 'kunti' ? 'MERANGKAK' : 'MELONCAT';
-      UIManager.getInstance().setStatusText(`${monsterName} TERSTUN & AKAN MENGEJAR! CEPAT PUTAR BADAN DAN LARI!`);
-
-      // Awaken all other resting monsters to join the chase
-      for (const m of this.monsters) {
-        if (m !== hitMonster) {
-          setTimeout(() => {
-            if (this.state === 'CHASE' || this.state === 'ATTACK') {
-              m.wakeUpAndChase();
-            }
-          }, 350);
-        }
+      if (this.currentLevelDef.exitLockedInitially) {
+        UIManager.getInstance().setStatusText(`${monsterName} TERSTUN! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`);
+      } else {
+        UIManager.getInstance().setStatusText(`${monsterName} TERSTUN & PINTU EXIT TELAH MUNCUL! CEPAT LARI MENUJU PINTU EXIT!`);
       }
       return;
     }
@@ -575,10 +581,12 @@ export class GameManager {
     // Swung into air or obstructed/different floor - allow swinging again
     const swung = this.fpController.weapon.swing(() => {});
     if (swung) {
-      UIManager.getInstance().setStatusText('DEKATI POCONG DAN PUKUL TUBUHNYA!');
+      const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
+      const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
+      UIManager.getInstance().setStatusText(`DEKATI ${monsterName} DAN PUKUL TUBUHNYA!`);
       setTimeout(() => {
         if (this.state === 'STEALTH') {
-          UIManager.getInstance().setStatusText('CARI POCONG DAN PUKUL TUBUHNYA');
+          UIManager.getInstance().setStatusText(`CARI & PUKUL ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`);
         }
       }, 1800);
     }
@@ -817,8 +825,9 @@ export class GameManager {
       this.fpController.update(dt, this.totalTime);
 
       // 2. Update All Monsters
+      const isChasePhase = this.isAttackSuccessful || this.state === 'CHASE' || this.state === 'ATTACK';
       for (const m of this.monsters) {
-        m.update(dt, this.totalTime, this.fpController.position);
+        m.update(dt, this.totalTime, this.fpController.position, isChasePhase);
       }
 
       // Animate world weapon pickups
@@ -898,7 +907,12 @@ export class GameManager {
           }
         }
 
-        if (this.levelBuild && this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)) {
+        if (
+          this.isAttackSuccessful &&
+          this.levelBuild &&
+          this.levelBuild.exitDoorMesh?.visible &&
+          this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)
+        ) {
           if (this.currentLevelDef.exitLockedInitially && !this.isExitUnlocked) {
             UIManager.getInstance().setStatusText('PINTU EXIT MASIH TERKUNCI! AKTIFKAN SEMUA TERMINAL!');
           } else {

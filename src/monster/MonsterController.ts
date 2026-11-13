@@ -288,13 +288,13 @@ export class MonsterController {
     this.triggerWeaponHit(WEAPON_MAP['baseball_bat']);
   }
 
-  public update(dt: number, totalTime: number, playerPos: THREE.Vector3): void {
+  public update(dt: number, totalTime: number, playerPos: THREE.Vector3, isChasePhase: boolean = false): void {
     if (!this.levelDef || !this.pathfinding) return;
 
     // HARD GUARD: Pocong is asleep and motionless until struck with the bat!
     if (!this.isAwake) {
       this.state = 'SITTING_IDLE';
-      this.updateSittingIdle(dt, totalTime, playerPos);
+      this.updateSittingIdle(dt, totalTime, playerPos, isChasePhase);
       this.group.position.copy(this.position);
       this.group.rotation.y = this.rotationY;
       return;
@@ -304,7 +304,7 @@ export class MonsterController {
 
     switch (this.state) {
       case 'SITTING_IDLE':
-        this.updateSittingIdle(dt, totalTime, playerPos);
+        this.updateSittingIdle(dt, totalTime, playerPos, isChasePhase);
         break;
 
       case 'DETECT_PLAYER':
@@ -338,12 +338,21 @@ export class MonsterController {
   }
 
   // 1. SITTING_IDLE: Monster is sleeping on the floor.
-  // Can be awakened either by being struck with a weapon OR if player steps directly in front / touches it!
-  private updateSittingIdle(dt: number, totalTime: number, playerPos: THREE.Vector3): void {
+  // In stealth phase (before attack), monster NEVER awakens on vision/proximity without weapon strike.
+  // In chase phase (after at least one monster struck), un-struck monsters awaken if player approaches.
+  private updateSittingIdle(dt: number, totalTime: number, playerPos: THREE.Vector3, isChasePhase: boolean = false): void {
     this.model.applySittingPosture(totalTime);
     this.position.y = this.baseGroundY;
 
     if (!this.levelDef) return;
+
+    // RULE: Before any monster is struck with a weapon, monster stays resting and cannot awaken from proximity/vision.
+    if (!isChasePhase) {
+      this.detectionTimer = 0;
+      this.detectionPercent = 0;
+      return;
+    }
+
     const cfg = this.levelDef.monsterConfig;
 
     const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
@@ -354,7 +363,7 @@ export class MonsterController {
 
     // Floor separation guard: monster cannot detect through solid floors/ceilings
     if (verticalDist <= 1.75) {
-      // 1. Physical proximity: player bumps into or steps right next to sleeping Pocong (< 2.2m)
+      // 1. Physical proximity: player bumps into or steps right next to sleeping monster (< 2.2m)
       if (horizontalDist < 2.2) {
         isDetected = true;
       }

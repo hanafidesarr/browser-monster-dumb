@@ -553,6 +553,27 @@ html, body {
 .monster-dot { background-color: #e63946; box-shadow: 0 0 6px #e63946; }
 .exit-dot { background-color: #2a9d4a; box-shadow: 0 0 6px #2a9d4a; }
 
+.overview-mission-banner {
+  pointer-events: auto;
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(185, 28, 28, 0.22);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #fecaca;
+  padding: 7px 12px;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.overview-mission-banner .mission-icon {
+  font-size: 15px;
+}
+
 .overview-weapon-section {
   pointer-events: auto;
   max-width: 900px;

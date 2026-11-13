@@ -128,6 +128,12 @@ export class UIManager {
       const countLabel = count > 1 ? ` (${count} Hantu)` : '';
       monsterLegend.innerHTML = `<span class="legend-dot monster-dot"></span> ${isKunti ? 'Kuntilanak' : 'Pocong'} (Tertidur)${countLabel}`;
     }
+    const missionBanner = document.querySelector('.overview-mission-banner');
+    if (missionBanner) {
+      const isKunti = level.monsterType === 'kunti' || level.id === 2;
+      const monsterName = isKunti ? 'Kuntilanak' : 'Pocong';
+      missionBanner.innerHTML = `<span class="mission-icon">&#127919;</span> <strong>MISI:</strong> Cari & pukul ${monsterName} untuk memunculkan pintu keluar!`;
+    }
     this.populateWeaponSelection();
     this.screenOverview.classList.add('active');
   }

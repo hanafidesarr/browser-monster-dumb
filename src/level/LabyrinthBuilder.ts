@@ -1825,10 +1825,11 @@ export class LabyrinthBuilder {
       monsterMarkers.push(monsterMarker);
     });
 
-    // Exit Marker (Green Diamond)
+    // Exit Marker (Green Diamond) - Hidden from map per user specification
     const exitMarker = new THREE.Group();
     exitMarker.name = 'ExitOverviewMarker';
     exitMarker.position.set(exitWx, markerY, exitWz);
+    exitMarker.visible = false;
 
     const exitBeacon = new THREE.Mesh(new THREE.OctahedronGeometry(1.1, 0), new THREE.MeshBasicMaterial({ color: 0x22c55e }));
     exitMarker.add(exitBeacon);
