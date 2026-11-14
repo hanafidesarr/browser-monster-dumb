@@ -7,6 +7,7 @@ interface GrenadeProjectile {
   velocity: THREE.Vector3;
   aliveTime: number;
   maxLife: number;
+  startPos: THREE.Vector3;
   onExplode: (impactPos: THREE.Vector3) => void;
 }
 
@@ -112,16 +113,21 @@ export class GrenadeSystem {
     projectileMesh.position.copy(spawnPos);
     scene.add(projectileMesh);
 
-    // Initial ballistic velocity: fast forward thrust with upward arc
+    // Initial ballistic velocity: natural hand toss loft that preserves forward throw distance
+    // even when the player pitches their camera down towards monsters on the ground
     const throwSpeed = 22.0;
-    const upwardThrust = 4.2;
-    const velocity = forward.clone().multiplyScalar(throwSpeed).add(new THREE.Vector3(0, upwardThrust, 0));
+    const forwardH = new THREE.Vector3(forward.x, 0, forward.z).normalize();
+    // Clamp the downward pitch component so aiming down never drives the grenade into the floor at player's feet
+    const clampedPitchY = Math.max(forward.y, -0.22);
+    const launchY = clampedPitchY * 10.0 + 5.5;
+    const velocity = forwardH.multiplyScalar(throwSpeed).setY(launchY);
 
     this.projectiles.push({
       mesh: projectileMesh,
       velocity,
       aliveTime: 0,
       maxLife: 1.8, // 1.8s fuse guarantees it ALWAYS explodes quickly
+      startPos: spawnPos.clone(),
       onExplode,
     });
 
@@ -257,17 +263,21 @@ export class GrenadeSystem {
 
       // 1. Raycast collision along flight path with solid walls & environment
       if (blockingMeshes.length > 0 && stepDist > 0.001) {
-        const raycaster = new THREE.Raycaster(currentPos, stepVec.clone().normalize(), 0, stepDist + 0.20);
+        const raycaster = new THREE.Raycaster(currentPos, stepVec.clone().normalize(), 0, stepDist + 0.12);
         const hits = raycaster.intersectObjects(blockingMeshes, true);
         if (hits.length > 0) {
-          hasImpacted = true;
-          impactPos.copy(hits[0].point);
+          // If hitting floor plane, ensure minimum safety clearance from throw origin so it cannot pop at player feet
+          const isFloorHit = hits[0].point.y <= groundY + 0.25;
+          if (!isFloorHit || currentPos.distanceTo(p.startPos) > 2.2) {
+            hasImpacted = true;
+            impactPos.copy(hits[0].point);
+          }
         }
       }
 
       // 2. Downward raycast from nextPos to catch floors & stairs at any elevation
-      if (!hasImpacted && blockingMeshes.length > 0) {
-        const downRay = new THREE.Raycaster(nextPos, new THREE.Vector3(0, -1, 0), 0, 0.45);
+      if (!hasImpacted && blockingMeshes.length > 0 && currentPos.distanceTo(p.startPos) > 2.2) {
+        const downRay = new THREE.Raycaster(nextPos, new THREE.Vector3(0, -1, 0), 0, 0.14);
         const floorHits = downRay.intersectObjects(blockingMeshes, true);
         if (floorHits.length > 0) {
           hasImpacted = true;
@@ -276,7 +286,7 @@ export class GrenadeSystem {
       }
 
       // 3. Absolute safety ground floor impact fallback
-      if (!hasImpacted && nextPos.y <= groundY + 0.1) {
+      if (!hasImpacted && nextPos.y <= groundY + 0.1 && currentPos.distanceTo(p.startPos) > 2.2) {
         hasImpacted = true;
         impactPos.y = groundY + 0.1;
       }
