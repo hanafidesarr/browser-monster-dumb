@@ -118,35 +118,33 @@
       </div>
     </div>
 
-    <!-- PRE-GAME OVERVIEW OVERLAY -->
+    <!-- PRE-GAME LOADOUT & WEAPON SELECTION SCREEN (NO MAP) -->
     <div id="screen-overview" class="ui-screen">
-      <div class="overview-header">
-        <div class="level-badge" id="overview-level-title">LEVEL 1 — KEBUN PISANG ANGKER</div>
-        <div class="overview-instructions">
-          <span class="desktop-hint">DESKTOP: [RMB + Drag] Pan | [LMB + Drag] Rotate | [Scroll] Zoom</span>
-          <span class="mobile-hint">MOBILE: [1-Finger] Pan | [2-Fingers] Rotate | [Pinch] Zoom</span>
+      <div class="loadout-container">
+        <!-- Level Title & Mission Header -->
+        <div class="loadout-header">
+          <div class="level-badge" id="overview-level-title">LEVEL 1 — KEBUN PISANG ANGKER</div>
+          <div class="loadout-mission-desc" id="overview-mission-desc">
+            🎯 <strong>MISI:</strong> Cari & serang hantu di dalam labirin, lalu segera lari ke pintu keluar sebelum tertangkap!
+          </div>
         </div>
-      </div>
 
-      <div class="overview-legend">
-        <div class="legend-item"><span class="legend-dot player-dot"></span> Player Start</div>
-        <div class="legend-item"><span class="legend-dot monster-dot"></span> Pocong (Tertidur)</div>
-      </div>
-
-      <!-- COMEDY WEAPON SELECTION & COLLECTION BAR -->
-      <div class="overview-weapon-section">
-        <div class="weapon-section-header">
-          <div class="weapon-section-title">&#9876; PILIH SENJATA KOMEDI</div>
-          <div class="weapon-section-subtitle">Pilih benda konyol untuk membangunkan Pocong</div>
+        <!-- Weapon Selection Arsenal -->
+        <div class="overview-weapon-section">
+          <div class="weapon-section-header">
+            <div class="weapon-section-title">&#9876; PILIH SENJATA KOMEDI</div>
+            <div class="weapon-section-subtitle">Pilih senjata untuk menyerang hantu</div>
+          </div>
+          <div id="overview-weapon-list" class="overview-weapon-grid">
+            <!-- Populated dynamically by UIManager -->
+          </div>
         </div>
-        <div id="overview-weapon-list" class="overview-weapon-grid">
-          <!-- Populated dynamically by UIManager -->
-        </div>
-      </div>
 
-      <div class="overview-actions">
-        <button id="btn-start-level" class="retro-btn action-btn pulse-glow">START LEVEL</button>
-        <button id="btn-overview-back" class="retro-btn small-btn">MAIN MENU</button>
+        <!-- Action Buttons -->
+        <div class="overview-actions">
+          <button id="btn-start-level" class="retro-btn action-btn pulse-glow">START LEVEL</button>
+          <button id="btn-overview-back" class="retro-btn small-btn">MAIN MENU</button>
+        </div>
       </div>
     </div>
 

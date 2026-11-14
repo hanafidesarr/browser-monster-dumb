@@ -6,18 +6,15 @@ export class LevelOverviewCamera {
   private canvas: HTMLCanvasElement;
   private levelDef: LevelDefinition | null = null;
 
-  // Orbit / Pan / Zoom parameters
+  // Direct Top-Down 2D Map Pan & Zoom parameters (No 3D Rotation)
   private target = new THREE.Vector3(0, 0, 0);
   private distance: number = 32;
   private minDistance: number = 12;
-  private maxDistance: number = 55;
-  private polarAngle: number = (55 * Math.PI) / 180; // top-down inclined view
-  private azimuthAngle: number = 0;
+  private maxDistance: number = 65;
 
-  // Interaction tracking
+  // Interaction tracking (Pan only)
   private isInteracting: boolean = false;
   private isPanning: boolean = false;
-  private isRotating: boolean = false;
   private lastMouseX: number = 0;
   private lastMouseY: number = 0;
 
@@ -25,12 +22,11 @@ export class LevelOverviewCamera {
   private activeTouches: Map<number, { x: number; y: number }> = new Map();
   private initialPinchDist: number = 0;
   private initialPinchZoom: number = 0;
-  private initialTwoFingerAngle: number = 0;
 
   // Transition to first-person
   public isTransitioning: boolean = false;
   private transitionProgress: number = 0;
-  private transitionDuration: number = 1.6; // smooth cinematic fly-down
+  private transitionDuration: number = 0.8; // Snappy, smooth dive into first-person
   private startPos = new THREE.Vector3();
   private startRot = new THREE.Quaternion();
   private endPos = new THREE.Vector3();
@@ -41,7 +37,8 @@ export class LevelOverviewCamera {
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
+    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 250);
+    this.camera.up.set(0, 0, -1); // Top-down map: -Z is North/Up, +Z is South/Down, +X is East/Right
 
     this.setupDesktopEvents();
     this.setupMobileEvents();
@@ -49,15 +46,17 @@ export class LevelOverviewCamera {
 
   public setLevel(level: LevelDefinition): void {
     this.levelDef = level;
-    const floorCount = level.floorCount || 1;
-    const floorHeight = level.floorHeight || 3.8;
-    const totalLevelHeight = floorCount > 1 ? floorCount * floorHeight : 0;
 
-    this.target.set(0, totalLevelHeight * 0.35, 0);
-    this.distance = Math.max(42, (level.gridWidth * level.cellSize) * 0.75 + totalLevelHeight * 0.45);
-    this.maxDistance = Math.max(65, totalLevelHeight * 1.5 + 45);
-    this.polarAngle = (55 * Math.PI) / 180;
-    this.azimuthAngle = 0;
+    const maxDim = Math.max(level.gridWidth * level.cellSize, level.gridHeight * level.cellSize);
+    // Camera distance sized so entire map fits cleanly and clearly in upper region above weapon panel
+    this.distance = Math.max(28, maxDim * 1.12);
+    this.minDistance = 12;
+    this.maxDistance = Math.max(70, maxDim * 2.4);
+
+    // Initial target: offset in +Z so level is centered in the upper clear region above bottom controls
+    const clearanceZ = this.distance * 0.14;
+    this.target.set(0, 0, clearanceZ);
+
     this.updateCameraTransform();
   }
 
@@ -65,7 +64,6 @@ export class LevelOverviewCamera {
     this.isEnabled = enabled;
     this.isInteracting = false;
     this.isPanning = false;
-    this.isRotating = false;
     this.activeTouches.clear();
   }
 
@@ -110,37 +108,28 @@ export class LevelOverviewCamera {
   }
 
   private updateCameraTransform(): void {
-    // Clamp target within level boundaries
+    // Clamp target within level boundaries with bottom panel clearance offset
     if (this.levelDef) {
-      const maxBound = (this.levelDef.gridWidth * this.levelDef.cellSize) / 2;
-      this.target.x = Math.max(-maxBound, Math.min(maxBound, this.target.x));
-      this.target.z = Math.max(-maxBound, Math.min(maxBound, this.target.z));
+      const maxBoundX = (this.levelDef.gridWidth * this.levelDef.cellSize) * 0.65;
+      const maxBoundZ = (this.levelDef.gridHeight * this.levelDef.cellSize) * 0.65;
+      const clearanceZ = this.distance * 0.16;
+      this.target.x = THREE.MathUtils.clamp(this.target.x, -maxBoundX, maxBoundX);
+      this.target.z = THREE.MathUtils.clamp(this.target.z, -maxBoundZ + clearanceZ, maxBoundZ + clearanceZ);
     }
 
-    const x = this.target.x + this.distance * Math.sin(this.polarAngle) * Math.sin(this.azimuthAngle);
-    const y = this.target.y + this.distance * Math.cos(this.polarAngle);
-    const z = this.target.z + this.distance * Math.sin(this.polarAngle) * Math.cos(this.azimuthAngle);
-
-    this.camera.position.set(x, y, z);
-    this.camera.lookAt(this.target);
+    // Direct vertical top-down camera looking straight down at map
+    this.camera.position.set(this.target.x, this.distance, this.target.z);
+    this.camera.up.set(0, 0, -1);
+    this.camera.lookAt(this.target.x, 0, this.target.z);
   }
 
   private setupDesktopEvents(): void {
     this.canvas.addEventListener('mousedown', (e: MouseEvent) => {
       if (!this.isEnabled || this.isTransitioning) return;
       this.isInteracting = true;
+      this.isPanning = true;
       this.lastMouseX = e.clientX;
       this.lastMouseY = e.clientY;
-
-      if (e.button === 2) {
-        // RMB: Pan
-        this.isPanning = true;
-        this.isRotating = false;
-      } else if (e.button === 0) {
-        // LMB: Rotate
-        this.isRotating = true;
-        this.isPanning = false;
-      }
     });
 
     window.addEventListener('mousemove', (e: MouseEvent) => {
@@ -151,27 +140,17 @@ export class LevelOverviewCamera {
       this.lastMouseX = e.clientX;
       this.lastMouseY = e.clientY;
 
-      if (this.isRotating) {
-        this.azimuthAngle -= dx * 0.008;
-        this.polarAngle = Math.max(
-          (20 * Math.PI) / 180,
-          Math.min((80 * Math.PI) / 180, this.polarAngle - dy * 0.008)
-        );
-      } else if (this.isPanning) {
-        const panSpeed = this.distance * 0.0018;
-        // Pan along camera right and forward vectors projected onto ground
-        const right = new THREE.Vector3(Math.cos(this.azimuthAngle), 0, -Math.sin(this.azimuthAngle));
-        const fwd = new THREE.Vector3(-Math.sin(this.azimuthAngle), 0, -Math.cos(this.azimuthAngle));
-
-        this.target.addScaledVector(right, -dx * panSpeed);
-        this.target.addScaledVector(fwd, -dy * panSpeed);
+      if (this.isPanning) {
+        // Direct top-down 2D map panning:
+        const panSpeed = this.distance * 0.0016;
+        this.target.x -= dx * panSpeed;
+        this.target.z -= dy * panSpeed;
       }
     });
 
     window.addEventListener('mouseup', () => {
       this.isInteracting = false;
       this.isPanning = false;
-      this.isRotating = false;
     });
 
     // Zoom via wheel
@@ -184,7 +163,7 @@ export class LevelOverviewCamera {
       );
     }, { passive: false });
 
-    // Prevent context menu during RMB drag
+    // Prevent context menu during drag
     this.canvas.addEventListener('contextmenu', (e) => {
       if (this.isEnabled) e.preventDefault();
     });
@@ -203,7 +182,6 @@ export class LevelOverviewCamera {
         const touches = Array.from(this.activeTouches.values());
         this.initialPinchDist = Math.hypot(touches[0].x - touches[1].x, touches[0].y - touches[1].y);
         this.initialPinchZoom = this.distance;
-        this.initialTwoFingerAngle = Math.atan2(touches[1].y - touches[0].y, touches[1].x - touches[0].x);
       }
     }, { passive: false });
 
@@ -212,7 +190,7 @@ export class LevelOverviewCamera {
       e.preventDefault();
 
       if (this.activeTouches.size === 1) {
-        // 1 finger: Pan camera
+        // 1 finger: Pan map
         const touch = e.changedTouches[0];
         const prev = this.activeTouches.get(touch.identifier);
         if (prev) {
@@ -221,33 +199,23 @@ export class LevelOverviewCamera {
           this.activeTouches.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
 
           const panSpeed = this.distance * 0.0022;
-          const right = new THREE.Vector3(Math.cos(this.azimuthAngle), 0, -Math.sin(this.azimuthAngle));
-          const fwd = new THREE.Vector3(-Math.sin(this.azimuthAngle), 0, -Math.cos(this.azimuthAngle));
-
-          this.target.addScaledVector(right, -dx * panSpeed);
-          this.target.addScaledVector(fwd, -dy * panSpeed);
+          this.target.x -= dx * panSpeed;
+          this.target.z -= dy * panSpeed;
         }
-      } else if (this.activeTouches.size === 2) {
-        // Update active touches
+      } else if (this.activeTouches.size >= 2) {
+        // 2 fingers: Pinch to Zoom (No rotation)
         for (let i = 0; i < e.changedTouches.length; i++) {
           const touch = e.changedTouches[i];
           this.activeTouches.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
         }
 
         const touches = Array.from(this.activeTouches.values());
-        // Pinch Zoom
         const currentDist = Math.hypot(touches[0].x - touches[1].x, touches[0].y - touches[1].y);
         const factor = this.initialPinchDist / (currentDist || 1);
         this.distance = Math.max(
           this.minDistance,
           Math.min(this.maxDistance, this.initialPinchZoom * factor)
         );
-
-        // 2-Finger Rotation
-        const currentAngle = Math.atan2(touches[1].y - touches[0].y, touches[1].x - touches[0].x);
-        const angleDiff = currentAngle - this.initialTwoFingerAngle;
-        this.azimuthAngle -= angleDiff * 0.5;
-        this.initialTwoFingerAngle = currentAngle;
       }
     }, { passive: false });
 

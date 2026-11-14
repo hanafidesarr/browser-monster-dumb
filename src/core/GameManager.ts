@@ -328,6 +328,10 @@ export class GameManager {
 
     // Remove existing level meshes and dispose hierarchy completely to prevent any collider or memory leaks
     if (this.levelBuild) {
+      if (this.levelBuild.overviewMapGroup) {
+        this.scene.remove(this.levelBuild.overviewMapGroup);
+        this.disposeHierarchy(this.levelBuild.overviewMapGroup);
+      }
       this.scene.remove(this.levelBuild.rootGroup);
       this.disposeHierarchy(this.levelBuild.rootGroup);
       this.levelBuild = null as any;
@@ -347,6 +351,10 @@ export class GameManager {
     // Build Labyrinth
     this.levelBuild = LabyrinthBuilder.buildLevel(this.currentLevelDef);
     this.scene.add(this.levelBuild.rootGroup);
+    if (this.levelBuild.overviewMapGroup) {
+      this.scene.add(this.levelBuild.overviewMapGroup);
+      this.levelBuild.overviewMapGroup.visible = false;
+    }
 
     // Setup Pathfinding (using isolated navigation grid per level)
     const navGrid = this.levelBuild.navigationGrid || this.levelBuild.updatedGrid || this.currentLevelDef.grid;
@@ -446,38 +454,53 @@ export class GameManager {
     }
   }
 
-  // PRE-GAME OVERVIEW PHASE (CRITICAL FEATURE)
+  // PRE-GAME LOADOUT PHASE: Weapon Selection & Mission Briefing (No Map)
   private enterOverviewPhase(): void {
     this.state = 'LEVEL_OVERVIEW';
-    const fogColor = this.getThemeFogColor();
-    this.scene.background = new THREE.Color(fogColor);
-    this.scene.fog = new THREE.Fog(fogColor, 100, 240);
-    this.activeCamera = this.overviewCam.camera;
-    this.overviewCam.setEnabled(true);
-    InputManager.getInstance().setOverviewMode(true);
+    this.scene.background = new THREE.Color(0x0c0e12); // Clean dark horror background
+    this.scene.fog = new THREE.Fog(0x0c0e12, 40, 130);
+    this.overviewCam.setEnabled(false);
+    InputManager.getInstance().setOverviewMode(false);
     InputManager.getInstance().exitPointerLock();
 
-    // Markers visible during Overview
+    // Hide 3D textured world meshes and monsters while on loadout screen
     if (this.levelBuild) {
-      this.levelBuild.playerMarker.visible = true;
+      this.levelBuild.rootGroup.visible = false;
+      if (this.levelBuild.overviewMapGroup) {
+        this.levelBuild.overviewMapGroup.visible = false;
+      }
+      this.levelBuild.playerMarker.visible = false;
       if (this.levelBuild.monsterMarkers) {
-        this.levelBuild.monsterMarkers.forEach((m) => (m.visible = true));
+        this.levelBuild.monsterMarkers.forEach((m) => (m.visible = false));
       } else if (this.levelBuild.monsterMarker) {
-        this.levelBuild.monsterMarker.visible = true;
+        this.levelBuild.monsterMarker.visible = false;
       }
       this.levelBuild.exitMarker.visible = false;
+    }
+
+    for (const m of this.monsters) {
+      m.group.visible = false;
     }
 
     UIManager.getInstance().showOverview(this.currentLevelDef);
     AudioManager.getInstance().startAmbience();
   }
 
-  // Start Level Cinematic Transition: Flies overview camera down into First Person View!
+  // Start Level: Direct instant handover into First Person View (No transition animation)
   private startLevelTransition(): void {
     if (this.state !== 'LEVEL_OVERVIEW' || !this.levelBuild) return;
 
     // Synchronously request pointer lock within direct user gesture from START LEVEL button
     InputManager.getInstance().requestPointerLock(this.canvas);
+
+    // Hide 2D blueprint map and restore full 3D world environment & monsters
+    if (this.levelBuild.overviewMapGroup) {
+      this.levelBuild.overviewMapGroup.visible = false;
+    }
+    this.levelBuild.rootGroup.visible = true;
+    for (const m of this.monsters) {
+      m.group.visible = true;
+    }
 
     // Hide overview markers for first-person gameplay
     this.levelBuild.playerMarker.visible = false;
@@ -488,58 +511,52 @@ export class GameManager {
     }
     this.levelBuild.exitMarker.visible = false;
 
-    // Smoothly fly camera to player spawn
-    const targetPos = this.fpController.position;
-    const targetYaw = this.fpController.getYaw();
-    const targetPitch = this.fpController.getPitch();
+    // Immediately disable overview camera
+    this.overviewCam.setEnabled(false);
 
-    this.overviewCam.startTransitionToFirstPerson(
-      targetPos,
-      targetYaw,
-      targetPitch,
-      () => {
-        // Transition complete: handover to First Person Controller!
-        const fogColor = this.getThemeFogColor();
-        this.scene.background = new THREE.Color(fogColor);
-        this.scene.fog = new THREE.Fog(fogColor, 40, 130);
-        this.activeCamera = this.fpController.camera;
-        this.fpController.setEnabled(true);
-        InputManager.getInstance().setOverviewMode(false);
-        InputManager.getInstance().resetInputs(); // Clear any buffered clicks or touch events!
-        InputManager.getInstance().requestPointerLock(this.canvas);
+    // Restore gameplay graphics quality
+    this.applyGraphicsQuality(SettingsManager.getInstance().settings.graphicsQuality);
 
-        this.state = 'STEALTH';
-        this.isTimerRunning = true;
+    // Direct instant handover to First Person Controller!
+    const fogColor = this.getThemeFogColor();
+    this.scene.background = new THREE.Color(fogColor);
+    this.scene.fog = new THREE.Fog(fogColor, 40, 130);
+    this.activeCamera = this.fpController.camera;
+    this.fpController.setEnabled(true);
+    InputManager.getInstance().setOverviewMode(false);
+    InputManager.getInstance().resetInputs(); // Clear any buffered clicks or touch events!
+    InputManager.getInstance().requestPointerLock(this.canvas);
 
-        const currentWeaponId = this.fpController.weapon.getWeaponId();
-        const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
-        const isMachineGun = currentWeaponId === 'machine_gun' || currentWeaponId === 'slipper';
-        const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : 'PUKUL');
-        UIManager.getInstance().showGameplayHUD(actionVerb);
+    this.state = 'STEALTH';
+    this.isTimerRunning = true;
 
-        const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
-        const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
-        const weaponDef = this.fpController.weapon.getWeaponDef();
-        const weaponName = weaponDef ? weaponDef.name.toUpperCase() : 'SENJATA';
-        if (this.currentLevelDef.exitLockedInitially) {
-          if (isGrenade) {
-            UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
-          } else if (isMachineGun) {
-            UIManager.getInstance().setStatusText(`TEMBAK ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
-          } else {
-            UIManager.getInstance().setStatusText(`PUKUL ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
-          }
-        } else {
-          if (isGrenade) {
-            UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ARAH ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERKENA LEDAKAN.`);
-          } else if (isMachineGun) {
-            UIManager.getInstance().setStatusText(`CARI & TEMBAK ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH TERTEMBAK.`);
-          } else {
-            UIManager.getInstance().setStatusText(`CARI & PUKUL ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`);
-          }
-        }
+    const currentWeaponId = this.fpController.weapon.getWeaponId();
+    const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
+    const isMachineGun = currentWeaponId === 'machine_gun' || currentWeaponId === 'slipper';
+    const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : 'PUKUL');
+    UIManager.getInstance().showGameplayHUD(actionVerb);
+
+    const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
+    const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
+    const weaponDef = this.fpController.weapon.getWeaponDef();
+    const weaponName = weaponDef ? weaponDef.name.toUpperCase() : 'SENJATA';
+    if (this.currentLevelDef.exitLockedInitially) {
+      if (isGrenade) {
+        UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
+      } else if (isMachineGun) {
+        UIManager.getInstance().setStatusText(`TEMBAK ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
+      } else {
+        UIManager.getInstance().setStatusText(`PUKUL ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
       }
-    );
+    } else {
+      if (isGrenade) {
+        UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ARAH ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERKENA LEDAKAN.`);
+      } else if (isMachineGun) {
+        UIManager.getInstance().setStatusText(`CARI & TEMBAK ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH TERTEMBAK.`);
+      } else {
+        UIManager.getInstance().setStatusText(`CARI & PUKUL ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`);
+      }
+    }
   }
 
   // Execute Weapon Attack or Throwable Launch on Monster
@@ -972,6 +989,16 @@ export class GameManager {
   // Exit to Main Menu
   private exitToMainMenu(): void {
     this.state = 'MAIN_MENU';
+    if (this.levelBuild?.overviewMapGroup) {
+      this.levelBuild.overviewMapGroup.visible = false;
+    }
+    if (this.levelBuild?.rootGroup) {
+      this.levelBuild.rootGroup.visible = false;
+    }
+    this.overviewCam.setEnabled(false);
+    InputManager.getInstance().setOverviewMode(false);
+    this.scene.background = new THREE.Color(0x101416);
+    this.applyGraphicsQuality(SettingsManager.getInstance().settings.graphicsQuality);
     AudioManager.getInstance().stopKuntiChaseAudio();
     this.scene.fog = new THREE.Fog(0x101416, 100, 240);
     this.isTimerRunning = false;
@@ -1034,26 +1061,14 @@ export class GameManager {
     if (this.state === 'LEVEL_OVERVIEW') {
       this.overviewCam.update(dt);
 
-      // Animate overview markers (lightweight rotation)
-      if (this.levelBuild) {
-        const t = this.totalTime;
-        if (this.levelBuild.playerMarker.visible) {
-          this.levelBuild.playerMarker.rotation.y = t * 1.5;
-        }
-        if (this.levelBuild.monsterMarkers) {
-          this.levelBuild.monsterMarkers.forEach((m) => {
-            if (m.visible) m.rotation.y = -t * 2.0;
-          });
-        } else if (this.levelBuild.monsterMarker && this.levelBuild.monsterMarker.visible) {
-          this.levelBuild.monsterMarker.rotation.y = -t * 2.0;
-        }
-        if (this.levelBuild.exitMarker.visible) {
-          this.levelBuild.exitMarker.rotation.y = t * 2.0;
+      // Pulse player radar marker on top-down blueprint map
+      if (this.levelBuild?.overviewMapGroup) {
+        const pMarker = this.levelBuild.overviewMapGroup.getObjectByName('OverviewPlayerMarker');
+        if (pMarker) {
+          const pulse = 1.0 + Math.sin(this.totalTime * 4.0) * 0.12;
+          pMarker.scale.set(pulse, 1.0, pulse);
         }
       }
-
-      // Animate world weapon pickups
-      this.animateWorldPickups(this.totalTime);
     } else if (this.state === 'STEALTH' || this.state === 'ATTACK' || this.state === 'CHASE') {
       // 1. Update Player
       this.fpController.update(dt, this.totalTime);

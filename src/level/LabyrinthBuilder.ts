@@ -45,6 +45,7 @@ export interface LevelBuildResult {
   monsterMarker: THREE.Group;
   monsterMarkers: THREE.Group[];
   exitMarker: THREE.Group;
+  overviewMapGroup: THREE.Group;
   playerWorldSpawn: { x: number; y: number; z: number; rotationY: number; floor?: number };
   monsterWorldSpawn: { x: number; y: number; z: number; rotationY: number; floor?: number };
   monsterWorldSpawns: Array<{ x: number; y: number; z: number; rotationY: number; floor?: number }>;
@@ -373,6 +374,17 @@ export class LabyrinthBuilder {
       fallZones: [],
     };
 
+    // 2D Paper Sketch Collider Map
+    const overviewMapGroup = LabyrinthBuilder.createOverviewColliderMap(
+      level,
+      updatedGrid,
+      treeColliders,
+      pSpawnWx,
+      pSpawnWz,
+      selectedSpawns.player.rotationY,
+      monsterSpawns
+    );
+
     return {
       rootGroup,
       wallsMesh,
@@ -382,6 +394,7 @@ export class LabyrinthBuilder {
       monsterMarker: markers.monsterMarkers[0],
       monsterMarkers: markers.monsterMarkers,
       exitMarker: markers.exitMarker,
+      overviewMapGroup,
       playerWorldSpawn: { x: pSpawnWx, y: pSpawnWy, z: pSpawnWz, rotationY: selectedSpawns.player.rotationY, floor: selectedSpawns.player.floor },
       monsterWorldSpawn: { x: mSpawnWx, y: mSpawnWy, z: mSpawnWz, rotationY: monsterSpawns[0].rotationY, floor: monsterSpawns[0].floor },
       monsterWorldSpawns: monsterSpawns,
@@ -1334,6 +1347,17 @@ export class LabyrinthBuilder {
       fallZones,
     };
 
+    // 2D Paper Sketch Collider Map
+    const overviewMapGroup = LabyrinthBuilder.createOverviewColliderMap(
+      level,
+      grid,
+      propColliders,
+      pSpawnWx,
+      pSpawnWz,
+      selectedSpawns.player.rotationY,
+      monsterSpawns
+    );
+
     return {
       rootGroup,
       wallsMesh,
@@ -1343,6 +1367,7 @@ export class LabyrinthBuilder {
       monsterMarker: markers.monsterMarkers[0],
       monsterMarkers: markers.monsterMarkers,
       exitMarker: markers.exitMarker,
+      overviewMapGroup,
       playerWorldSpawn: { x: pSpawnWx, y: pSpawnWy, z: pSpawnWz, rotationY: selectedSpawns.player.rotationY, floor: selectedSpawns.player.floor },
       monsterWorldSpawn: { x: mSpawnWx, y: mSpawnWy, z: mSpawnWz, rotationY: monsterSpawns[0].rotationY, floor: monsterSpawns[0].floor },
       monsterWorldSpawns: monsterSpawns,
@@ -1807,12 +1832,13 @@ export class LabyrinthBuilder {
     dirCone.rotateX(Math.PI / 2);
     playerMarker.add(dirCone);
 
-    // Monster Markers (Red Warning Toruses)
+    // Monster Markers (Red Warning Toruses) - Hidden from overview map per user specification
     const monsterMarkers: THREE.Group[] = [];
     monsterSpawns.forEach((m, idx) => {
       const monsterMarker = new THREE.Group();
       monsterMarker.name = `PocongOverviewMarker_${idx + 1}`;
       monsterMarker.position.set(m.x, markerY, m.z);
+      monsterMarker.visible = false; // Hidden from map
 
       const monsterRingGeo = new THREE.TorusGeometry(1.2, 0.12, 6, 16);
       monsterRingGeo.rotateX(Math.PI / 2);
@@ -1840,6 +1866,285 @@ export class LabyrinthBuilder {
       monsterMarkers,
       exitMarker,
     };
+  }
+
+  // =========================================================================
+  // TOP-DOWN 2D PAPER SKETCH COLLIDER MAP (Dull Off-White Paper, Hand-Drawn Black Ink Walls, Red Hantu & Blue Player)
+  // =========================================================================
+  private static createSketchMarkerTexture(label: 'Player' | 'Hantu', circleColor: string): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    ctx.clearRect(0, 0, 512, 512);
+
+    // 1. Hand-drawn colored circle with sketchy black ink border
+    const centerX = 256;
+    const centerY = 176;
+    const radius = 96;
+
+    // Fill circle
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.fillStyle = circleColor;
+    ctx.fill();
+
+    // Sketchy double ink border (hand-drawn pen stroke)
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = '#111827';
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(centerX + 2, centerY - 2, radius + 2, 0, Math.PI * 2);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#1f2937';
+    ctx.stroke();
+
+    // Direction arrow on Player circle
+    if (label === 'Player') {
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY - 56);
+      ctx.lineTo(centerX + 36, centerY + 16);
+      ctx.lineTo(centerX - 36, centerY + 16);
+      ctx.closePath();
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#111827';
+      ctx.stroke();
+    } else {
+      // Spooky eye slits on Hantu circle
+      ctx.fillStyle = '#111827';
+      ctx.beginPath();
+      ctx.arc(centerX - 28, centerY - 12, 12, 0, Math.PI * 2);
+      ctx.arc(centerX + 28, centerY - 12, 12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 2. Bold black text label below circle
+    ctx.font = '900 88px "Courier New", monospace, sans-serif';
+    ctx.fillStyle = '#111827';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(label, centerX, 308);
+
+    // Subtle underline on text like a notebook note
+    ctx.beginPath();
+    const metrics = ctx.measureText ? ctx.measureText(label) : null;
+    const textWidth = metrics && typeof metrics.width === 'number' ? metrics.width : 160;
+    ctx.moveTo(centerX - textWidth / 2 - 12, 420);
+    ctx.lineTo(centerX + textWidth / 2 + 12, 420);
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = '#111827';
+    ctx.stroke();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = true;
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  public static createOverviewColliderMap(
+    level: LevelDefinition,
+    grid: number[][],
+    treeColliders: Array<{ x: number; z: number; radius: number }> = [],
+    playerSpawnX: number,
+    playerSpawnZ: number,
+    playerRotationY: number,
+    monsterSpawns: Array<{ x: number; y: number; z: number }> = []
+  ): THREE.Group {
+    const mapGroup = new THREE.Group();
+    mapGroup.name = 'OverviewColliderMap';
+
+    const { cellSize, gridWidth, gridHeight } = level;
+    const halfWidth = (gridWidth * cellSize) / 2;
+    const halfHeight = (gridHeight * cellSize) / 2;
+    const mapY = 0.2; // Flat on paper ground plane
+
+    // 1. Dull Off-White Paper Base Sheet (Putih Kusam)
+    const paperWidth = gridWidth * cellSize + 16;
+    const paperHeight = gridHeight * cellSize + 16;
+    const planeGeo = new THREE.PlaneGeometry(paperWidth, paperHeight);
+    planeGeo.rotateX(-Math.PI / 2);
+    const planeMat = new THREE.MeshBasicMaterial({ color: 0xeee9df }); // Dull aged paper
+    const basePlane = new THREE.Mesh(planeGeo, planeMat);
+    basePlane.name = 'OverviewPaperBase';
+    basePlane.position.set(0, mapY - 0.05, 0);
+    mapGroup.add(basePlane);
+
+    // Subtle hand-drawn sketch paper outer margin border
+    const margin = 1.0;
+    const paperMarginVertices = [
+      -halfWidth - margin, mapY - 0.04, -halfHeight - margin,
+       halfWidth + margin, mapY - 0.04, -halfHeight - margin,
+       halfWidth + margin, mapY - 0.04, -halfHeight - margin,
+       halfWidth + margin, mapY - 0.04,  halfHeight + margin,
+       halfWidth + margin, mapY - 0.04,  halfHeight + margin,
+      -halfWidth - margin, mapY - 0.04,  halfHeight + margin,
+      -halfWidth - margin, mapY - 0.04,  halfHeight + margin,
+      -halfWidth - margin, mapY - 0.04, -halfHeight - margin,
+    ];
+    const marginGeo = new THREE.BufferGeometry();
+    marginGeo.setAttribute('position', new THREE.Float32BufferAttribute(paperMarginVertices, 3));
+    const marginMat = new THREE.LineBasicMaterial({ color: 0xb5afa2 }); // Pencil margin line
+    mapGroup.add(new THREE.LineSegments(marginGeo, marginMat));
+
+    // 2. Wall Interior Pencil Shading Wash (Light warm tint so walls are distinguishable from paper corridors)
+    const wallCells: Array<{ cx: number; cz: number }> = [];
+    for (let gz = 0; gz < gridHeight; gz++) {
+      for (let gx = 0; gx < gridWidth; gx++) {
+        if (grid[gz] && grid[gz][gx] === 1) {
+          wallCells.push({
+            cx: (gx + 0.5) * cellSize - halfWidth,
+            cz: (gz + 0.5) * cellSize - halfHeight,
+          });
+        }
+      }
+    }
+
+    if (wallCells.length > 0) {
+      const fillGeo = new THREE.PlaneGeometry(cellSize, cellSize);
+      fillGeo.rotateX(-Math.PI / 2);
+      const fillMat = new THREE.MeshBasicMaterial({ color: 0xdcd6c8 }); // Pencil shaded wash
+      const instancedFill = new THREE.InstancedMesh(fillGeo, fillMat, wallCells.length);
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < wallCells.length; i++) {
+        dummy.position.set(wallCells[i].cx, mapY - 0.03, wallCells[i].cz);
+        dummy.updateMatrix();
+        instancedFill.setMatrixAt(i, dummy.matrix);
+      }
+      instancedFill.instanceMatrix.needsUpdate = true;
+      mapGroup.add(instancedFill);
+    }
+
+    // 3. Hand-Drawn Black Ink Wall Lines ("tembok dengan garis hitam")
+    const lineVertices: number[] = [];
+
+    // Helper to add hand-drawn sketch line with natural corner overshoots
+    const addSketchLine = (x0: number, z0: number, x1: number, z1: number) => {
+      const dx = x1 - x0;
+      const dz = z1 - z0;
+      const len = Math.hypot(dx, dz);
+      if (len < 0.001) return;
+      const nx = dx / len;
+      const nz = dz / len;
+      const overshoot = 0.15; // Natural human architectural pen overshoot at corners
+
+      // Primary stroke with corner overshoot
+      lineVertices.push(
+        x0 - nx * overshoot, mapY, z0 - nz * overshoot,
+        x1 + nx * overshoot, mapY, z1 + nz * overshoot
+      );
+    };
+
+    // Perimeter boundary of the level map
+    addSketchLine(-halfWidth, -halfHeight,  halfWidth, -halfHeight);
+    addSketchLine( halfWidth, -halfHeight,  halfWidth,  halfHeight);
+    addSketchLine( halfWidth,  halfHeight, -halfWidth,  halfHeight);
+    addSketchLine(-halfWidth,  halfHeight, -halfWidth, -halfHeight);
+
+    // Grid wall contours (borders between wall and walkable space)
+    for (let gz = 0; gz < gridHeight; gz++) {
+      for (let gx = 0; gx < gridWidth; gx++) {
+        if (grid[gz] && grid[gz][gx] === 1) {
+          const x0 = gx * cellSize - halfWidth;
+          const x1 = (gx + 1) * cellSize - halfWidth;
+          const z0 = gz * cellSize - halfHeight;
+          const z1 = (gz + 1) * cellSize - halfHeight;
+
+          // North edge
+          if (gz === 0 || (grid[gz - 1] && grid[gz - 1][gx] === 0)) {
+            addSketchLine(x0, z0, x1, z0);
+          }
+          // South edge
+          if (gz === gridHeight - 1 || (grid[gz + 1] && grid[gz + 1][gx] === 0)) {
+            addSketchLine(x0, z1, x1, z1);
+          }
+          // West edge
+          if (gx === 0 || (grid[gz] && grid[gz][gx - 1] === 0)) {
+            addSketchLine(x0, z0, x0, z1);
+          }
+          // East edge
+          if (gx === gridWidth - 1 || (grid[gz] && grid[gz][gx + 1] === 0)) {
+            addSketchLine(x1, z0, x1, z1);
+          }
+        }
+      }
+    }
+
+    // Circular obstacle/tree colliders (Level 1 Plantation) - Hand-drawn tree doodles
+    if (treeColliders && treeColliders.length > 0) {
+      const ringSegments = 16;
+      for (const tree of treeColliders) {
+        const r = Math.max(0.45, tree.radius);
+        // Sketchy circular boundary loop
+        for (let s = 0; s < ringSegments; s++) {
+          const a1 = (s / ringSegments) * Math.PI * 2;
+          const a2 = ((s + 1) / ringSegments) * Math.PI * 2;
+          lineVertices.push(
+            tree.x + Math.cos(a1) * r, mapY, tree.z + Math.sin(a1) * r,
+            tree.x + Math.cos(a2) * r, mapY, tree.z + Math.sin(a2) * r
+          );
+        }
+        // Small central trunk cross/dot
+        lineVertices.push(
+          tree.x - 0.12, mapY, tree.z,
+          tree.x + 0.12, mapY, tree.z,
+          tree.x, mapY, tree.z - 0.12,
+          tree.x, mapY, tree.z + 0.12
+        );
+      }
+    }
+
+    const linesGeo = new THREE.BufferGeometry();
+    linesGeo.setAttribute('position', new THREE.Float32BufferAttribute(lineVertices, 3));
+    const linesMat = new THREE.LineBasicMaterial({
+      color: 0x111111, // Hand-drawn deep black ink
+      linewidth: 2,
+    });
+    const linesMesh = new THREE.LineSegments(linesGeo, linesMat);
+    linesMesh.name = 'OverviewColliderLines';
+    mapGroup.add(linesMesh);
+
+    // 4. PLAYER MARKER: Blue Circle with Black Text "Player"
+    const markerSize = Math.max(6.5, cellSize * 1.65);
+    const playerTex = LabyrinthBuilder.createSketchMarkerTexture('Player', '#2563eb');
+    const playerPlaneGeo = new THREE.PlaneGeometry(markerSize, markerSize);
+    playerPlaneGeo.rotateX(-Math.PI / 2);
+    const playerMat = new THREE.MeshBasicMaterial({
+      map: playerTex,
+      transparent: true,
+    });
+    const playerMesh = new THREE.Mesh(playerPlaneGeo, playerMat);
+    playerMesh.name = 'OverviewPlayerMarker';
+    playerMesh.position.set(playerSpawnX, mapY + 0.05, playerSpawnZ);
+    mapGroup.add(playerMesh);
+
+    // 5. MONSTER / HANTU MARKER: Red Circle with Black Text "Hantu"
+    const hantuTex = LabyrinthBuilder.createSketchMarkerTexture('Hantu', '#dc2626');
+    const hantuPlaneGeo = new THREE.PlaneGeometry(markerSize, markerSize);
+    hantuPlaneGeo.rotateX(-Math.PI / 2);
+    const hantuMat = new THREE.MeshBasicMaterial({
+      map: hantuTex,
+      transparent: true,
+    });
+
+    if (monsterSpawns && monsterSpawns.length > 0) {
+      monsterSpawns.forEach((m, idx) => {
+        const hantuMesh = new THREE.Mesh(hantuPlaneGeo, hantuMat);
+        hantuMesh.name = `OverviewHantuMarker_${idx + 1}`;
+        hantuMesh.position.set(m.x, mapY + 0.05, m.z);
+        mapGroup.add(hantuMesh);
+      });
+    }
+
+    return mapGroup;
   }
 
   // =========================================================================

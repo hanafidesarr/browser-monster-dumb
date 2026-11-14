@@ -121,12 +121,11 @@ export class UIManager {
   public showOverview(level: LevelDefinition): void {
     this.hideAllScreens();
     this.overviewLevelTitle.textContent = `LEVEL ${level.id} — ${level.title}`;
-    const monsterLegend = document.querySelector('.legend-item:nth-child(2)');
-    if (monsterLegend) {
+    const missionDesc = document.getElementById('overview-mission-desc');
+    if (missionDesc) {
       const isKunti = level.monsterType === 'kunti' || level.id === 2;
-      const count = level.monsterCount || 1;
-      const countLabel = count > 1 ? ` (${count} Hantu)` : '';
-      monsterLegend.innerHTML = `<span class="legend-dot monster-dot"></span> ${isKunti ? 'Kuntilanak' : 'Pocong'} (Tertidur)${countLabel}`;
+      const monsterName = isKunti ? 'Kuntilanak' : 'Pocong';
+      missionDesc.innerHTML = `🎯 <strong>MISI:</strong> Cari & serang <strong>${monsterName}</strong> di dalam labirin, lalu segera lari ke pintu keluar sebelum tertangkap!`;
     }
     this.populateWeaponSelection();
     this.screenOverview.classList.add('active');
@@ -524,6 +523,7 @@ export class UIManager {
     document.getElementById('btn-overview-back')?.addEventListener('click', () => {
       audio.playUiClick();
       this.showMainMenu();
+      this.onExitToMenuRequested?.();
     });
 
     const bindAction = (elementId: string, action: () => void) => {
