@@ -119,32 +119,38 @@ export class WeaponController {
 
       // Specialized Swing Animation Curves per weapon swingType
       if (def.swingType === 'shoot') {
-        // Fast gun recoil and recovery
+        // Authentic 5-round burst recoil pulses & flickering muzzle flashes
         const muzzleFlash = this.weaponMesh.getObjectByName('MuzzleFlash');
-        if (this.swingProgress < 0.25) {
-          const t = this.swingProgress / 0.25;
-          this.weaponMesh.position.set(
-            this.defaultPos.x,
-            this.defaultPos.y + t * 0.035,
-            this.defaultPos.z + t * 0.075
-          );
-          this.weaponMesh.rotation.set(
-            this.defaultRot.x - t * 0.18,
-            this.defaultRot.y,
-            this.defaultRot.z
-          );
-          if (muzzleFlash) muzzleFlash.visible = true;
-        } else if (this.swingProgress <= 1.0) {
-          const t = (this.swingProgress - 0.25) / 0.75;
-          this.weaponMesh.position.lerpVectors(
-            new THREE.Vector3(this.defaultPos.x, this.defaultPos.y + 0.035, this.defaultPos.z + 0.075),
-            this.defaultPos,
-            t
-          );
-          this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.defaultRot.x - 0.18, this.defaultRot.x, t);
-          this.weaponMesh.rotation.y = this.defaultRot.y;
-          this.weaponMesh.rotation.z = this.defaultRot.z;
-          if (muzzleFlash) muzzleFlash.visible = false;
+        if (this.swingProgress <= 1.0) {
+          // 5 distinct recoil pulses mapped across the swing progress
+          const burstCycle = (this.swingProgress * 5) % 1.0;
+          const kickPhase = burstCycle < 0.38; // First 38% of each cycle is fierce kickback
+
+          if (kickPhase) {
+            const kickT = burstCycle / 0.38;
+            this.weaponMesh.position.set(
+              this.defaultPos.x + Math.sin(this.swingProgress * 40) * 0.004,
+              this.defaultPos.y + kickT * 0.028,
+              this.defaultPos.z + kickT * 0.065
+            );
+            this.weaponMesh.rotation.set(
+              this.defaultRot.x - kickT * 0.16,
+              this.defaultRot.y + Math.cos(this.swingProgress * 30) * 0.015,
+              this.defaultRot.z + Math.sin(this.swingProgress * 25) * 0.012
+            );
+            if (muzzleFlash) muzzleFlash.visible = true;
+          } else {
+            const settleT = (burstCycle - 0.38) / 0.62;
+            this.weaponMesh.position.lerpVectors(
+              new THREE.Vector3(this.defaultPos.x, this.defaultPos.y + 0.028, this.defaultPos.z + 0.065),
+              this.defaultPos,
+              settleT
+            );
+            this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.defaultRot.x - 0.16, this.defaultRot.x, settleT);
+            this.weaponMesh.rotation.y = THREE.MathUtils.lerp(this.weaponMesh.rotation.y, this.defaultRot.y, settleT);
+            this.weaponMesh.rotation.z = THREE.MathUtils.lerp(this.weaponMesh.rotation.z, this.defaultRot.z, settleT);
+            if (muzzleFlash) muzzleFlash.visible = false;
+          }
         } else {
           this.isSwinging = false;
           this.weaponMesh.position.copy(this.defaultPos);

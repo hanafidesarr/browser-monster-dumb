@@ -30,6 +30,7 @@ export class MonsterController {
   public group: THREE.Group;
   public state: MonsterState = 'SITTING_IDLE';
   public isAwake: boolean = false;
+  public isRangedTriggered: boolean = false;
 
   public position: THREE.Vector3 = new THREE.Vector3();
   public rotationY: number = 0; // facing direction
@@ -393,11 +394,13 @@ export class MonsterController {
   public triggerWeaponHit(
     weaponDef: WeaponDefinition,
     hitOrigin?: THREE.Vector3,
-    knockbackDist: number = 1.8
+    knockbackDist: number = 1.8,
+    isRanged: boolean = false
   ): void {
     if (this.state !== 'SITTING_IDLE' || this.isAwake) return;
 
     this.isAwake = true;
+    this.isRangedTriggered = isRanged || weaponDef.swingType === 'shoot' || weaponDef.swingType === 'throw';
     this.currentHitReaction = weaponDef.monsterReaction;
     this.state = 'HIT_REACTION';
     this.stateTime = 0;
@@ -785,15 +788,21 @@ export class MonsterController {
     let isAirborne = false;
     let cycle = 0;
 
+    // Sprint boost for ranged attacks (grenade or machine gun):
+    // Monster sprints significantly faster (1.55x) for the first 5.0 seconds to close the distance gap!
+    const sprintBoost = (this.isRangedTriggered && this.stateTime < 5.0)
+      ? THREE.MathUtils.lerp(1.55, 1.0, this.stateTime / 5.0)
+      : 1.0;
+
     if (this.monsterType === 'kunti') {
       // Kuntilanak: mengejar dengan cara merangkak (crawls flush along the floor/stairs)
       this.position.y = this.baseGroundY;
-      this.model.applyCrawl(dt, cfg.chaseSpeed);
+      this.model.applyCrawl(dt, cfg.chaseSpeed * sprintBoost);
       AudioManager.getInstance().playKuntiCrawl(horizontalDist);
       AudioManager.getInstance().updateKuntiChaseAudio(horizontalDist);
     } else {
       // Pocong: Hopping Rhythm Cycle (parabolic airborne leaping)
-      const hopDuration = 0.52; // each jump cycle takes ~0.52s
+      const hopDuration = 0.52 / Math.min(1.35, sprintBoost); // each jump cycle takes ~0.52s, quickened during sprint
       this.hopTimer += dt;
       cycle = (this.hopTimer % hopDuration) / hopDuration; // 0.0 to 1.0
       isAirborne = cycle < 0.70;
@@ -903,11 +912,14 @@ export class MonsterController {
       );
 
       // Movement speed: continuous smooth crawl for Kunti, hopping bursts for Pocong
-      // Smooth initial acceleration over first 1.2s to prevent instantaneous teleporting catch
-      const accel = Math.min(1.0, 0.45 + (this.stateTime / 1.2) * 0.55);
-      const speedMultiplier = (this.monsterType === 'kunti'
+      // Smooth initial acceleration over first 1.2s for melee; instant explosive pursuit for ranged attacks!
+      const accel = this.isRangedTriggered
         ? 1.0
-        : (isAirborne ? Math.sin((cycle / 0.70) * Math.PI) * 1.85 : 0.15)) * accel;
+        : Math.min(1.0, 0.45 + (this.stateTime / 1.2) * 0.55);
+      const baseSpeedMultiplier = (this.monsterType === 'kunti'
+        ? 1.0
+        : (isAirborne ? Math.sin((cycle / 0.70) * Math.PI) * 1.85 : 0.15));
+      const speedMultiplier = baseSpeedMultiplier * accel * sprintBoost;
       const moveStep = cfg.chaseSpeed * speedMultiplier * dt;
       let nextX = this.position.x + normX * moveStep;
       let nextZ = this.position.z + normZ * moveStep;

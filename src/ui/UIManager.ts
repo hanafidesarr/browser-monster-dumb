@@ -147,6 +147,15 @@ export class UIManager {
     const audio = AudioManager.getInstance();
     const selectedWeaponId = save.getSelectedWeapon();
 
+    const weaponSubtitle = document.querySelector('.weapon-section-subtitle');
+    if (weaponSubtitle) {
+      if (save.isDevModeEnabled()) {
+        weaponSubtitle.innerHTML = 'Pilih benda konyol untuk membangunkan Pocong <span style="color:#10b981; font-weight:bold; margin-left:6px;">[TEST MODE ACTIVE]</span>';
+      } else {
+        weaponSubtitle.textContent = 'Pilih benda konyol untuk membangunkan Pocong';
+      }
+    }
+
     const weaponIcons: Record<string, string> = {
       baseball_bat: '&#9876;',
       grenade: '&#128163;',
@@ -715,6 +724,15 @@ export class UIManager {
     this.levelsContainer.innerHTML = '';
     const save = SaveManager.getInstance();
     const audio = AudioManager.getInstance();
+
+    const headerTitle = document.querySelector('#screen-level-select .screen-header h2');
+    if (headerTitle) {
+      if (save.isDevModeEnabled()) {
+        headerTitle.innerHTML = 'LEVEL SELECTION <span style="background:#10b981; color:#fff; font-size:11px; padding:3px 8px; border-radius:4px; margin-left:8px; vertical-align:middle; letter-spacing:1px; font-weight:normal;">TEST MODE UNLOCKED</span>';
+      } else {
+        headerTitle.textContent = 'LEVEL SELECTION';
+      }
+    }
 
     ALL_LEVELS.forEach((level) => {
       const isUnlocked = save.isLevelUnlocked(level.id);

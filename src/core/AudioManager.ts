@@ -224,8 +224,14 @@ export class AudioManager {
   }
 
   // Weapon Swing Whoosh depending on swing type
-  public playWeaponSwing(type: 'standard' | 'heavy' | 'fast' | 'overhead' | 'throw' = 'standard'): void {
+  public playWeaponSwing(type: 'standard' | 'heavy' | 'fast' | 'overhead' | 'throw' | 'shoot' = 'standard'): void {
     if (!this.ctx || !this.sfxGain) return;
+
+    if (type === 'shoot') {
+      this.playMachineGunBurst(5, 0.08);
+      return;
+    }
+
     const now = this.ctx.currentTime;
 
     const duration = type === 'heavy' ? 0.38 : type === 'fast' ? 0.18 : type === 'throw' ? 0.22 : 0.25;
@@ -284,7 +290,7 @@ export class AudioManager {
 
     switch (sound) {
       case 'gunshot': {
-        this.playGunshot();
+        this.playBulletFleshImpact();
         break;
       }
 
@@ -1039,53 +1045,198 @@ export class AudioManager {
     crackleOsc.stop(now + 0.42);
   }
 
-  // Machine Gun Gunshot / Burst Sound
+  // Machine Gun Gunshot / Burst Sound (5-round burst trigger)
   public playGunshot(): void {
-    if (!this.ctx || !this.sfxGain) return;
-    const now = this.ctx.currentTime;
+    this.playMachineGunBurst(5, 0.08);
+  }
 
-    // 1. Explosive muzzle blast noise burst
-    const duration = 0.16;
-    const bufferSize = Math.floor(this.ctx.sampleRate * duration);
-    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
+  // Realistic 5-Round Burst Gunfire Audio Synthesis
+  public playMachineGunBurst(shots: number = 5, interval: number = 0.08): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const startTime = this.ctx.currentTime;
+
+    for (let i = 0; i < shots; i++) {
+      const shotTime = startTime + i * interval;
+      const isLastShot = i === shots - 1;
+      this.playSingleRealisticGunshot(shotTime, isLastShot);
+    }
+  }
+
+  // Individual Realistic Gunshot Layer: Supersonic Crack, Gunpowder Blast, Sub-bass Concussion, Bolt Clack & Tail
+  private playSingleRealisticGunshot(time: number, isLastShot: boolean): void {
+    if (!this.ctx || !this.sfxGain) return;
+
+    // 1. High-frequency supersonic bullet crack / snap (3500Hz bandpass, ultra-fast transient)
+    const snapDuration = 0.035;
+    const snapSize = Math.floor(this.ctx.sampleRate * snapDuration);
+    const snapBuffer = this.ctx.createBuffer(1, snapSize, this.ctx.sampleRate);
+    const snapData = snapBuffer.getChannelData(0);
+    for (let i = 0; i < snapSize; i++) {
+      snapData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (snapSize * 0.25));
     }
 
-    const whiteNoise = this.ctx.createBufferSource();
-    whiteNoise.buffer = noiseBuffer;
+    const snapSource = this.ctx.createBufferSource();
+    snapSource.buffer = snapBuffer;
 
-    const noiseFilter = this.ctx.createBiquadFilter();
-    noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.setValueAtTime(1400, now);
-    noiseFilter.Q.setValueAtTime(2.2, now);
+    const snapFilter = this.ctx.createBiquadFilter();
+    snapFilter.type = 'bandpass';
+    snapFilter.frequency.setValueAtTime(3600, time);
+    snapFilter.Q.setValueAtTime(3.2, time);
 
-    const noiseGain = this.ctx.createGain();
-    noiseGain.gain.setValueAtTime(1.1, now);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    const snapGain = this.ctx.createGain();
+    snapGain.gain.setValueAtTime(1.25, time);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, time + snapDuration);
 
-    whiteNoise.connect(noiseFilter);
-    noiseFilter.connect(noiseGain);
-    noiseGain.connect(this.sfxGain);
+    snapSource.connect(snapFilter);
+    snapFilter.connect(snapGain);
+    snapGain.connect(this.sfxGain);
 
-    whiteNoise.start(now);
-    whiteNoise.stop(now + duration + 0.02);
+    snapSource.start(time);
+    snapSource.stop(time + snapDuration + 0.01);
 
-    // 2. Heavy ballistic punch oscillator
+    // 2. Gunpowder explosion chamber blast (mid-frequency punch 950Hz)
+    const blastDuration = 0.09;
+    const blastSize = Math.floor(this.ctx.sampleRate * blastDuration);
+    const blastBuffer = this.ctx.createBuffer(1, blastSize, this.ctx.sampleRate);
+    const blastData = blastBuffer.getChannelData(0);
+    for (let i = 0; i < blastSize; i++) {
+      blastData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (blastSize * 0.35));
+    }
+
+    const blastSource = this.ctx.createBufferSource();
+    blastSource.buffer = blastBuffer;
+
+    const blastFilter = this.ctx.createBiquadFilter();
+    blastFilter.type = 'bandpass';
+    blastFilter.frequency.setValueAtTime(950, time);
+    blastFilter.Q.setValueAtTime(1.8, time);
+
+    const blastGain = this.ctx.createGain();
+    blastGain.gain.setValueAtTime(1.35, time);
+    blastGain.gain.exponentialRampToValueAtTime(0.001, time + blastDuration);
+
+    blastSource.connect(blastFilter);
+    blastFilter.connect(blastGain);
+    blastGain.connect(this.sfxGain);
+
+    blastSource.start(time);
+    blastSource.stop(time + blastDuration + 0.01);
+
+    // 3. Chest-thumping ballistic low-end concussion (240Hz -> 42Hz drop)
     const punchOsc = this.ctx.createOscillator();
     const punchGain = this.ctx.createGain();
     punchOsc.type = 'sawtooth';
-    punchOsc.frequency.setValueAtTime(260, now);
-    punchOsc.frequency.exponentialRampToValueAtTime(45, now + 0.12);
+    punchOsc.frequency.setValueAtTime(240, time);
+    punchOsc.frequency.exponentialRampToValueAtTime(42, time + 0.07);
 
-    punchGain.gain.setValueAtTime(0.95, now);
-    punchGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+    punchGain.gain.setValueAtTime(1.1, time);
+    punchGain.gain.exponentialRampToValueAtTime(0.001, time + 0.085);
 
     punchOsc.connect(punchGain);
     punchGain.connect(this.sfxGain);
 
-    punchOsc.start(now);
-    punchOsc.stop(now + 0.18);
+    punchOsc.start(time);
+    punchOsc.stop(time + 0.09);
+
+    // 4. Mechanical bolt cycling clack (slight metallic tick 0.032s after trigger)
+    const clackDuration = 0.02;
+    const clackSize = Math.floor(this.ctx.sampleRate * clackDuration);
+    const clackBuffer = this.ctx.createBuffer(1, clackSize, this.ctx.sampleRate);
+    const clackData = clackBuffer.getChannelData(0);
+    for (let i = 0; i < clackSize; i++) {
+      clackData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (clackSize * 0.3));
+    }
+
+    const clackSource = this.ctx.createBufferSource();
+    clackSource.buffer = clackBuffer;
+
+    const clackFilter = this.ctx.createBiquadFilter();
+    clackFilter.type = 'bandpass';
+    clackFilter.frequency.setValueAtTime(2200, time + 0.032);
+    clackFilter.Q.setValueAtTime(4.0, time + 0.032);
+
+    const clackGain = this.ctx.createGain();
+    clackGain.gain.setValueAtTime(0.4, time + 0.032);
+    clackGain.gain.exponentialRampToValueAtTime(0.001, time + 0.032 + clackDuration);
+
+    clackSource.connect(clackFilter);
+    clackFilter.connect(clackGain);
+    clackGain.connect(this.sfxGain);
+
+    clackSource.start(time + 0.032);
+    clackSource.stop(time + 0.032 + clackDuration + 0.01);
+
+    // 5. Environmental room reverb & low rumble tail on final shot of burst
+    if (isLastShot) {
+      const tailDuration = 0.45;
+      const tailSize = Math.floor(this.ctx.sampleRate * tailDuration);
+      const tailBuffer = this.ctx.createBuffer(1, tailSize, this.ctx.sampleRate);
+      const tailData = tailBuffer.getChannelData(0);
+      for (let i = 0; i < tailSize; i++) {
+        tailData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (tailSize * 0.4));
+      }
+
+      const tailSource = this.ctx.createBufferSource();
+      tailSource.buffer = tailBuffer;
+
+      const tailFilter = this.ctx.createBiquadFilter();
+      tailFilter.type = 'lowpass';
+      tailFilter.frequency.setValueAtTime(750, time + 0.04);
+      tailFilter.frequency.exponentialRampToValueAtTime(200, time + tailDuration);
+
+      const tailGain = this.ctx.createGain();
+      tailGain.gain.setValueAtTime(0.5, time + 0.04);
+      tailGain.gain.exponentialRampToValueAtTime(0.001, time + tailDuration);
+
+      tailSource.connect(tailFilter);
+      tailFilter.connect(tailGain);
+      tailGain.connect(this.sfxGain);
+
+      tailSource.start(time + 0.04);
+      tailSource.stop(time + tailDuration + 0.02);
+    }
+  }
+
+  // Visceral Bullet Flesh/Monster Impact Sound (Meaty thud + penetration crack)
+  public playBulletFleshImpact(): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+
+    // Meaty thud
+    const osc = this.ctx.createOscillator();
+    const thudGain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(280, now);
+    osc.frequency.exponentialRampToValueAtTime(45, now + 0.16);
+    thudGain.gain.setValueAtTime(1.1, now);
+    thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+    osc.connect(thudGain);
+    thudGain.connect(this.sfxGain);
+    osc.start(now);
+    osc.stop(now + 0.2);
+
+    // High velocity penetration snap
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.06);
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(2200, now);
+    filter.Q.setValueAtTime(2.5, now);
+    const snapGain = this.ctx.createGain();
+    snapGain.gain.setValueAtTime(0.85, now);
+    snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+    noise.connect(filter);
+    filter.connect(snapGain);
+    snapGain.connect(this.sfxGain);
+    noise.start(now);
+    noise.stop(now + 0.08);
   }
 }

@@ -657,36 +657,53 @@ export class GameManager {
     const wallIntersects = raycaster.intersectObjects(blocking, true);
     const maxRayDist = wallIntersects.length > 0 ? wallIntersects[0].distance : 40.0;
 
+    const MAX_GUN_RANGE = 22.0; // Effective firearm threshold (meters)
     let hitMonster: MonsterController | null = null;
     let closestDist = maxRayDist;
+    let isAimingBeyondRange = false;
 
     const ray = raycaster.ray;
     for (const m of this.monsters) {
-      if (!m.canInteractWithMonster(this.fpController.position, blocking, this.fpController.currentFloor)) {
-        continue;
-      }
+      if (m.state !== 'SITTING_IDLE' || m.isAwake) continue;
+
+      // Vertical separation validation (must be on the same floor/level height)
+      const playerFeetY = this.fpController.position.y - 1.65;
+      const verticalDist = Math.abs(playerFeetY - m.position.y);
+      if (verticalDist > 2.2) continue;
+
+      const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : 0.9;
+      const monsterCenter = new THREE.Vector3(m.position.x, m.position.y + monsterCenterY, m.position.z);
+      const distFromPlayer = this.fpController.position.distanceTo(monsterCenter);
+
+      let isHit = false;
+      let hitDist = 999.0;
 
       // 1. Direct mesh raycast
       const monsterHits = raycaster.intersectObjects(m.group.children, true);
       if (monsterHits.length > 0 && monsterHits[0].distance <= maxRayDist) {
-        if (monsterHits[0].distance < closestDist) {
-          closestDist = monsterHits[0].distance;
-          hitMonster = m;
+        isHit = true;
+        hitDist = monsterHits[0].distance;
+      } else {
+        // 2. Point-to-ray proximity tolerance for forgiving, responsive aim (crosshair near monster body)
+        const toMonster = new THREE.Vector3().subVectors(monsterCenter, ray.origin);
+        const distAlongRay = toMonster.dot(ray.direction);
+
+        if (distAlongRay > 0 && distAlongRay <= maxRayDist) {
+          const closestPointOnRay = new THREE.Vector3().copy(ray.origin).addScaledVector(ray.direction, distAlongRay);
+          const perpDist = closestPointOnRay.distanceTo(monsterCenter);
+          if (perpDist <= 0.85) {
+            isHit = true;
+            hitDist = distAlongRay;
+          }
         }
-        continue;
       }
 
-      // 2. Point-to-ray proximity tolerance for forgiving, responsive aim
-      const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : 0.9;
-      const monsterCenter = new THREE.Vector3(m.position.x, m.position.y + monsterCenterY, m.position.z);
-      const toMonster = new THREE.Vector3().subVectors(monsterCenter, ray.origin);
-      const distAlongRay = toMonster.dot(ray.direction);
-
-      if (distAlongRay > 0 && distAlongRay <= maxRayDist) {
-        const closestPointOnRay = new THREE.Vector3().copy(ray.origin).addScaledVector(ray.direction, distAlongRay);
-        const perpDist = closestPointOnRay.distanceTo(monsterCenter);
-        if (perpDist <= 0.85 && distAlongRay < closestDist) {
-          closestDist = distAlongRay;
+      if (isHit) {
+        if (distFromPlayer > MAX_GUN_RANGE) {
+          // Monster is in crosshairs but too far away: do NOT trigger/wake up monster!
+          isAimingBeyondRange = true;
+        } else if (hitDist < closestDist) {
+          closestDist = hitDist;
           hitMonster = m;
         }
       }
@@ -708,8 +725,8 @@ export class GameManager {
       // Permanently disable attack now that monster has been shot
       this.fpController.weapon.disableAttackPermanently();
 
-      // Trigger hit reaction with gunshot sound, scream, and knockback away from player (1.8m)
-      hitMonster.triggerWeaponHit(weaponDef, this.fpController.position, 1.8);
+      // Trigger hit reaction with gunshot sound, scream, knockback away from player (1.8m), and ranged sprint boost!
+      hitMonster.triggerWeaponHit(weaponDef, this.fpController.position, 1.8, true);
       this.triggerScreenShake(0.5);
 
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
@@ -719,16 +736,22 @@ export class GameManager {
         UIManager.getInstance().setStatusText(`${monsterName} TERKENA TEMBAKAN & PINTU EXIT TELAH MUNCUL! CEPAT LARI MENUJU PINTU EXIT!`);
       }
     } else {
-      // Missed shot: Screen shake & notify player to aim at the monster
+      // Missed shot or beyond range: Screen shake & notify player
       this.triggerScreenShake(0.2);
       const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
       const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
-      UIManager.getInstance().setStatusText(`TEMBAKAN MELESET! ARAHKAN KE ${monsterName} DAN TEMBAK LAGI!`);
+
+      if (isAimingBeyondRange) {
+        UIManager.getInstance().setStatusText(`TERLALU JAUH! DEKATI ${monsterName} HINGGA JARAK TEMBAK (MAKSIMAL 22 METER)!`);
+      } else {
+        UIManager.getInstance().setStatusText(`TEMBAKAN MELESET! ARAHKAN KE ${monsterName} DAN TEMBAK LAGI!`);
+      }
+
       setTimeout(() => {
         if (this.state === 'STEALTH') {
           UIManager.getInstance().setStatusText(`TEMBAK ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERTEMBAK.`);
         }
-      }, 1800);
+      }, 2000);
     }
   }
 
@@ -769,8 +792,8 @@ export class GameManager {
       this.fpController.weapon.disableAttackPermanently();
       this.fpController.weapon.setVisible(false);
 
-      // Trigger hit reaction, explosion impact, scream, and directional knockback (2.2m away from blast!)
-      hitMonster.triggerWeaponHit(weaponDef, impactPos, 2.2);
+      // Trigger hit reaction, explosion impact, scream, directional knockback (2.2m), and ranged sprint boost!
+      hitMonster.triggerWeaponHit(weaponDef, impactPos, 2.2, true);
       this.triggerScreenShake(0.65);
 
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';

@@ -79,7 +79,7 @@ export const ALL_WEAPONS: WeaponDefinition[] = [
     name: 'Machine Gun',
     nameId: 'Senapan Mesin',
     description: 'Senapan serbu otomatis berkekuatan tinggi. Tembak monster dari kejauhan!',
-    swingDuration: 0.28,
+    swingDuration: 0.46,
     swingType: 'shoot',
     impactSound: 'gunshot',
     monsterReaction: 'stagger',

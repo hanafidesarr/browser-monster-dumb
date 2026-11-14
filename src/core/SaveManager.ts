@@ -96,8 +96,38 @@ export class SaveManager {
     }
   }
 
+  public isDevModeEnabled(): boolean {
+    if (typeof window === 'undefined' || !window.location) return false;
+    try {
+      const search = window.location.search;
+      if (!search) return false;
+      const params = new URLSearchParams(search);
+      return (
+        params.has('dev') ||
+        params.has('test') ||
+        params.has('unlock') ||
+        params.has('all') ||
+        params.get('mode') === 'test' ||
+        params.get('mode') === 'dev'
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
   public getData(): SaveData {
+    if (this.isDevModeEnabled()) {
+      return {
+        ...this.data,
+        unlockedLevel: Math.max(10, this.data.unlockedLevel),
+      };
+    }
     return this.data;
+  }
+
+  public getUnlockedLevel(): number {
+    if (this.isDevModeEnabled()) return 10;
+    return this.data.unlockedLevel || 1;
   }
 
   public unlockLevel(levelNumber: number): void {
@@ -120,6 +150,7 @@ export class SaveManager {
   }
 
   public isLevelUnlocked(levelNumber: number): boolean {
+    if (this.isDevModeEnabled()) return true;
     return levelNumber <= this.data.unlockedLevel;
   }
 
@@ -128,6 +159,7 @@ export class SaveManager {
   }
 
   public isWeaponUnlocked(weaponId: string): boolean {
+    if (this.isDevModeEnabled()) return true;
     const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : weaponId);
     if (!this.data.unlockedWeapons) {
       this.data.unlockedWeapons = ['baseball_bat'];
