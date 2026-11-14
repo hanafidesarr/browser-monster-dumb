@@ -46,6 +46,9 @@ export class MonsterController {
   public wallClingY: number = 0;
   private wallAttachPos: THREE.Vector3 | null = null;
   private wallLandPos: THREE.Vector3 | null = null;
+  private wallRoomDir: THREE.Vector3 = new THREE.Vector3(0, 0, 1);
+  private knockbackStartPos: THREE.Vector3 | null = null;
+  private knockbackTargetPos: THREE.Vector3 | null = null;
 
   public treeColliders: Array<{ x: number; z: number; radius: number }> = [];
 
@@ -151,6 +154,8 @@ export class MonsterController {
     this.hopTimer = 0;
     this.wasAirborne = true;
     this.isPlayerInRearStrikeZone = false;
+    this.knockbackStartPos = null;
+    this.knockbackTargetPos = null;
     this.model.applySittingPosture(0);
   }
 
@@ -255,6 +260,7 @@ export class MonsterController {
       this.position.set(chosen.x, this.wallClingY, chosen.z);
       this.rotationY = chosen.rotY;
       this.wallAttachPos = new THREE.Vector3(chosen.x, this.wallClingY, chosen.z);
+      this.wallRoomDir.set(chosen.roomDirX, 0, chosen.roomDirZ).normalize();
       this.wallLandPos = new THREE.Vector3(
         chosen.x + chosen.roomDirX * 0.65,
         this.baseGroundY,
@@ -383,8 +389,12 @@ export class MonsterController {
     return false;
   }
 
-  // Called when player lands a hit with any weapon
-  public triggerWeaponHit(weaponDef: WeaponDefinition): void {
+  // Called when player lands a hit with any weapon (melee, machine gun shot, or grenade explosion)
+  public triggerWeaponHit(
+    weaponDef: WeaponDefinition,
+    hitOrigin?: THREE.Vector3,
+    knockbackDist: number = 1.8
+  ): void {
     if (this.state !== 'SITTING_IDLE' || this.isAwake) return;
 
     this.isAwake = true;
@@ -395,6 +405,70 @@ export class MonsterController {
     this.detectionPercent = 0;
 
     AudioManager.getInstance().playWeaponImpact(weaponDef.impactSound);
+    // Monster shrieks immediately when struck or blasted!
+    AudioManager.getInstance().playMonsterScream(this.monsterType);
+
+    // Compute knockback impulse away from the blast or player origin
+    if (knockbackDist > 0) {
+      let knockDir = new THREE.Vector3();
+      if (hitOrigin) {
+        knockDir.subVectors(this.position, hitOrigin);
+        knockDir.y = 0;
+      }
+      if (knockDir.lengthSq() < 0.0001) {
+        knockDir = this.getForwardVector().negate();
+      } else {
+        knockDir.normalize();
+      }
+
+      const startPos = this.position.clone();
+      this.knockbackStartPos = startPos;
+      const rawTarget = startPos.clone().addScaledVector(knockDir, knockbackDist);
+
+      // Verify and clamp against walkable grid / perimeter bounds
+      if (this.pathfinding) {
+        let safePos = startPos.clone();
+        const steps = 10;
+        for (let s = 1; s <= steps; s++) {
+          const testPos = startPos.clone().addScaledVector(knockDir, (knockbackDist * s) / steps);
+          const { gx, gz } = this.pathfinding.worldToGrid(testPos.x, testPos.z);
+          if (this.pathfinding.isWalkable(gx, gz)) {
+            safePos.copy(testPos);
+          } else {
+            break;
+          }
+        }
+        this.knockbackTargetPos = safePos;
+      } else {
+        this.knockbackTargetPos = rawTarget;
+      }
+
+      // If Kuntilanak is wall-clinging, knock her loose from the wall out into the open room!
+      if (this.monsterType === 'kunti' && this.isWallClinging && this.wallLandPos) {
+        const roomDir = this.wallRoomDir.clone();
+        const baseLand = this.wallLandPos.clone();
+        let safeLand = baseLand.clone();
+        if (this.pathfinding) {
+          const steps = 10;
+          for (let s = 1; s <= steps; s++) {
+            const testPos = baseLand.clone().addScaledVector(roomDir, (knockbackDist * s) / steps);
+            const { gx, gz } = this.pathfinding.worldToGrid(testPos.x, testPos.z);
+            if (this.pathfinding.isWalkable(gx, gz)) {
+              safeLand.copy(testPos);
+            } else {
+              break;
+            }
+          }
+        } else {
+          safeLand.addScaledVector(roomDir, knockbackDist);
+        }
+        this.wallLandPos.copy(safeLand);
+        this.knockbackTargetPos = safeLand;
+      }
+    } else {
+      this.knockbackStartPos = null;
+      this.knockbackTargetPos = null;
+    }
   }
 
   // Awakened by scream or alert of another monster
@@ -578,6 +652,13 @@ export class MonsterController {
     this.animProgress = Math.min(1.0, this.stateTime / hitDuration);
     this.model.applyHitReaction(this.animProgress, this.currentHitReaction);
 
+    // Apply knockback displacement with an ease-out curve for ground-standing monsters
+    if (this.knockbackStartPos && this.knockbackTargetPos && (!this.isWallClinging || this.monsterType !== 'kunti')) {
+      const easeOut = 1 - Math.pow(1 - this.animProgress, 2);
+      this.position.x = THREE.MathUtils.lerp(this.knockbackStartPos.x, this.knockbackTargetPos.x, easeOut);
+      this.position.z = THREE.MathUtils.lerp(this.knockbackStartPos.z, this.knockbackTargetPos.z, easeOut);
+    }
+
     // If Kuntilanak was clinging to the wall, she drops and steps forward out to the open floor!
     if (this.monsterType === 'kunti' && this.isWallClinging) {
       const dropProgress = Math.pow(this.animProgress, 1.6);
@@ -603,6 +684,10 @@ export class MonsterController {
       this.isWallClinging = false;
       if (this.wallLandPos) {
         this.position.copy(this.wallLandPos);
+      } else if (this.knockbackTargetPos) {
+        this.position.x = this.knockbackTargetPos.x;
+        this.position.z = this.knockbackTargetPos.z;
+        this.position.y = this.baseGroundY;
       } else {
         this.position.y = this.baseGroundY;
       }

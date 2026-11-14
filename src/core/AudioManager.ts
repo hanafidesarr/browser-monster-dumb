@@ -278,11 +278,16 @@ export class AudioManager {
   }
 
   // Generic or weapon-specific impact sound
-  public playWeaponImpact(sound: 'bat' | 'metallic' | 'slap' | 'wooden' | 'boing' | 'fan' | 'explosion'): void {
+  public playWeaponImpact(sound: 'bat' | 'metallic' | 'slap' | 'wooden' | 'boing' | 'fan' | 'explosion' | 'gunshot'): void {
     if (!this.ctx || !this.sfxGain) return;
     const now = this.ctx.currentTime;
 
     switch (sound) {
+      case 'gunshot': {
+        this.playGunshot();
+        break;
+      }
+
       case 'explosion': {
         this.playExplosion();
         break;
@@ -1032,5 +1037,55 @@ export class AudioManager {
     crackleGain.connect(this.sfxGain);
     crackleOsc.start(now);
     crackleOsc.stop(now + 0.42);
+  }
+
+  // Machine Gun Gunshot / Burst Sound
+  public playGunshot(): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+
+    // 1. Explosive muzzle blast noise burst
+    const duration = 0.16;
+    const bufferSize = Math.floor(this.ctx.sampleRate * duration);
+    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const whiteNoise = this.ctx.createBufferSource();
+    whiteNoise.buffer = noiseBuffer;
+
+    const noiseFilter = this.ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.setValueAtTime(1400, now);
+    noiseFilter.Q.setValueAtTime(2.2, now);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(1.1, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+    whiteNoise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(this.sfxGain);
+
+    whiteNoise.start(now);
+    whiteNoise.stop(now + duration + 0.02);
+
+    // 2. Heavy ballistic punch oscillator
+    const punchOsc = this.ctx.createOscillator();
+    const punchGain = this.ctx.createGain();
+    punchOsc.type = 'sawtooth';
+    punchOsc.frequency.setValueAtTime(260, now);
+    punchOsc.frequency.exponentialRampToValueAtTime(45, now + 0.12);
+
+    punchGain.gain.setValueAtTime(0.95, now);
+    punchGain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+    punchOsc.connect(punchGain);
+    punchGain.connect(this.sfxGain);
+
+    punchOsc.start(now);
+    punchOsc.stop(now + 0.18);
   }
 }

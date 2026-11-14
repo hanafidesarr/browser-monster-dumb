@@ -61,12 +61,19 @@ export class SaveManager {
           settings.touchSensitivity = 8;
         }
 
-        // Migrate legacy 'signboard' weapon id to 'grenade'
+        // Migrate legacy 'signboard' -> 'grenade' and 'slipper' -> 'machine_gun'
         if (parsed.unlockedWeapons && Array.isArray(parsed.unlockedWeapons)) {
-          parsed.unlockedWeapons = parsed.unlockedWeapons.map((w: string) => w === 'signboard' ? 'grenade' : w);
+          parsed.unlockedWeapons = parsed.unlockedWeapons.map((w: string) => {
+            if (w === 'signboard') return 'grenade';
+            if (w === 'slipper') return 'machine_gun';
+            return w;
+          });
         }
         if (parsed.selectedWeapon === 'signboard') {
           parsed.selectedWeapon = 'grenade';
+        }
+        if (parsed.selectedWeapon === 'slipper') {
+          parsed.selectedWeapon = 'machine_gun';
         }
 
         return {
@@ -121,7 +128,7 @@ export class SaveManager {
   }
 
   public isWeaponUnlocked(weaponId: string): boolean {
-    const effectiveId = weaponId === 'signboard' ? 'grenade' : weaponId;
+    const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : weaponId);
     if (!this.data.unlockedWeapons) {
       this.data.unlockedWeapons = ['baseball_bat'];
     }
@@ -129,7 +136,7 @@ export class SaveManager {
   }
 
   public unlockWeapon(weaponId: string): boolean {
-    const effectiveId = weaponId === 'signboard' ? 'grenade' : weaponId;
+    const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : weaponId);
     if (!this.data.unlockedWeapons) {
       this.data.unlockedWeapons = ['baseball_bat'];
     }
@@ -146,8 +153,9 @@ export class SaveManager {
   }
 
   public setSelectedWeapon(weaponId: string): void {
-    if (this.isWeaponUnlocked(weaponId)) {
-      this.data.selectedWeapon = weaponId;
+    const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : weaponId);
+    if (this.isWeaponUnlocked(effectiveId)) {
+      this.data.selectedWeapon = effectiveId;
       this.save();
     }
   }

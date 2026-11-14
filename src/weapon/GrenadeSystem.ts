@@ -22,7 +22,7 @@ interface ExplosionInstance {
 
 export class GrenadeSystem {
   private static instance: GrenadeSystem | null = null;
-  private projectile: GrenadeProjectile | null = null;
+  private projectiles: GrenadeProjectile[] = [];
   private explosions: ExplosionInstance[] = [];
   private smokeTexture: THREE.CanvasTexture | null = null;
   private sparkMaterial: THREE.MeshBasicMaterial | null = null;
@@ -82,7 +82,7 @@ export class GrenadeSystem {
   }
 
   public isGrenadeInFlight(): boolean {
-    return this.projectile !== null;
+    return this.projectiles.length > 0;
   }
 
   // Launch a thrown grenade projectile from first-person camera
@@ -91,13 +91,12 @@ export class GrenadeSystem {
     camera: THREE.PerspectiveCamera,
     onExplode: (impactPos: THREE.Vector3) => void
   ): boolean {
-    if (this.projectile) return false;
-
     const projectileMesh = WeaponModelFactory.createGrenadeModel();
-    projectileMesh.name = 'FlyingGrenadeProjectile';
-    projectileMesh.scale.set(0.9, 0.9, 0.9);
+    projectileMesh.name = `FlyingGrenadeProjectile_${Date.now()}`;
+    // Scale up slightly for prominent FPS visual clarity so the player can see it fly into the world!
+    projectileMesh.scale.set(1.5, 1.5, 1.5);
 
-    // Initial position: slightly in front and to the right of camera view
+    // Initial position: matches the player's hand release position at the center-front of camera
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
 
@@ -106,25 +105,25 @@ export class GrenadeSystem {
 
     const spawnPos = camera.position
       .clone()
-      .addScaledVector(forward, 0.45)
-      .addScaledVector(right, 0.22)
-      .addScaledVector(up, -0.15);
+      .addScaledVector(forward, 0.78)
+      .addScaledVector(right, 0.08)
+      .addScaledVector(up, -0.06);
 
     projectileMesh.position.copy(spawnPos);
     scene.add(projectileMesh);
 
     // Initial ballistic velocity: fast forward thrust with upward arc
-    const throwSpeed = 19.5;
+    const throwSpeed = 22.0;
     const upwardThrust = 4.2;
     const velocity = forward.clone().multiplyScalar(throwSpeed).add(new THREE.Vector3(0, upwardThrust, 0));
 
-    this.projectile = {
+    this.projectiles.push({
       mesh: projectileMesh,
       velocity,
       aliveTime: 0,
-      maxLife: 2.8,
+      maxLife: 1.8, // 1.8s fuse guarantees it ALWAYS explodes quickly
       onExplode,
-    };
+    });
 
     return true;
   }
@@ -237,15 +236,16 @@ export class GrenadeSystem {
     monsterPositions: THREE.Vector3[] = [],
     groundY: number = 0
   ): void {
-    // 1. Update In-Flight Projectile
-    if (this.projectile) {
-      const p = this.projectile;
+    // 1. Update In-Flight Projectiles (Guaranteed to always fly and explode)
+    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+      const p = this.projectiles[i];
       p.aliveTime += dt;
 
-      // Gravity & Tumble
+      // Gravity & Tumble (dynamic 3D tumbling spin in air)
       p.velocity.y -= 9.8 * dt;
-      p.mesh.rotation.x += dt * 8.0;
-      p.mesh.rotation.z += dt * 6.0;
+      p.mesh.rotation.x += dt * 10.0;
+      p.mesh.rotation.y += dt * 6.0;
+      p.mesh.rotation.z += dt * 8.0;
 
       const currentPos = p.mesh.position.clone();
       const stepVec = p.velocity.clone().multiplyScalar(dt);
@@ -255,9 +255,9 @@ export class GrenadeSystem {
       let hasImpacted = false;
       const impactPos = nextPos.clone();
 
-      // Check collision along flight path with solid walls & environment
+      // 1. Raycast collision along flight path with solid walls & environment
       if (blockingMeshes.length > 0 && stepDist > 0.001) {
-        const raycaster = new THREE.Raycaster(currentPos, stepVec.clone().normalize(), 0, stepDist + 0.15);
+        const raycaster = new THREE.Raycaster(currentPos, stepVec.clone().normalize(), 0, stepDist + 0.20);
         const hits = raycaster.intersectObjects(blockingMeshes, true);
         if (hits.length > 0) {
           hasImpacted = true;
@@ -265,16 +265,26 @@ export class GrenadeSystem {
         }
       }
 
-      // Check ground floor impact
+      // 2. Downward raycast from nextPos to catch floors & stairs at any elevation
+      if (!hasImpacted && blockingMeshes.length > 0) {
+        const downRay = new THREE.Raycaster(nextPos, new THREE.Vector3(0, -1, 0), 0, 0.45);
+        const floorHits = downRay.intersectObjects(blockingMeshes, true);
+        if (floorHits.length > 0) {
+          hasImpacted = true;
+          impactPos.copy(floorHits[0].point);
+        }
+      }
+
+      // 3. Absolute safety ground floor impact fallback
       if (!hasImpacted && nextPos.y <= groundY + 0.1) {
         hasImpacted = true;
         impactPos.y = groundY + 0.1;
       }
 
-      // Check direct collision with sleeping monsters
+      // 4. Direct proximity collision with sleeping monsters
       if (!hasImpacted) {
         for (const mPos of monsterPositions) {
-          if (nextPos.distanceTo(mPos) <= 0.85) {
+          if (nextPos.distanceTo(mPos) <= 1.1) {
             hasImpacted = true;
             impactPos.copy(mPos);
             break;
@@ -282,7 +292,7 @@ export class GrenadeSystem {
         }
       }
 
-      // Max flight timer
+      // 5. Max flight timer fuse (1.8s) - guarantees grenade ALWAYS explodes even in mid-air
       if (!hasImpacted && p.aliveTime >= p.maxLife) {
         hasImpacted = true;
       }
@@ -290,7 +300,7 @@ export class GrenadeSystem {
       if (hasImpacted) {
         // Detonate!
         scene.remove(p.mesh);
-        this.projectile = null;
+        this.projectiles.splice(i, 1);
         this.spawnExplosion(scene, impactPos);
         p.onExplode(impactPos);
       } else {
@@ -358,10 +368,10 @@ export class GrenadeSystem {
 
   // Reset / Clear all active projectiles and explosion particles
   public reset(scene?: THREE.Scene): void {
-    if (this.projectile) {
-      if (scene) scene.remove(this.projectile.mesh);
-      this.projectile = null;
+    for (const p of this.projectiles) {
+      if (scene) scene.remove(p.mesh);
     }
+    this.projectiles = [];
     for (const exp of this.explosions) {
       if (scene) scene.remove(exp.group);
     }

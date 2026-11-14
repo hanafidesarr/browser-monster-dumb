@@ -3,6 +3,7 @@ export type WeaponId =
   | 'grenade'
   | 'signboard'
   | 'frying_pan'
+  | 'machine_gun'
   | 'slipper'
   | 'chair'
   | 'broom'
@@ -10,7 +11,7 @@ export type WeaponId =
   | 'toy_hammer'
   | 'electric_fan';
 
-export type WeaponSwingType = 'standard' | 'heavy' | 'fast' | 'overhead' | 'throw';
+export type WeaponSwingType = 'standard' | 'heavy' | 'fast' | 'overhead' | 'throw' | 'shoot';
 
 export type WeaponImpactSound =
   | 'bat'
@@ -19,7 +20,8 @@ export type WeaponImpactSound =
   | 'wooden'
   | 'boing'
   | 'fan'
-  | 'explosion';
+  | 'explosion'
+  | 'gunshot';
 
 export type MonsterReactionType =
   | 'snap'
@@ -73,14 +75,14 @@ export const ALL_WEAPONS: WeaponDefinition[] = [
     monsterReaction: 'surprise',
   },
   {
-    id: 'slipper',
-    name: 'Giant Slipper',
-    nameId: 'Sandal Jepit Raksasa',
-    description: 'Sandal karet legendaris berukuran raksasa. Menghasilkan suara plak komedi!',
+    id: 'machine_gun',
+    name: 'Machine Gun',
+    nameId: 'Senapan Mesin',
+    description: 'Senapan serbu otomatis berkekuatan tinggi. Tembak monster dari kejauhan!',
     swingDuration: 0.28,
-    swingType: 'fast',
-    impactSound: 'slap',
-    monsterReaction: 'slap',
+    swingType: 'shoot',
+    impactSound: 'gunshot',
+    monsterReaction: 'stagger',
   },
   {
     id: 'chair',
@@ -142,7 +144,10 @@ export const WEAPON_MAP: Record<WeaponId, WeaponDefinition> = ALL_WEAPONS.reduce
   {} as Record<WeaponId, WeaponDefinition>
 );
 
-// Backward-compatibility alias for signboard
+// Backward-compatibility aliases for signboard & slipper
 if (WEAPON_MAP['grenade']) {
   WEAPON_MAP['signboard'] = WEAPON_MAP['grenade'];
+}
+if (WEAPON_MAP['machine_gun']) {
+  WEAPON_MAP['slipper'] = WEAPON_MAP['machine_gun'];
 }

@@ -269,7 +269,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     monsterCount: 1,
     weaponPickups: [
       { weaponId: 'grenade', x: 16, z: 4 },
-      { weaponId: 'slipper', x: 4, z: 16 },
+      { weaponId: 'machine_gun', x: 4, z: 16 },
     ],
     monsterConfig: {
       detectionFovDeg: 90,
@@ -562,7 +562,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       { id: 'l8_bridge_2', floor: 2, startCell: { x: 9, z: 14 }, endCell: { x: 12, z: 14 }, type: 'broken' },
     ],
     weaponPickups: [
-      { weaponId: 'slipper', x: 18, z: 2 },
+      { weaponId: 'machine_gun', x: 18, z: 2 },
     ],
     monsterConfig: {
       detectionFovDeg: 96,

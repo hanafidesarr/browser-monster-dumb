@@ -39,6 +39,9 @@ export class WeaponController {
     } else if (weaponId === 'grenade' || weaponId === 'signboard') {
       this.defaultPos.set(0.28, -0.26, -0.42);
       this.defaultRot.set(0.15, -0.2, 0.1);
+    } else if (weaponId === 'machine_gun' || weaponId === 'slipper') {
+      this.defaultPos.set(0.24, -0.22, -0.48);
+      this.defaultRot.set(0.04, -0.04, 0.02);
     } else if (weaponId === 'electric_fan') {
       this.defaultPos.set(0.33, -0.28, -0.5);
       this.defaultRot.set(0.2, -0.3, 0.15);
@@ -93,6 +96,8 @@ export class WeaponController {
     if (this.weaponMesh) {
       this.weaponMesh.position.copy(this.defaultPos);
       this.weaponMesh.rotation.copy(this.defaultRot);
+      const muzzleFlash = this.weaponMesh.getObjectByName('MuzzleFlash');
+      if (muzzleFlash) muzzleFlash.visible = false;
     }
   }
 
@@ -104,7 +109,8 @@ export class WeaponController {
     if (this.isSwinging) {
       this.swingProgress += dt / duration;
 
-      if (this.swingProgress >= 0.46 && !this.hitTriggered) {
+      const hitThreshold = def.swingType === 'shoot' ? 0.04 : (def.swingType === 'throw' ? 0.36 : 0.46);
+      if (this.swingProgress >= hitThreshold && !this.hitTriggered) {
         this.hitTriggered = true;
         if (this.onHitCallback) {
           this.onHitCallback();
@@ -112,7 +118,40 @@ export class WeaponController {
       }
 
       // Specialized Swing Animation Curves per weapon swingType
-      if (def.swingType === 'overhead') {
+      if (def.swingType === 'shoot') {
+        // Fast gun recoil and recovery
+        const muzzleFlash = this.weaponMesh.getObjectByName('MuzzleFlash');
+        if (this.swingProgress < 0.25) {
+          const t = this.swingProgress / 0.25;
+          this.weaponMesh.position.set(
+            this.defaultPos.x,
+            this.defaultPos.y + t * 0.035,
+            this.defaultPos.z + t * 0.075
+          );
+          this.weaponMesh.rotation.set(
+            this.defaultRot.x - t * 0.18,
+            this.defaultRot.y,
+            this.defaultRot.z
+          );
+          if (muzzleFlash) muzzleFlash.visible = true;
+        } else if (this.swingProgress <= 1.0) {
+          const t = (this.swingProgress - 0.25) / 0.75;
+          this.weaponMesh.position.lerpVectors(
+            new THREE.Vector3(this.defaultPos.x, this.defaultPos.y + 0.035, this.defaultPos.z + 0.075),
+            this.defaultPos,
+            t
+          );
+          this.weaponMesh.rotation.x = THREE.MathUtils.lerp(this.defaultRot.x - 0.18, this.defaultRot.x, t);
+          this.weaponMesh.rotation.y = this.defaultRot.y;
+          this.weaponMesh.rotation.z = this.defaultRot.z;
+          if (muzzleFlash) muzzleFlash.visible = false;
+        } else {
+          this.isSwinging = false;
+          this.weaponMesh.position.copy(this.defaultPos);
+          this.weaponMesh.rotation.copy(this.defaultRot);
+          if (muzzleFlash) muzzleFlash.visible = false;
+        }
+      } else if (def.swingType === 'overhead') {
         // Wooden Chair: Raise high above head, then crash downwards violently!
         if (this.swingProgress < 0.32) {
           const t = this.swingProgress / 0.32;
@@ -200,28 +239,62 @@ export class WeaponController {
           this.weaponMesh.rotation.copy(this.defaultRot);
         }
       } else if (def.swingType === 'throw') {
-        // Hand Grenade: Cock arm back, then thrust forward to launch!
-        if (this.swingProgress < 0.28) {
-          const t = this.swingProgress / 0.28;
-          this.weaponMesh.position.set(0.28 + t * 0.08, -0.26 + t * 0.12, -0.42 + t * 0.15);
-          this.weaponMesh.rotation.set(0.15 - t * 0.5, -0.2 + t * 0.15, 0.1 + t * 0.2);
-        } else if (this.swingProgress < 0.52) {
-          const t = (this.swingProgress - 0.28) / 0.24;
+        // Hand Grenade: Authentic FPS Throw Animation with Forward Thrust & Weapon Draw
+        if (this.swingProgress < 0.18) {
+          // 1. Wind-up / Cock arm back
+          const t = this.swingProgress / 0.18;
+          this.weaponMesh.visible = true;
           this.weaponMesh.position.set(
-            THREE.MathUtils.lerp(0.36, 0.12, t),
-            THREE.MathUtils.lerp(-0.14, -0.36, t),
-            THREE.MathUtils.lerp(-0.27, -0.68, t)
+            THREE.MathUtils.lerp(this.defaultPos.x, 0.34, t),
+            THREE.MathUtils.lerp(this.defaultPos.y, -0.30, t),
+            THREE.MathUtils.lerp(this.defaultPos.z, -0.32, t)
           );
           this.weaponMesh.rotation.set(
-            THREE.MathUtils.lerp(-0.35, 0.95, t),
-            THREE.MathUtils.lerp(-0.05, -0.35, t),
-            THREE.MathUtils.lerp(0.3, -0.2, t)
+            THREE.MathUtils.lerp(this.defaultRot.x, -0.45, t),
+            THREE.MathUtils.lerp(this.defaultRot.y, -0.35, t),
+            THREE.MathUtils.lerp(this.defaultRot.z, 0.35, t)
           );
-        } else {
-          // Grenade has left player's hand! Temporarily hide viewmodel mesh until resolved
+        } else if (this.swingProgress < 0.40) {
+          // 2. Powerful forward throw thrust towards crosshair center
+          const t = (this.swingProgress - 0.18) / 0.22;
+          const ease = t * t * (3 - 2 * t);
+          this.weaponMesh.visible = true;
+          this.weaponMesh.position.set(
+            THREE.MathUtils.lerp(0.34, 0.08, ease),
+            THREE.MathUtils.lerp(-0.30, -0.06, ease),
+            THREE.MathUtils.lerp(-0.32, -0.82, ease)
+          );
+          this.weaponMesh.rotation.set(
+            THREE.MathUtils.lerp(-0.45, 1.25, ease),
+            THREE.MathUtils.lerp(-0.35, -0.10, ease),
+            THREE.MathUtils.lerp(0.35, -0.25, ease)
+          );
+        } else if (this.swingProgress < 0.60) {
+          // 3. Grenade has left hand into 3D world (viewmodel empty during flight)
           this.weaponMesh.visible = false;
-          if (this.swingProgress >= 1.0) {
-            this.isSwinging = false;
+        } else if (this.swingProgress <= 1.0) {
+          // 4. Draw fresh grenade up from below screen (FPS weapon draw)
+          if (!this.isAttackDisabled) {
+            this.weaponMesh.visible = true;
+            const t = (this.swingProgress - 0.60) / 0.40;
+            const ease = 1 - Math.pow(1 - t, 2);
+            this.weaponMesh.position.set(
+              this.defaultPos.x,
+              THREE.MathUtils.lerp(-0.62, this.defaultPos.y, ease),
+              THREE.MathUtils.lerp(-0.55, this.defaultPos.z, ease)
+            );
+            this.weaponMesh.rotation.set(
+              THREE.MathUtils.lerp(0.55, this.defaultRot.x, ease),
+              THREE.MathUtils.lerp(-0.10, this.defaultRot.y, ease),
+              THREE.MathUtils.lerp(0.0, this.defaultRot.z, ease)
+            );
+          }
+        } else {
+          this.isSwinging = false;
+          if (!this.isAttackDisabled) {
+            this.weaponMesh.visible = true;
+            this.weaponMesh.position.copy(this.defaultPos);
+            this.weaponMesh.rotation.copy(this.defaultRot);
           }
         }
       } else {

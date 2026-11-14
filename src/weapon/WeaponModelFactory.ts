@@ -190,43 +190,129 @@ export class WeaponModelFactory {
     return group;
   }
 
-  // 4. Giant Slipper
-  private static createSlipperModel(): THREE.Group {
+  // 4. Machine Gun / Submachine Gun
+  public static createMachineGunModel(): THREE.Group {
     const group = new THREE.Group();
-    group.name = 'GiantSlipperMesh';
+    group.name = 'MachineGunMesh';
 
-    const soleTex = this.getOrCreateTexture('slipper_sole', (ctx, size) => {
-      ctx.fillStyle = '#0284c7'; // Sky blue
+    const gunTex = this.getOrCreateTexture('gun_metal', (ctx, size) => {
+      ctx.fillStyle = '#22252a'; // Tactical matte dark gunmetal
       ctx.fillRect(0, 0, size, size);
-      ctx.fillStyle = '#38bdf8';
-      ctx.fillRect(0, size * 0.4, size, size * 0.2);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, size * 0.85, size, size * 0.15); // White sole base
+
+      // Subtle metallic ridges & accents
+      ctx.fillStyle = '#31363e';
+      ctx.fillRect(0, 10, size, 12);
+      ctx.fillRect(0, 36, size, 8);
+      ctx.fillRect(0, 70, size, 14);
+
+      // Scratch lines
+      ctx.strokeStyle = '#3e444e';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 20; i++) {
+        const y = Math.random() * size;
+        ctx.beginPath();
+        ctx.moveTo(10, y);
+        ctx.lineTo(size - 10, y);
+        ctx.stroke();
+      }
     });
 
-    const soleMat = new THREE.MeshLambertMaterial({ map: soleTex, roughness: 0.7 });
-    const sole = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.55, 0.06), soleMat);
-    sole.position.set(0, 0.12, 0);
-    group.add(sole);
+    const gunMat = new THREE.MeshLambertMaterial({ map: gunTex, roughness: 0.6 });
+    const darkMat = new THREE.MeshLambertMaterial({ color: 0x181a1d, roughness: 0.8 });
+    const metalMat = new THREE.MeshLambertMaterial({ color: 0x474b53, roughness: 0.4 });
 
-    // Rubber V-straps (White straps)
-    const strapMat = new THREE.MeshLambertMaterial({ color: 0xffffff, roughness: 0.5 });
-    const strapL = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.22, 8), strapMat);
-    strapL.position.set(-0.06, 0.16, 0.05);
-    strapL.rotation.set(-0.3, 0, 0.45);
-    group.add(strapL);
+    // Main Receiver / Body
+    const receiver = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.16, 0.48), gunMat);
+    receiver.position.set(0, 0.08, -0.05);
+    group.add(receiver);
 
-    const strapR = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.22, 8), strapMat);
-    strapR.position.set(0.06, 0.16, 0.05);
-    strapR.rotation.set(-0.3, 0, -0.45);
-    group.add(strapR);
+    // Upper Receiver / Top Rail
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.42), darkMat);
+    rail.position.set(0, 0.18, -0.05);
+    group.add(rail);
 
-    // Center toe plug
-    const toePlug = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.06, 8), strapMat);
-    toePlug.position.set(0, 0.26, 0.04);
-    group.add(toePlug);
+    // Front Iron Sight
+    const frontSight = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.03), darkMat);
+    frontSight.position.set(0, 0.22, -0.24);
+    group.add(frontSight);
+
+    // Rear Sight
+    const rearSight = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.04), darkMat);
+    rearSight.position.set(0, 0.21, 0.12);
+    group.add(rearSight);
+
+    // Long Barrel Shroud
+    const barrelShroud = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.042, 0.38, 8), metalMat);
+    barrelShroud.rotateX(Math.PI / 2);
+    barrelShroud.position.set(0, 0.08, -0.42);
+    group.add(barrelShroud);
+
+    // Inner Barrel Tip / Flash Hider
+    const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.10, 8), darkMat);
+    muzzle.rotateX(Math.PI / 2);
+    muzzle.position.set(0, 0.08, -0.65);
+    group.add(muzzle);
+
+    // Curved Banana Magazine
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.32, 0.11), darkMat);
+    mag.position.set(0, -0.12, -0.10);
+    mag.rotation.x = 0.22;
+    group.add(mag);
+
+    // Tactical Pistol Grip
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.08), darkMat);
+    grip.position.set(0, -0.10, 0.12);
+    grip.rotation.x = -0.32;
+    group.add(grip);
+
+    // Trigger Guard
+    const triggerGuard = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.01, 6, 8, Math.PI), darkMat);
+    triggerGuard.position.set(0, -0.04, 0.06);
+    triggerGuard.rotation.y = Math.PI / 2;
+    group.add(triggerGuard);
+
+    // Tactical Stock
+    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.30), darkMat);
+    stock.position.set(0, 0.05, 0.30);
+    group.add(stock);
+
+    // Muzzle Flash Mesh (hidden by default, toggled during firing)
+    const flashMat = new THREE.MeshBasicMaterial({
+      color: 0xffe066,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+    });
+    const flashGroup = new THREE.Group();
+    flashGroup.name = 'MuzzleFlash';
+    flashGroup.position.set(0, 0.08, -0.72);
+    flashGroup.visible = false;
+
+    // Cross star spikes for muzzle flash
+    const flashSpike1 = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 5), flashMat);
+    flashSpike1.rotateX(-Math.PI / 2);
+    flashGroup.add(flashSpike1);
+
+    const flashSpike2 = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 5), flashMat);
+    flashSpike2.rotateY(Math.PI / 2);
+    flashGroup.add(flashSpike2);
+
+    const flashSpike3 = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 5), flashMat);
+    flashSpike3.rotateY(-Math.PI / 2);
+    flashGroup.add(flashSpike3);
+
+    const flashSpike4 = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 5), flashMat);
+    flashSpike4.rotateZ(Math.PI / 2);
+    flashGroup.add(flashSpike4);
+
+    group.add(flashGroup);
 
     return group;
+  }
+
+  // Legacy alias for Slipper pointing to Machine Gun
+  private static createSlipperModel(): THREE.Group {
+    return this.createMachineGunModel();
   }
 
   // 5. Wooden Chair
@@ -448,8 +534,9 @@ export class WeaponModelFactory {
       case 'frying_pan':
         mesh = this.createFryingPanModel();
         break;
+      case 'machine_gun':
       case 'slipper':
-        mesh = this.createSlipperModel();
+        mesh = this.createMachineGunModel();
         break;
       case 'chair':
         mesh = this.createChairModel();

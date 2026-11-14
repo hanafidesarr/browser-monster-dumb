@@ -432,7 +432,7 @@ export class GameManager {
 
   private getThemeFogColor(): number {
     switch (this.currentLevelDef.theme) {
-      case 'banana_garden': return 0x101416;
+      case 'banana_garden': return 0x242e29; // Matched to school (Level 2)
       case 'school': return 0x242e29;
       case 'labyrinth': return 0x1c2126;
       case 'hospital': return 0x1f2e29;
@@ -513,7 +513,8 @@ export class GameManager {
 
         const currentWeaponId = this.fpController.weapon.getWeaponId();
         const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
-        const actionVerb = isGrenade ? 'LEMPAR' : 'PUKUL';
+        const isMachineGun = currentWeaponId === 'machine_gun' || currentWeaponId === 'slipper';
+        const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : 'PUKUL');
         UIManager.getInstance().showGameplayHUD(actionVerb);
 
         const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
@@ -523,12 +524,16 @@ export class GameManager {
         if (this.currentLevelDef.exitLockedInitially) {
           if (isGrenade) {
             UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
+          } else if (isMachineGun) {
+            UIManager.getInstance().setStatusText(`TEMBAK ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
           } else {
             UIManager.getInstance().setStatusText(`PUKUL ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
           }
         } else {
           if (isGrenade) {
             UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ARAH ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERKENA LEDAKAN.`);
+          } else if (isMachineGun) {
+            UIManager.getInstance().setStatusText(`CARI & TEMBAK ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH TERTEMBAK.`);
           } else {
             UIManager.getInstance().setStatusText(`CARI & PUKUL ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`);
           }
@@ -543,14 +548,22 @@ export class GameManager {
 
     const currentWeaponId = this.fpController.weapon.getWeaponId();
     const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
+    const isMachineGun = currentWeaponId === 'machine_gun' || currentWeaponId === 'slipper';
+
+    // Ranged Firearm: Machine Gun
+    if (isMachineGun) {
+      const weaponDef = this.fpController.weapon.getWeaponDef();
+      this.handleMachineGunShot(weaponDef);
+      return;
+    }
 
     // Ranged Throwable: Hand Grenade
     if (isGrenade) {
-      if (GrenadeSystem.getInstance().isGrenadeInFlight()) return;
-
       const weaponDef = this.fpController.weapon.getWeaponDef();
+      // Reset viewmodel so previous throw animation never blocks or drops inputs
+      this.fpController.weapon.reset();
       this.fpController.weapon.swing(() => {
-        // Projectile launched from hand into 3D world
+        // Projectile launched from hand into 3D world at exact hand release moment!
         GrenadeSystem.getInstance().throwGrenade(
           this.scene,
           this.fpController.camera,
@@ -628,6 +641,97 @@ export class GameManager {
     }
   }
 
+  // Handle Ranged Firearm Shot (Machine Gun)
+  private handleMachineGunShot(weaponDef: WeaponDefinition): void {
+    if (this.state !== 'STEALTH' || this.isAttackSuccessful) return;
+
+    // Trigger weapon recoil swing animation
+    this.fpController.weapon.swing(() => {});
+
+    // Trace bullet ray from camera
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), this.fpController.camera);
+    raycaster.far = 40.0;
+
+    const blocking = this.levelBuild ? this.levelBuild.blockingMeshes : [];
+    const wallIntersects = raycaster.intersectObjects(blocking, true);
+    const maxRayDist = wallIntersects.length > 0 ? wallIntersects[0].distance : 40.0;
+
+    let hitMonster: MonsterController | null = null;
+    let closestDist = maxRayDist;
+
+    const ray = raycaster.ray;
+    for (const m of this.monsters) {
+      if (!m.canInteractWithMonster(this.fpController.position, blocking, this.fpController.currentFloor)) {
+        continue;
+      }
+
+      // 1. Direct mesh raycast
+      const monsterHits = raycaster.intersectObjects(m.group.children, true);
+      if (monsterHits.length > 0 && monsterHits[0].distance <= maxRayDist) {
+        if (monsterHits[0].distance < closestDist) {
+          closestDist = monsterHits[0].distance;
+          hitMonster = m;
+        }
+        continue;
+      }
+
+      // 2. Point-to-ray proximity tolerance for forgiving, responsive aim
+      const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : 0.9;
+      const monsterCenter = new THREE.Vector3(m.position.x, m.position.y + monsterCenterY, m.position.z);
+      const toMonster = new THREE.Vector3().subVectors(monsterCenter, ray.origin);
+      const distAlongRay = toMonster.dot(ray.direction);
+
+      if (distAlongRay > 0 && distAlongRay <= maxRayDist) {
+        const closestPointOnRay = new THREE.Vector3().copy(ray.origin).addScaledVector(ray.direction, distAlongRay);
+        const perpDist = closestPointOnRay.distanceTo(monsterCenter);
+        if (perpDist <= 0.85 && distAlongRay < closestDist) {
+          closestDist = distAlongRay;
+          hitMonster = m;
+        }
+      }
+    }
+
+    if (hitMonster) {
+      this.state = 'ATTACK';
+      this.isAttackSuccessful = true;
+
+      // Reveal exit door
+      if (this.levelBuild?.exitDoorMesh) {
+        this.levelBuild.exitDoorMesh.visible = true;
+      }
+
+      // Clear obstacle & switch mobile controls to SPRINT
+      this.fpController.setMonsterObstacle(null);
+      UIManager.getInstance().switchToChaseControls();
+
+      // Permanently disable attack now that monster has been shot
+      this.fpController.weapon.disableAttackPermanently();
+
+      // Trigger hit reaction with gunshot sound, scream, and knockback away from player (1.8m)
+      hitMonster.triggerWeaponHit(weaponDef, this.fpController.position, 1.8);
+      this.triggerScreenShake(0.5);
+
+      const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
+      if (this.currentLevelDef.exitLockedInitially) {
+        UIManager.getInstance().setStatusText(`${monsterName} TERKENA TEMBAKAN! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`);
+      } else {
+        UIManager.getInstance().setStatusText(`${monsterName} TERKENA TEMBAKAN & PINTU EXIT TELAH MUNCUL! CEPAT LARI MENUJU PINTU EXIT!`);
+      }
+    } else {
+      // Missed shot: Screen shake & notify player to aim at the monster
+      this.triggerScreenShake(0.2);
+      const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
+      const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
+      UIManager.getInstance().setStatusText(`TEMBAKAN MELESET! ARAHKAN KE ${monsterName} DAN TEMBAK LAGI!`);
+      setTimeout(() => {
+        if (this.state === 'STEALTH') {
+          UIManager.getInstance().setStatusText(`TEMBAK ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERTEMBAK.`);
+        }
+      }, 1800);
+    }
+  }
+
   // Handle Grenade Detonation Blast: Impact on Monster vs Miss
   private handleGrenadeDetonation(impactPos: THREE.Vector3, weaponDef: WeaponDefinition): void {
     if (this.state !== 'STEALTH') return;
@@ -665,8 +769,8 @@ export class GameManager {
       this.fpController.weapon.disableAttackPermanently();
       this.fpController.weapon.setVisible(false);
 
-      // Trigger hit reaction, explosion impact, and scream
-      hitMonster.triggerWeaponHit(weaponDef);
+      // Trigger hit reaction, explosion impact, scream, and directional knockback (2.2m away from blast!)
+      hitMonster.triggerWeaponHit(weaponDef, impactPos, 2.2);
       this.triggerScreenShake(0.65);
 
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
@@ -985,19 +1089,19 @@ export class GameManager {
 
         const currentWeaponId = this.fpController.weapon.getWeaponId();
         const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
-        const actionVerb = isGrenade ? 'LEMPAR' : 'PUKUL';
+        const isMachineGun = currentWeaponId === 'machine_gun' || currentWeaponId === 'slipper';
+        const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : 'PUKUL');
 
-        if (isGrenade) {
-          const isFlying = GrenadeSystem.getInstance().isGrenadeInFlight();
+        if (isGrenade || isMachineGun) {
           const target = nearestAttackableMonster || nearestMonster;
-          const alertDist = target?.levelDef?.monsterConfig?.detectionDistance || 9.5;
+          const alertDist = isMachineGun ? 25.0 : 18.0;
           const floorHeight = this.levelBuild?.floorHeight || 3.8;
           const monsterFloor = target ? Math.max(0, Math.round(target.position.y / floorHeight)) : 0;
           const sameFloor = target
             ? (this.fpController.currentFloor === monsterFloor || Math.abs(this.fpController.position.y - target.position.y) < 2.5)
             : false;
           const isNearMonster = nearestDist <= alertDist && sameFloor;
-          canAttackAny = !isFlying && isNearMonster;
+          canAttackAny = isNearMonster;
         }
 
         const targetMonster = nearestAttackableMonster || nearestMonster;
@@ -1240,7 +1344,8 @@ export class GameManager {
     this.fpController.weapon.setWeapon(pickup.weaponId);
 
     const isGrenade = pickup.weaponId === 'grenade' || pickup.weaponId === 'signboard';
-    const actionVerb = isGrenade ? 'LEMPAR' : 'PUKUL';
+    const isMachineGun = pickup.weaponId === 'machine_gun' || pickup.weaponId === 'slipper';
+    const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : 'PUKUL');
     UIManager.getInstance().showGameplayHUD(actionVerb);
 
     // Hide all other world pickups of the same weapon ID in the active level environment

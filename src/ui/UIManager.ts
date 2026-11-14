@@ -152,7 +152,8 @@ export class UIManager {
       grenade: '&#128163;',
       signboard: '&#128163;',
       frying_pan: '&#127859;',
-      slipper: '&#128094;',
+      machine_gun: '&#128299;',
+      slipper: '&#128299;',
       chair: '&#129681;',
       broom: '&#129529;',
       spatula: '&#127860;',
@@ -328,8 +329,9 @@ export class UIManager {
 
   public setAttackPromptVisible(visible: boolean, monsterName: string = 'POCONG', actionVerb: string = 'PUKUL'): void {
     const isThrow = actionVerb === 'LEMPAR';
-    const btnText = isThrow ? 'LEMPAR!' : 'PUKUL!';
-    const btnTextIdle = isThrow ? 'LEMPAR' : 'PUKUL';
+    const isShoot = actionVerb === 'TEMBAK';
+    const btnText = isThrow ? 'LEMPAR!' : (isShoot ? 'TEMBAK!' : 'PUKUL!');
+    const btnTextIdle = isThrow ? 'LEMPAR' : (isShoot ? 'TEMBAK' : 'PUKUL');
 
     // 1. Alert banner on screen is completely removed per user request (desktopAttackPrompt remains permanently hidden)
     if (this.desktopAttackPrompt) {

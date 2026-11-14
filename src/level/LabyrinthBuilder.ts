@@ -125,20 +125,20 @@ export class LabyrinthBuilder {
     const starfield = new THREE.Points(starGeo, starMat);
     rootGroup.add(starfield);
 
-    // Haunted Banana Garden (Level 1) Atmospheric Night Lighting:
-    // Neutral pale moonlight and dark night tones without any artificial blue tint
-    const skyLight = new THREE.DirectionalLight(0xd4d8dc, 0.75);
+    // Haunted Banana Garden (Level 1) Atmospheric Lighting:
+    // Brightness matched to Level 2 (School) for clear navigation and vivid visibility
+    const skyLight = new THREE.DirectionalLight(0xd6e5d8, 1.8);
     skyLight.position.set(halfWidth * 0.8, 55, -halfHeight * 0.85);
     skyLight.target.position.set(0, 0, 0);
     rootGroup.add(skyLight);
     rootGroup.add(skyLight.target);
 
-    // Subtle dark neutral ambient fill so shadows are deep but navigation is never pitch black
-    const ambientLight = new THREE.AmbientLight(0x222426, 0.65);
+    // Bright ambient fill matching Level 2
+    const ambientLight = new THREE.AmbientLight(0x3d4740, 2.2);
     rootGroup.add(ambientLight);
 
-    // Soft neutral sky vs dark earth bounce
-    const hemiLight = new THREE.HemisphereLight(0x35383b, 0x181a18, 0.45);
+    // Complementary sky vs earth bounce light
+    const hemiLight = new THREE.HemisphereLight(0xd6e5d8, 0x2d3630, 0.95);
     rootGroup.add(hemiLight);
 
     // 3. Spawns & Clearings Calculation
