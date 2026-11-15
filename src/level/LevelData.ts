@@ -114,18 +114,24 @@ const LEVEL_2_GRID = create21x21Grid((g) => {
   }
 });
 
-// 3. LEVEL 3: THE LABYRINTH (Brutalist concrete maze with intricate tight turns)
-const LEVEL_3_GRID = create21x21Grid((g) => {
-  for (let z = 3; z <= 17; z += 3) {
-    for (let x = 2; x <= 18; x++) {
-      if ((x + z) % 4 !== 0) {
-        g[z][x] = 1;
-      }
-    }
-  }
-  for (let x = 1; x < 20; x++) g[10][x] = 0;
-  for (let z = 1; z < 20; z++) g[z][10] = 0;
-});
+// 3. LEVEL 3: THE LABYRINTH (Original 15x15 single-path concrete labyrinth)
+const LEVEL_3_GRID: number[][] = [
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1], // (1,1): Player Spawn, facing +X (East)
+  [1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
+  [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1],
+  [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1], // (1,5): Weapon Pickup
+  [1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1], // (7,7): Monster Pocong
+  [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+  [1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1],
+  [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1],
+  [1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
+  [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1], // (13,13): Exit Door
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+];
 
 // 4. LEVEL 4: THE HOSPITAL (Wards, corridors, nurse station, patient beds)
 const LEVEL_4_GRID = create21x21Grid((g) => {
@@ -219,6 +225,8 @@ const LEVEL_9_GRID = create21x21Grid((g) => {
   }
   for (let x = 2; x <= 6; x++) { if (x !== 4) { g[4][x] = 1; g[16][x] = 1; } }
   for (let x = 14; x <= 18; x++) { if (x !== 16) { g[4][x] = 1; g[16][x] = 1; } }
+  // Ensure player spawn corridor is completely open and free to navigate
+  g[4][3] = 0;
 });
 
 // 10. LEVEL 10: THE NIGHTMARE (Climax surreal abyss maze)
@@ -331,40 +339,37 @@ export const ALL_LEVELS: LevelDefinition[] = [
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
   },
 
-  // LEVEL 3: THE LABYRINTH (2 FLOORS)
+  // LEVEL 3: THE LABYRINTH (1 FLOOR - PURE CONCRETE LABYRINTH)
   {
     id: 3,
     title: 'THE LABYRINTH',
-    subtitle: 'SECTOR 03 — CONCRETE UNDERGROUND (2 FLOORS)',
-    description: 'Labirin beton 2 tingkat dengan jembatan kayu goyang (Unstable Bridge). Ada Kursi Kayu tergeletak di lorong!',
+    subtitle: 'SECTOR 03 — CONCRETE UNDERGROUND',
+    description: 'Labirin beton murni dengan satu jalur teratur. Temukan senjata dan serang monster untuk membuka pintu keluar.',
     difficultyRating: 3,
     theme: 'labyrinth',
-    gridWidth: 21,
-    gridHeight: 21,
-    cellSize: 3.8,
-    wallHeight: 5.0,
+    gridWidth: 15,
+    gridHeight: 15,
+    cellSize: 3.2,
+    wallHeight: 3.8,
     grid: LEVEL_3_GRID,
-    playerSpawn: { x: 2, z: 2, rotationY: 0 },
-    monsterSpawn: { x: 6, z: 2, rotationY: 0 },
-    exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
-    floorCount: 2,
-    floorHeight: 3.8,
+    playerSpawn: { x: 1, z: 1, rotationY: 0 },
+    monsterSpawn: { x: 7, z: 7, rotationY: Math.PI / 2 },
+    exitDoor: { x: 13, z: 13, normal: { x: 0, z: -1 } },
+    floorCount: 1,
+    floorHeight: 0,
     monsterCount: 1,
-    ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 9, z: 10 }, endCell: { x: 11, z: 10 }, isStair: true },
-    ],
-    bridges: [
-      { id: 'l3_bridge', floor: 1, startCell: { x: 13, z: 10 }, endCell: { x: 16, z: 10 }, type: 'unstable' },
-    ],
+    monsterType: 'pocong',
+    ramps: [],
+    bridges: [],
     weaponPickups: [
-      { weaponId: 'chair', x: 4, z: 16 },
+      { weaponId: 'chair', x: 1, z: 5 },
     ],
     monsterConfig: {
       detectionFovDeg: 90,
       detectionDistance: 10.0,
       reactionDelaySeconds: 0.75,
       rearAttackAngleDeg: 190,
-      attackDistance: 2.4,
+      attackDistance: 2.8,
       chaseSpeed: 5.22, // 87% of player sprint (6.0)
       catchDistance: 1.6,
     },
@@ -593,7 +598,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     cellSize: 3.8,
     wallHeight: 4.8,
     grid: LEVEL_9_GRID,
-    playerSpawn: { x: 3, z: 3, rotationY: 0 },
+    playerSpawn: { x: 3, z: 2, rotationY: 0 },
     monsterSpawn: { x: 4, z: 4, rotationY: 0 },
     exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
     exitLockedInitially: true,

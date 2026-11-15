@@ -1293,24 +1293,77 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Surreal abyss black and deep crimson blood veins
-    ctx.fillStyle = '#100609';
+    // Visible eldritch obsidian stone wall (rich medium-dark slate, not pitch black)
+    ctx.fillStyle = '#4e404a';
     ctx.fillRect(0, 0, size, size);
 
-    // Pulsing blood vein streaks
-    ctx.strokeStyle = '#b81424';
+    // Subtle stone texture mottling
+    ctx.fillStyle = '#564852';
+    for (let i = 0; i < 40; i++) {
+      const rx = (i * 37) % size;
+      const ry = (i * 29) % size;
+      const rw = 12 + (i % 8);
+      const rh = 8 + (i % 6);
+      ctx.fillRect(rx, ry, rw, rh);
+    }
+    ctx.fillStyle = '#443740';
+    for (let i = 0; i < 30; i++) {
+      const rx = (i * 47) % size;
+      const ry = (i * 31) % size;
+      const rw = 10 + (i % 7);
+      const rh = 6 + (i % 5);
+      ctx.fillRect(rx, ry, rw, rh);
+    }
+
+    // Large stone block courses (two 64px tall block rows)
+    // Horizontal mortar groove
+    ctx.fillStyle = '#332830';
+    ctx.fillRect(0, 62, size, 4);
+
+    // Vertical joints (staggered)
+    ctx.fillRect(62, 0, 4, 62);
+    ctx.fillRect(0, 64, 4, 64);
+    ctx.fillRect(124, 64, 4, 64);
+
+    // Block bevel highlights (top and left edges for crisp 3D stone appearance)
+    ctx.strokeStyle = '#685864';
+    ctx.lineWidth = 2;
+    // Top block 1
+    ctx.strokeRect(2, 2, 59, 59);
+    // Top block 2
+    ctx.strokeRect(66, 2, 59, 59);
+    // Bottom block
+    ctx.strokeRect(4, 66, 118, 59);
+
+    // Pulsing glowing crimson nightmare veins & fissures
+    ctx.shadowColor = '#dc2626';
+    ctx.shadowBlur = 8;
+
+    // Primary energy vein
+    ctx.strokeStyle = '#dc2626';
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(0, 15);
-    ctx.bezierCurveTo(45, 60, 80, 20, size, 90);
+    ctx.moveTo(0, 24);
+    ctx.bezierCurveTo(40, 52, 75, 18, size, 85);
     ctx.stroke();
 
-    ctx.strokeStyle = '#e63946';
+    // Hot inner core of primary vein
+    ctx.strokeStyle = '#f87171';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(size, 35);
-    ctx.bezierCurveTo(70, 80, 40, 110, 15, size);
+    ctx.moveTo(0, 24);
+    ctx.bezierCurveTo(40, 52, 75, 18, size, 85);
     ctx.stroke();
+
+    // Secondary fissure
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(size, 40);
+    ctx.bezierCurveTo(75, 75, 50, 100, 20, size);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
@@ -1325,31 +1378,63 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Surreal cosmic void abyss (Level 10 — deep organic crimson veins, no jarring concentric boxes)
-    ctx.fillStyle = '#0a060a';
+    // Visible obsidian stone floor (medium-dark stone slab, bright enough to navigate clearly)
+    ctx.fillStyle = '#463a42';
     ctx.fillRect(0, 0, size, size);
 
-    // Deep pulsating occult veins flowing across the obsidian void
-    ctx.strokeStyle = 'rgba(184, 20, 36, 0.45)';
-    ctx.lineWidth = 5;
+    // Subtle stone slab mottling
+    ctx.fillStyle = '#4f424b';
+    for (let i = 0; i < 35; i++) {
+      const rx = (i * 31) % size;
+      const ry = (i * 43) % size;
+      ctx.fillRect(rx, ry, 14, 10);
+    }
+    ctx.fillStyle = '#3d3239';
+    for (let i = 0; i < 25; i++) {
+      const rx = (i * 53) % size;
+      const ry = (i * 19) % size;
+      ctx.fillRect(rx, ry, 12, 8);
+    }
+
+    // 2x2 large stone slabs (64x64 each, calm and spacious without jarring concentric lines)
+    ctx.fillStyle = '#2d242b';
+    ctx.fillRect(0, 62, size, 4); // horizontal seam
+    ctx.fillRect(62, 0, 4, size); // vertical seam
+
+    // Bevel highlights on slab edges
+    ctx.strokeStyle = '#5a4c55';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(2, 2, 59, 59);     // Top-left slab
+    ctx.strokeRect(66, 2, 59, 59);    // Top-right slab
+    ctx.strokeRect(2, 66, 59, 59);    // Bottom-left slab
+    ctx.strokeRect(66, 66, 59, 59);   // Bottom-right slab
+
+    // Pulsating occult crimson energy veins across the stone floor
+    ctx.shadowColor = '#dc2626';
+    ctx.shadowBlur = 6;
+
+    ctx.strokeStyle = 'rgba(220, 38, 38, 0.55)';
+    ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.moveTo(0, 32);
-    ctx.bezierCurveTo(38, 70, 85, 20, size, 78);
+    ctx.moveTo(0, 35);
+    ctx.bezierCurveTo(42, 65, 80, 25, size, 75);
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(230, 57, 70, 0.35)';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.45)';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(35, 0);
-    ctx.bezierCurveTo(60, 50, 45, 95, 80, size);
+    ctx.moveTo(0, 35);
+    ctx.bezierCurveTo(42, 65, 80, 25, size, 75);
     ctx.stroke();
 
-    // Subtle dark red bio-luminescent glow in the void center
-    const voidGlow = ctx.createRadialGradient(size / 2, size / 2, 8, size / 2, size / 2, 54);
-    voidGlow.addColorStop(0, 'rgba(160, 15, 30, 0.25)');
-    voidGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = voidGlow;
-    ctx.fillRect(0, 0, size, size);
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(40, 0);
+    ctx.bezierCurveTo(55, 45, 50, 85, 75, size);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;

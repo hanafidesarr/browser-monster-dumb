@@ -537,11 +537,6 @@ export class UIManager {
       startBtn.addEventListener('touchend', onStart);
     }
 
-    document.getElementById('btn-overview-settings')?.addEventListener('click', () => {
-      audio.playUiClick();
-      this.showSettings('overview');
-    });
-
     document.getElementById('btn-overview-back')?.addEventListener('click', () => {
       audio.playUiClick();
       this.showMainMenu();

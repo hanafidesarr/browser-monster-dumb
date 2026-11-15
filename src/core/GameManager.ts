@@ -446,15 +446,15 @@ export class GameManager {
     switch (this.currentLevelDef.theme) {
       case 'banana_garden': return 0x242e29; // Matched to school (Level 2)
       case 'school': return 0x242e29;
-      case 'labyrinth': return 0x1c2126;
-      case 'hospital': return 0x1f2e29;
-      case 'sewer': return 0x142116;
-      case 'factory': return 0x261e16;
-      case 'hotel': return 0x2b171a;
-      case 'subway': return 0x182026;
-      case 'research_facility': return 0x15222b;
-      case 'nightmare': return 0x21060c;
-      default: return 0x101416;
+      case 'labyrinth': return 0x262f33; // Bright clean tone matching Level 2
+      case 'hospital': return 0x252e2a;  // Bright clean tone matching Level 2
+      case 'sewer': return 0x272e26;     // Bright fresh tone matching Level 2
+      case 'factory': return 0x2e2924;   // Bright warm tone matching Level 2
+      case 'hotel': return 0x2e2528;     // Bright warm tone matching Level 2
+      case 'subway': return 0x252b30;    // Bright cool tone matching Level 2
+      case 'research_facility': return 0x242c33; // Bright cool tone matching Level 2
+      case 'nightmare': return 0x382c32; // Bright visible tone matching Level 2
+      default: return 0x242e29;
     }
   }
 

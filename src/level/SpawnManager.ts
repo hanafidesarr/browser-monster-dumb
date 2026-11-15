@@ -261,11 +261,11 @@ export class SpawnManager {
       minMonsterMonsterDist: 4.5,
       minMonsterExitDist: 25.0,
       playerCandidates: [
-        { x: 3, z: 3, floor: 0, rotationY: 0 },
-        { x: 3, z: 17, floor: 0, rotationY: 0 },
-        { x: 16, z: 4, floor: 1, rotationY: Math.PI },
-        { x: 5, z: 15, floor: 2, rotationY: 0 },
-        { x: 15, z: 15, floor: 3, rotationY: Math.PI },
+        { x: 3, z: 2, floor: 0, rotationY: 0 },
+        { x: 4, z: 2, floor: 0, rotationY: 0 },
+        { x: 5, z: 2, floor: 0, rotationY: 0 },
+        { x: 2, z: 3, floor: 0, rotationY: 0 },
+        { x: 4, z: 3, floor: 0, rotationY: 0 },
       ],
       monsterCandidates: [
         { x: 4, z: 4, floor: 0, rotationY: 0 },
@@ -371,7 +371,30 @@ export class SpawnManager {
         return false;
       }
 
-      // 2. Cylinder colliders clearance
+      // 2. Interactive switches clearance (Level 9 consoles, never spawn on/near them)
+      if (level.interactiveSwitches && level.interactiveSwitches.length > 0) {
+        for (let i = 0; i < level.interactiveSwitches.length; i++) {
+          const sw = level.interactiveSwitches[i];
+          const swWx = (sw.x + 0.5) * cellSize - halfW;
+          const swWz = (sw.z + 0.5) * cellSize - halfH;
+          const distSq = (pos.x - swWx) ** 2 + (pos.z - swWz) ** 2;
+          if (distSq < (cellSize * 1.5) ** 2) {
+            return false;
+          }
+        }
+      }
+
+      // 3. Grid wall collision check
+      const cellX = Math.floor((pos.x + halfW) / cellSize);
+      const cellZ = Math.floor((pos.z + halfH) / cellSize);
+      if (cellX < 0 || cellX >= gridWidth || cellZ < 0 || cellZ >= gridHeight) {
+        return false;
+      }
+      if (level.grid[cellZ] && level.grid[cellZ][cellX] === 1) {
+        return false;
+      }
+
+      // 4. Cylinder colliders clearance
       const cylinders = collisionConfig?.cylinderColliders || [];
       for (let i = 0; i < cylinders.length; i++) {
         const c = cylinders[i];
@@ -382,7 +405,7 @@ export class SpawnManager {
         }
       }
 
-      // 3. Stairs internal volume check (don't spawn trapped inside ramp body)
+      // 5. Stairs internal volume check (don't spawn trapped inside ramp body)
       const ramps = collisionConfig?.ramps || [];
       for (let i = 0; i < ramps.length; i++) {
         const r = ramps[i];

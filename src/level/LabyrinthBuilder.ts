@@ -525,53 +525,59 @@ export class LabyrinthBuilder {
       case 'labyrinth':
         wallTexture = TextureGenerator.createWallTexture();
         floorTexture = TextureGenerator.createFloorTexture();
-        ambientHex = 0x3a4047;
-        lightHex = 0xd5dde5;
+        ambientHex = 0x3d4740;
+        lightHex = 0xd6e5d8;
+        lightIntensity = 1.8;
         break;
       case 'hospital':
         wallTexture = TextureGenerator.createHospitalWallTexture();
         floorTexture = TextureGenerator.createHospitalFloorTexture();
         ambientHex = 0x3d4e48;
-        lightHex = 0xcde8dc;
+        lightHex = 0xd6e5d8;
+        lightIntensity = 1.8;
         break;
       case 'sewer':
         wallTexture = TextureGenerator.createSewerWallTexture();
         floorTexture = TextureGenerator.createSewerWaterTexture();
-        ambientHex = 0x2b3d2c;
-        lightHex = 0x88b880;
-        lightIntensity = 1.6;
+        ambientHex = 0x3d4840;
+        lightHex = 0xd6e5d8;
+        lightIntensity = 1.8;
         break;
       case 'factory':
         wallTexture = TextureGenerator.createFactoryWallTexture();
         floorTexture = TextureGenerator.createFactoryFloorTexture();
-        ambientHex = 0x473c33;
-        lightHex = 0xf0d5b5;
+        ambientHex = 0x48423c;
+        lightHex = 0xf5ebd8;
+        lightIntensity = 1.8;
         break;
       case 'hotel':
         wallTexture = TextureGenerator.createHotelWallTexture();
         floorTexture = TextureGenerator.createHotelCarpetTexture();
-        ambientHex = 0x4d2a2e;
-        lightHex = 0xf5dfbe;
+        ambientHex = 0x463c3f;
+        lightHex = 0xf5ebd8;
+        lightIntensity = 1.8;
         break;
       case 'subway':
         wallTexture = TextureGenerator.createSubwayWallTexture();
         floorTexture = TextureGenerator.createSubwayPlatformTexture();
-        ambientHex = 0x38444d;
-        lightHex = 0xd6e4ed;
+        ambientHex = 0x3d474e;
+        lightHex = 0xdbe4ed;
+        lightIntensity = 1.8;
         break;
       case 'research_facility':
         wallTexture = TextureGenerator.createLabWallTexture();
         floorTexture = TextureGenerator.createLabFloorTexture();
-        ambientHex = 0x334454;
-        lightHex = 0xcee6fa;
+        ambientHex = 0x3c4652;
+        lightHex = 0xdbe8f5;
+        lightIntensity = 1.8;
         break;
       case 'nightmare':
       default:
         wallTexture = TextureGenerator.createNightmareWallTexture();
         floorTexture = TextureGenerator.createNightmareFloorTexture();
-        ambientHex = 0x3d1420;
-        lightHex = 0xff6b7a;
-        lightIntensity = 1.8;
+        ambientHex = 0x54424a;
+        lightHex = 0xffdbe0;
+        lightIntensity = 2.0;
         break;
     }
 
@@ -582,6 +588,10 @@ export class LabyrinthBuilder {
     const dirLight = new THREE.DirectionalLight(lightHex, lightIntensity);
     dirLight.position.set(halfWidth * 0.7, 35, -halfHeight * 0.7);
     rootGroup.add(dirLight);
+
+    // Complementary sky vs earth bounce light matching Level 2
+    const hemiLight = new THREE.HemisphereLight(lightHex, 0x2d3630, 0.95);
+    rootGroup.add(hemiLight);
 
     // 2. Themed Floor & Multi-Floor Platforms with Stairwell Openings
     const floorCount = level.floorCount || 1;
@@ -1432,6 +1442,9 @@ export class LabyrinthBuilder {
     colliders: Array<{ x: number; z: number; radius: number; minY?: number; maxY?: number; label?: string }>,
     selectedSpawns?: SelectedSpawns
   ): void {
+    if (level.theme === 'labyrinth' || level.id === 3) {
+      return;
+    }
     if (level.theme === 'school') {
       this.spawnSchoolLevelProps(level, halfWidth, halfHeight, cellSize, rootGroup, colliders);
       return;
@@ -1441,13 +1454,13 @@ export class LabyrinthBuilder {
 
     // Scan for open corridor cells suitable for props (avoid spawns & exit)
     const isSpawnOrExit = (gx: number, gz: number) => {
-      if (Math.abs(gx - level.playerSpawn.x) <= 1 && Math.abs(gz - level.playerSpawn.z) <= 1) return true;
+      if (Math.abs(gx - level.playerSpawn.x) <= 2 && Math.abs(gz - level.playerSpawn.z) <= 2) return true;
       if (Math.abs(gx - level.monsterSpawn.x) <= 1 && Math.abs(gz - level.monsterSpawn.z) <= 1) return true;
       if (Math.abs(gx - level.exitDoor.x) <= 1 && Math.abs(gz - level.exitDoor.z) <= 1) return true;
       if (selectedSpawns) {
         const pCellX = Math.floor((selectedSpawns.player.x + halfWidth) / cellSize);
         const pCellZ = Math.floor((selectedSpawns.player.z + halfHeight) / cellSize);
-        if (Math.abs(gx - pCellX) <= 1 && Math.abs(gz - pCellZ) <= 1) return true;
+        if (Math.abs(gx - pCellX) <= 2 && Math.abs(gz - pCellZ) <= 2) return true;
         for (const m of selectedSpawns.monsters) {
           const mCellX = Math.floor((m.x + halfWidth) / cellSize);
           const mCellZ = Math.floor((m.z + halfHeight) / cellSize);
@@ -1456,6 +1469,16 @@ export class LabyrinthBuilder {
         const eCellX = Math.floor((selectedSpawns.exit.x + halfWidth) / cellSize);
         const eCellZ = Math.floor((selectedSpawns.exit.z + halfHeight) / cellSize);
         if (Math.abs(gx - eCellX) <= 1 && Math.abs(gz - eCellZ) <= 1) return true;
+      }
+      return false;
+    };
+
+    // Strictly prevent props from spawning near interactive switches
+    const isNearSwitch = (gx: number, gz: number) => {
+      if (level.interactiveSwitches) {
+        for (const sw of level.interactiveSwitches) {
+          if (Math.abs(gx - sw.x) <= 2 && Math.abs(gz - sw.z) <= 2) return true;
+        }
       }
       return false;
     };
@@ -1491,7 +1514,7 @@ export class LabyrinthBuilder {
 
     for (let gz = 2; gz < gridHeight - 2; gz++) {
       for (let gx = 2; gx < gridWidth - 2; gx++) {
-        if (grid[gz][gx] === 0 && !isSpawnOrExit(gx, gz) && !isRampOrBridge(gx, gz)) {
+        if (grid[gz][gx] === 0 && !isSpawnOrExit(gx, gz) && !isRampOrBridge(gx, gz) && !isNearSwitch(gx, gz)) {
           // Probability of prop in room corner/side
           if (propRnd() > 0.82) {
             const wx = (gx + 0.5) * cellSize - halfWidth + (propRnd() - 0.5) * (cellSize * 0.35);
@@ -1795,39 +1818,59 @@ export class LabyrinthBuilder {
     wallHeight: number,
     rootGroup: THREE.Group
   ): void {
-    const lightCoords = [
-      { x: 5, z: 5 },
-      { x: 15, z: 5 },
-      { x: 5, z: 15 },
-      { x: 15, z: 15 },
-      { x: 10, z: 10 },
-      { x: 10, z: 4 },
-      { x: 10, z: 16 },
-      { x: 4, z: 10 },
-      { x: 16, z: 10 },
-    ];
+    const lightCoords =
+      level.gridWidth <= 15 || level.id === 3
+        ? [
+            { x: 1, z: 5 },
+            { x: 5, z: 5 },
+            { x: 7, z: 7 },
+            { x: 7, z: 11 },
+            { x: 9, z: 13 },
+            { x: 13, z: 11 },
+          ]
+        : [
+            { x: 5, z: 5 },
+            { x: 15, z: 5 },
+            { x: 5, z: 15 },
+            { x: 15, z: 15 },
+            { x: 10, z: 10 },
+            { x: 10, z: 4 },
+            { x: 10, z: 16 },
+            { x: 4, z: 10 },
+            { x: 16, z: 10 },
+          ];
 
-    let lightHex = 0xffe4b5;
-    if (level.theme === 'hospital') lightHex = 0xa7f3d0;
-    if (level.theme === 'sewer') lightHex = 0x86efac;
-    if (level.theme === 'factory') lightHex = 0xfde047;
-    if (level.theme === 'subway') lightHex = 0xbfdbfe;
-    if (level.theme === 'research_facility') lightHex = 0x7dd3fc;
-    if (level.theme === 'nightmare') lightHex = 0xf87171;
+    let lightHex = 0xffecd1;
+    if (level.theme === 'school') lightHex = 0xffe4b5;
+    if (level.theme === 'hospital') lightHex = 0xd6f0e6;
+    if (level.theme === 'sewer') lightHex = 0xdaf0d8;
+    if (level.theme === 'factory') lightHex = 0xfff0c4;
+    if (level.theme === 'hotel') lightHex = 0xffecd1;
+    if (level.theme === 'subway') lightHex = 0xdeecf5;
+    if (level.theme === 'research_facility') lightHex = 0xd8eeff;
+    if (level.theme === 'nightmare') lightHex = 0xffd1d6;
 
     lightCoords.forEach((c) => {
       const wx = (c.x + 0.5) * cellSize - halfWidth;
       const wz = (c.z + 0.5) * cellSize - halfHeight;
 
-      const lightGroup = EnvironmentPropFactory.createHangingCageLight(lightHex);
-      lightGroup.position.set(wx, 0, wz);
-      rootGroup.add(lightGroup);
+      if (level.theme === 'labyrinth' || level.id === 3) {
+        // Pure ceiling light without physical prop to preserve 100% clean classic labyrinth corridors
+        const pureLight = new THREE.PointLight(lightHex, 2.2, 12, 1.2);
+        pureLight.position.set(wx, wallHeight * 0.85, wz);
+        rootGroup.add(pureLight);
+      } else {
+        const lightGroup = EnvironmentPropFactory.createHangingCageLight(lightHex);
+        lightGroup.position.set(wx, 0, wz);
+        rootGroup.add(lightGroup);
 
-      if (level.theme === 'school' && level.floorCount && level.floorCount > 1) {
-        // Floor 1 corridor lighting for balanced multi-floor atmosphere
-        const upperLight = EnvironmentPropFactory.createHangingCageLight(lightHex);
-        upperLight.position.set(wx, level.floorHeight || 3.8, wz);
-        rootGroup.add(upperLight);
+        if (level.floorCount && level.floorCount > 1) {
+          for (let f = 1; f < level.floorCount; f++) {
+            const upperLight = EnvironmentPropFactory.createHangingCageLight(lightHex);
+            upperLight.position.set(wx, f * (level.floorHeight || 3.8), wz);
+            rootGroup.add(upperLight);
+          }
+        }
       }
     });
   }

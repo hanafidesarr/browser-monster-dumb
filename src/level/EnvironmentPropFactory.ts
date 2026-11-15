@@ -1149,8 +1149,8 @@ export class EnvironmentPropFactory {
     const group = new THREE.Group();
     group.name = 'AbyssMonolith';
 
-    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x140a10, roughness: 0.95 });
-    const redVeinMat = new THREE.MeshBasicMaterial({ color: 0xb91c1c });
+    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x4a3c46, roughness: 0.85 });
+    const redVeinMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
 
     const pilar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 4.2, 0.7), stoneMat);
     pilar.position.y = 2.1;

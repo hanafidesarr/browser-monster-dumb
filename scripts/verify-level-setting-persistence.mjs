@@ -59,11 +59,6 @@ assert(
   uiCode.includes('SaveManager.getInstance().setCurrentLevel(level.id);'),
   'UIManager: level selection card click updates currentLevel in SaveManager'
 );
-assert(
-  uiCode.includes('btn-overview-settings'),
-  'UIManager: overview settings button is wired'
-);
-
 // 3. Verify GameManager source
 const gmPath = path.resolve(process.cwd(), 'src/core/GameManager.ts');
 const gmCode = fs.readFileSync(gmPath, 'utf8');
@@ -82,8 +77,8 @@ const indexPath = path.resolve(process.cwd(), 'index.html');
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 assert(
-  indexHtml.includes('id="btn-overview-settings"'),
-  'index.html: contains btn-overview-settings in overview actions'
+  !indexHtml.includes('id="btn-overview-settings"'),
+  'index.html: settings button is removed from weapon selection screen per user request'
 );
 
 // 5. Functional Simulation of the Reported Bug:
