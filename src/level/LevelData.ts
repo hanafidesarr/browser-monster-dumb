@@ -244,6 +244,10 @@ const LEVEL_10_GRID = create21x21Grid((g) => {
   for (let z = 17; z <= 19; z++) {
     for (let x = 17; x <= 19; x++) g[z][x] = 0;
   }
+  // Clear all stairways and landings in Level 10 so player never gets trapped
+  for (let x = 2; x <= 18; x++) g[6][x] = 0;
+  for (let z = 8; z <= 12; z++) g[z][17] = 0;
+  for (let x = 5; x <= 15; x++) g[14][x] = 0;
 });
 
 // 10 Distinct Levels with Unique Visual Identity & Progressive Challenge

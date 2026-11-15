@@ -272,7 +272,7 @@ export class FirstPersonController {
     wx: number,
     wz: number,
     wy: number
-  ): { ramp: WorldRamp; t: number; groundY: number; lateralDist: number } | null {
+  ): { ramp: WorldRamp; t: number; groundY: number; lateralDist: number; u: number } | null {
     for (let i = 0; i < this.ramps.length; i++) {
       const ramp = this.ramps[i];
       const minY = Math.min(ramp.startWorld.y, ramp.endWorld.y) - 0.4;
@@ -303,7 +303,7 @@ export class FirstPersonController {
         // or on a lower floor underneath the upper landing, is not mistakenly snapped to the ramp.
         if (Math.abs(wy - expectedCamY) > 1.35) continue;
 
-        return { ramp, t, groundY, lateralDist: Math.abs(v) };
+        return { ramp, t, groundY, lateralDist: Math.abs(v), u };
       }
     }
     return null;
@@ -356,15 +356,17 @@ export class FirstPersonController {
 
     // 4. Stair / Ramp Check (Checked BEFORE upper balustrades and grid walls):
     // If the test position (wx, wz) is on a ramp, the walking slope is completely clear of walls.
-    // Smoothly constrain lateral distance to the inner handrail boundary so player slides along rails.
+    // Smoothly constrain lateral distance to the inner handrail boundary while on the incline flight.
     if (this.ramps.length > 0) {
       const rampInfo = this.findRampForPosition(wx, wz, this.position.y);
       if (rampInfo) {
-        const maxLateral = Math.max(0.4, rampInfo.ramp.width / 2 - this.playerRadius);
-        if (rampInfo.lateralDist > maxLateral) {
-          return true; // Lateral side handrail blocks player from falling off stair edge
+        if (rampInfo.u >= 0.1 && rampInfo.u <= rampInfo.ramp.length - 0.1) {
+          const maxLateral = Math.max(0.4, rampInfo.ramp.width / 2 - this.playerRadius);
+          if (rampInfo.lateralDist > maxLateral) {
+            return true; // Lateral side handrail blocks player from falling off stair edge
+          }
         }
-        return false; // Clear stair walking path! Never get stuck on steps or balustrades!
+        return false; // Clear stair walking path & landings! Never get stuck on steps or balustrades!
       }
     }
 

@@ -65,7 +65,7 @@ export class TextureGenerator {
     return this.setPixelated(tex);
   }
 
-  // PS1 Tiled Industrial Floor
+  // PS1 Weathered Industrial Concrete Slabs (Level 3 — Spacious, calm, no dizzying micro-tiles)
   public static createFloorTexture(): THREE.CanvasTexture {
     const size = 128;
     const canvas = document.createElement('canvas');
@@ -73,38 +73,42 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // 4x4 Tiles
-    const tileSize = size / 4;
-    for (let ty = 0; ty < 4; ty++) {
-      for (let tx = 0; tx < 4; tx++) {
-        const isDark = (tx + ty) % 2 === 0;
-        const base = isDark ? 65 : 82;
-        ctx.fillStyle = `rgb(${base}, ${base - 2}, ${base - 4})`;
-        ctx.fillRect(tx * tileSize, ty * tileSize, tileSize, tileSize);
+    // Base weathered dark concrete tone
+    ctx.fillStyle = '#474c52';
+    ctx.fillRect(0, 0, size, size);
 
-        // Tile inner noise
-        for (let ix = 0; ix < tileSize; ix += 4) {
-          for (let iy = 0; iy < tileSize; iy += 4) {
-            const noise = (Math.random() - 0.5) * 18;
-            const col = Math.max(45, Math.min(115, base + noise));
-            ctx.fillStyle = `rgb(${col}, ${col - 2}, ${col - 4})`;
-            ctx.fillRect(tx * tileSize + ix, ty * tileSize + iy, 4, 4);
-          }
-        }
+    // Large 2x2 concrete floor slabs (spacious 64x64px each)
+    const slabSize = size / 2;
+    for (let ty = 0; ty < 2; ty++) {
+      for (let tx = 0; tx < 2; tx++) {
+        const isAlt = (tx + ty) % 2 === 0;
+        const shade = isAlt ? 72 : 79;
+        ctx.fillStyle = `rgb(${shade}, ${shade + 1}, ${shade + 3})`;
+        ctx.fillRect(tx * slabSize + 2, ty * slabSize + 2, slabSize - 4, slabSize - 4);
+
+        // Subtle large stone grain (soft tonal gradient, not high-frequency noise)
+        const grad = ctx.createLinearGradient(
+          tx * slabSize,
+          ty * slabSize,
+          (tx + 1) * slabSize,
+          (ty + 1) * slabSize
+        );
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0.04)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0.08)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(tx * slabSize + 2, ty * slabSize + 2, slabSize - 4, slabSize - 4);
       }
     }
 
-    // Tile Grout
-    ctx.strokeStyle = '#15171a';
-    ctx.lineWidth = 2;
-    for (let i = 0; i <= size; i += tileSize) {
-      ctx.beginPath();
-      ctx.moveTo(i, 0);
-      ctx.lineTo(i, size);
-      ctx.moveTo(0, i);
-      ctx.lineTo(size, i);
-      ctx.stroke();
-    }
+    // Clean expansion joint seams between slabs
+    ctx.strokeStyle = '#22252a';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(slabSize, 0);
+    ctx.lineTo(slabSize, size);
+    ctx.moveTo(0, slabSize);
+    ctx.lineTo(size, slabSize);
+    ctx.stroke();
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
@@ -804,24 +808,41 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Dull linoleum floor with directional tiles
-    ctx.fillStyle = '#4a5e55';
+    // Spacious medical-grade linoleum floor (Level 4 — 2x2 large panels, soft seams)
+    ctx.fillStyle = '#3f4f48';
     ctx.fillRect(0, 0, size, size);
 
-    ctx.strokeStyle = '#283831';
+    const panelSize = size / 2;
+    for (let py = 0; py < 2; py++) {
+      for (let px = 0; px < 2; px++) {
+        const isAlt = (px + py) % 2 === 0;
+        ctx.fillStyle = isAlt ? '#465850' : '#41524a';
+        ctx.fillRect(px * panelSize + 1, py * panelSize + 1, panelSize - 2, panelSize - 2);
+
+        // Soft sanitary wax sheen
+        const sheen = ctx.createLinearGradient(
+          px * panelSize,
+          py * panelSize,
+          px * panelSize,
+          (py + 1) * panelSize
+        );
+        sheen.addColorStop(0, 'rgba(255, 255, 255, 0.05)');
+        sheen.addColorStop(0.5, 'rgba(255, 255, 255, 0.02)');
+        sheen.addColorStop(1, 'rgba(0, 0, 0, 0.06)');
+        ctx.fillStyle = sheen;
+        ctx.fillRect(px * panelSize + 1, py * panelSize + 1, panelSize - 2, panelSize - 2);
+      }
+    }
+
+    // Clean rubberized expansion seam
+    ctx.strokeStyle = '#222d28';
     ctx.lineWidth = 2;
-    for (let x = 0; x <= size; x += 32) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, size);
-      ctx.stroke();
-    }
-    for (let y = 0; y <= size; y += 32) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(size, y);
-      ctx.stroke();
-    }
+    ctx.beginPath();
+    ctx.moveTo(panelSize, 0);
+    ctx.lineTo(panelSize, size);
+    ctx.moveTo(0, panelSize);
+    ctx.lineTo(size, panelSize);
+    ctx.stroke();
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
@@ -875,21 +896,34 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Murky toxic green-brown sewer effluent
-    ctx.fillStyle = '#1b2d18';
+    // Deep murky toxic water with broad organic fluid eddies (Level 5 — no 4px scanlines)
+    const baseGrad = ctx.createLinearGradient(0, 0, size, size);
+    baseGrad.addColorStop(0, '#152514');
+    baseGrad.addColorStop(0.5, '#1e331c');
+    baseGrad.addColorStop(1, '#182b16');
+    ctx.fillStyle = baseGrad;
     ctx.fillRect(0, 0, size, size);
 
-    for (let y = 0; y < size; y += 4) {
-      const wave = Math.sin(y * 0.2) * 6;
-      ctx.fillStyle = 'rgba(60, 100, 45, 0.4)';
-      ctx.fillRect(0, y + wave, size, 2);
-    }
-
-    // Scum patches
-    ctx.fillStyle = 'rgba(90, 140, 60, 0.3)';
+    // Broad organic fluid ripples
+    ctx.strokeStyle = 'rgba(75, 125, 60, 0.22)';
+    ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.arc(35, 45, 18, 0, Math.PI * 2);
-    ctx.arc(95, 80, 14, 0, Math.PI * 2);
+    ctx.moveTo(0, 25);
+    ctx.bezierCurveTo(45, 10, 85, 45, size, 28);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(60, 105, 50, 0.25)';
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(0, 85);
+    ctx.bezierCurveTo(40, 105, 90, 65, size, 90);
+    ctx.stroke();
+
+    // Soft floating scum clusters (natural large shapes)
+    ctx.fillStyle = 'rgba(95, 145, 65, 0.25)';
+    ctx.beginPath();
+    ctx.ellipse(36, 48, 22, 14, Math.PI / 6, 0, Math.PI * 2);
+    ctx.ellipse(94, 82, 18, 12, -Math.PI / 4, 0, Math.PI * 2);
     ctx.fill();
 
     const tex = new THREE.CanvasTexture(canvas);
@@ -943,21 +977,51 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Steel diamond tread plate / industrial metal
-    ctx.fillStyle = '#3a4048';
+    // Heavy industrial steel deck plates (Level 6 — 2x2 spacious plates, no vibrating dots)
+    ctx.fillStyle = '#30343a';
     ctx.fillRect(0, 0, size, size);
 
-    ctx.fillStyle = '#606a75';
-    for (let y = 4; y < size; y += 12) {
-      for (let x = 4; x < size; x += 12) {
-        ctx.fillRect(x, y, 4, 2);
-        ctx.fillRect(x + 6, y + 6, 4, 2);
+    const half = size / 2;
+    for (let py = 0; py < 2; py++) {
+      for (let px = 0; px < 2; px++) {
+        // Individual steel plate body
+        const plateGrad = ctx.createLinearGradient(
+          px * half,
+          py * half,
+          (px + 1) * half,
+          (py + 1) * half
+        );
+        plateGrad.addColorStop(0, '#424953');
+        plateGrad.addColorStop(0.5, '#3a414a');
+        plateGrad.addColorStop(1, '#2f343b');
+        ctx.fillStyle = plateGrad;
+        ctx.fillRect(px * half + 2, py * half + 2, half - 4, half - 4);
+
+        // Heavy industrial corner mounting rivets
+        ctx.fillStyle = '#647180';
+        ctx.beginPath();
+        ctx.arc(px * half + 8, py * half + 8, 2.5, 0, Math.PI * 2);
+        ctx.arc((px + 1) * half - 8, py * half + 8, 2.5, 0, Math.PI * 2);
+        ctx.arc(px * half + 8, (py + 1) * half - 8, 2.5, 0, Math.PI * 2);
+        ctx.arc((px + 1) * half - 8, (py + 1) * half - 8, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Subtle diamond grip accent in center (broad, calm)
+        ctx.strokeStyle = 'rgba(100, 115, 130, 0.3)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(px * half + 18, py * half + 18, half - 36, half - 36);
       }
     }
 
-    ctx.strokeStyle = '#202428';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(0, 0, size, size);
+    // Heavy welded steel plate border seam
+    ctx.strokeStyle = '#181b1f';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(half, 0);
+    ctx.lineTo(half, size);
+    ctx.moveTo(0, half);
+    ctx.lineTo(size, half);
+    ctx.stroke();
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
@@ -1015,20 +1079,38 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Deep red luxury vintage carpet with ornate border
-    ctx.fillStyle = '#611218';
+    // Rich vintage Victorian hotel carpet (Level 7 — continuous plush damask, no jarring chess squares)
+    ctx.fillStyle = '#4c0e14';
     ctx.fillRect(0, 0, size, size);
 
-    ctx.strokeStyle = '#a87a2d';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(6, 6, size - 12, size - 12);
-    ctx.strokeRect(14, 14, size - 28, size - 28);
+    // Subtle dark wine plush underlay
+    ctx.fillStyle = '#380a0f';
+    for (let y = 0; y < size; y += 32) {
+      for (let x = 0; x < size; x += 32) {
+        if ((x + y) % 64 === 0) {
+          ctx.fillRect(x, y, 32, 32);
+        }
+      }
+    }
 
-    // Center rosette
-    ctx.fillStyle = '#8f2029';
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, 22, 0, Math.PI * 2);
-    ctx.fill();
+    // Elegant damask diamond woven motif (broad, gentle gold/crimson)
+    ctx.strokeStyle = 'rgba(180, 130, 50, 0.35)';
+    ctx.lineWidth = 2;
+    const step = 64;
+    for (let y = 0; y <= size; y += step) {
+      for (let x = 0; x <= size; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x + step / 2, y);
+        ctx.lineTo(x + step, y + step / 2);
+        ctx.lineTo(x + step / 2, y + step);
+        ctx.lineTo(x, y + step / 2);
+        ctx.closePath();
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(160, 25, 40, 0.4)';
+        ctx.fill();
+      }
+    }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
@@ -1082,21 +1164,35 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Concrete platform with tactile hazard yellow warning edge
-    ctx.fillStyle = '#656d73';
+    // Polished subway station granite terrazzo platform (Level 8 — 2x2 large slabs, no repeating yellow lines)
+    ctx.fillStyle = '#4c5359';
     ctx.fillRect(0, 0, size, size);
 
-    // Yellow platform safety edge line
-    ctx.fillStyle = '#eab308';
-    ctx.fillRect(0, 0, size, 20);
+    const half = size / 2;
+    for (let py = 0; py < 2; py++) {
+      for (let px = 0; px < 2; px++) {
+        const isAlt = (px + py) % 2 === 0;
+        ctx.fillStyle = isAlt ? '#5c646b' : '#545b62';
+        ctx.fillRect(px * half + 2, py * half + 2, half - 4, half - 4);
 
-    // Tactile bumps on yellow edge
-    ctx.fillStyle = '#a16207';
-    for (let x = 4; x < size; x += 10) {
-      ctx.beginPath();
-      ctx.arc(x, 10, 2.5, 0, Math.PI * 2);
-      ctx.fill();
+        // Soft terrazzo mineral speckles (gentle, dispersed)
+        ctx.fillStyle = 'rgba(230, 240, 245, 0.12)';
+        ctx.fillRect(px * half + 14, py * half + 18, 4, 4);
+        ctx.fillRect(px * half + 42, py * half + 38, 4, 4);
+        ctx.fillStyle = 'rgba(20, 25, 30, 0.2)';
+        ctx.fillRect(px * half + 28, py * half + 44, 4, 4);
+      }
     }
+
+    // Clean stone expansion joint lines
+    ctx.strokeStyle = '#272c30';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(half, 0);
+    ctx.lineTo(half, size);
+    ctx.moveTo(0, half);
+    ctx.lineTo(size, half);
+    ctx.stroke();
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
@@ -1148,21 +1244,40 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Clean white/cyan laboratory tiles
-    ctx.fillStyle = '#d1dbe3';
+    // Anti-static research facility polymer tiles (Level 9 — 2x2 spacious cleanroom panels)
+    ctx.fillStyle = '#b8c6d1';
     ctx.fillRect(0, 0, size, size);
 
-    const ts = 64;
-    for (let y = 0; y < size; y += ts) {
-      for (let x = 0; x < size; x += ts) {
-        ctx.strokeStyle = '#627282';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, y, ts, ts);
-        // Subtle cyber circuit line in center
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
-        ctx.strokeRect(x + 14, y + 14, ts - 28, ts - 28);
+    const half = size / 2;
+    for (let py = 0; py < 2; py++) {
+      for (let px = 0; px < 2; px++) {
+        const isAlt = (px + py) % 2 === 0;
+        ctx.fillStyle = isAlt ? '#c8d4de' : '#bfccd6';
+        ctx.fillRect(px * half + 2, py * half + 2, half - 4, half - 4);
+
+        // Soft subtle anti-static luster
+        const luster = ctx.createLinearGradient(
+          px * half,
+          py * half,
+          (px + 1) * half,
+          (py + 1) * half
+        );
+        luster.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+        luster.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
+        ctx.fillStyle = luster;
+        ctx.fillRect(px * half + 2, py * half + 2, half - 4, half - 4);
       }
     }
+
+    // High-tech polymer joint seam
+    ctx.strokeStyle = '#607282';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(half, 0);
+    ctx.lineTo(half, size);
+    ctx.moveTo(0, half);
+    ctx.lineTo(size, half);
+    ctx.stroke();
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
@@ -1210,18 +1325,31 @@ export class TextureGenerator {
     canvas.height = size;
     const ctx = canvas.getContext('2d')!;
 
-    // Distorted abyss floor with glowing occult glyphs
-    ctx.fillStyle = '#080509';
+    // Surreal cosmic void abyss (Level 10 — deep organic crimson veins, no jarring concentric boxes)
+    ctx.fillStyle = '#0a060a';
     ctx.fillRect(0, 0, size, size);
 
-    ctx.strokeStyle = 'rgba(230, 57, 70, 0.4)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(8, 8, size - 16, size - 16);
-
-    ctx.strokeStyle = '#991b1b';
+    // Deep pulsating occult veins flowing across the obsidian void
+    ctx.strokeStyle = 'rgba(184, 20, 36, 0.45)';
+    ctx.lineWidth = 5;
     ctx.beginPath();
-    ctx.arc(size / 2, size / 2, 35, 0, Math.PI * 2);
+    ctx.moveTo(0, 32);
+    ctx.bezierCurveTo(38, 70, 85, 20, size, 78);
     ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(230, 57, 70, 0.35)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(35, 0);
+    ctx.bezierCurveTo(60, 50, 45, 95, 80, size);
+    ctx.stroke();
+
+    // Subtle dark red bio-luminescent glow in the void center
+    const voidGlow = ctx.createRadialGradient(size / 2, size / 2, 8, size / 2, size / 2, 54);
+    voidGlow.addColorStop(0, 'rgba(160, 15, 30, 0.25)');
+    voidGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = voidGlow;
+    ctx.fillRect(0, 0, size, size);
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
