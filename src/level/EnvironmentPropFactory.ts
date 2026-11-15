@@ -573,6 +573,46 @@ export class EnvironmentPropFactory {
     return EnvironmentPropFactory.createWallStairwellParapet(length, height, 'school');
   }
 
+  private static createSmoothFlankWallGeometry(
+    wallThick: number,
+    length: number,
+    height: number,
+    parapetHeight: number
+  ): THREE.BufferGeometry {
+    const halfT = wallThick / 2;
+    const halfL = length / 2;
+
+    const v0 = [-halfT, 0, -halfL];
+    const v1 = [-halfT, parapetHeight, -halfL];
+    const v2 = [halfT, 0, -halfL];
+    const v3 = [halfT, parapetHeight, -halfL];
+    const v4 = [-halfT, 0, halfL];
+    const v5 = [-halfT, height + parapetHeight, halfL];
+    const v6 = [halfT, 0, halfL];
+    const v7 = [halfT, height + parapetHeight, halfL];
+
+    const triangles = [
+      // Bottom (facing -Y)
+      v0, v6, v4,   v0, v2, v6,
+      // Front (facing -Z)
+      v0, v1, v3,   v0, v3, v2,
+      // Back (facing +Z)
+      v4, v7, v5,   v4, v6, v7,
+      // Left outer/inner (facing -X)
+      v0, v4, v5,   v0, v5, v1,
+      // Right outer/inner (facing +X)
+      v2, v3, v7,   v2, v7, v6,
+      // Top diagonal slope (facing +Y / tilted)
+      v1, v5, v7,   v1, v7, v3,
+    ];
+
+    const positions = new Float32Array(triangles.flat());
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.computeVertexNormals();
+    return geo;
+  }
+
   public static createWallStaircase(
     width: number,
     height: number,
@@ -586,7 +626,6 @@ export class EnvironmentPropFactory {
     let stepColor = 0x484e56;
     let nosingColor = 0x22262a;
     let wallColor = 0x5a626c;
-    let copingColor = 0x30363e;
     let baseColor = 0x3e444c;
 
     switch (theme) {
@@ -594,56 +633,48 @@ export class EnvironmentPropFactory {
         stepColor = 0x444c48;
         nosingColor = 0x1f2522;
         wallColor = 0x647067;
-        copingColor = 0x2e3530;
         baseColor = 0x38413b;
         break;
       case 'hospital':
         stepColor = 0x5e6870;
         nosingColor = 0x242d32;
         wallColor = 0x76828a;
-        copingColor = 0x354048;
         baseColor = 0x465058;
         break;
       case 'sewer':
         stepColor = 0x2e3634;
         nosingColor = 0x161c1a;
         wallColor = 0x3c4642;
-        copingColor = 0x222a26;
         baseColor = 0x28302c;
         break;
       case 'factory':
         stepColor = 0x3c4248;
         nosingColor = 0x1c1e22;
         wallColor = 0x505862;
-        copingColor = 0x282e34;
         baseColor = 0x363c42;
         break;
       case 'hotel':
         stepColor = 0x645a50;
         nosingColor = 0x383028;
         wallColor = 0x786e64;
-        copingColor = 0x443a32;
         baseColor = 0x544a40;
         break;
       case 'subway':
         stepColor = 0x464c54;
         nosingColor = 0x1e2226;
         wallColor = 0x5a646e;
-        copingColor = 0x2c3238;
         baseColor = 0x3a424a;
         break;
       case 'research_facility':
         stepColor = 0x48525c;
         nosingColor = 0x1e242a;
         wallColor = 0x64707e;
-        copingColor = 0x2e3640;
         baseColor = 0x3c444e;
         break;
       case 'nightmare':
         stepColor = 0x201e26;
         nosingColor = 0x100e14;
         wallColor = 0x2c2634;
-        copingColor = 0x16131c;
         baseColor = 0x1c1822;
         break;
     }
@@ -651,101 +682,60 @@ export class EnvironmentPropFactory {
     const stepMat = new THREE.MeshLambertMaterial({ color: stepColor });
     const nosingMat = new THREE.MeshLambertMaterial({ color: nosingColor });
     const wallMat = new THREE.MeshLambertMaterial({ color: wallColor });
-    const copingMat = new THREE.MeshLambertMaterial({ color: copingColor });
-    const baseMat = new THREE.MeshLambertMaterial({ color: baseColor });
 
-    // Number of steps (approx 18-20cm rise per step)
+    const wallThick = 0.22;
+    const parapetHeight = 0.95;
+    const stepWidth = width - 2 * wallThick;
+
+    // 1. Individual solid steps with nosing
     const numSteps = Math.max(8, Math.round(height / 0.20));
     const stepHeight = height / numSteps;
     const stepDepth = length / numSteps;
 
-    // 1. Individual solid steps with nosing
     for (let i = 0; i < numSteps; i++) {
       const stepY = stepHeight * (i + 1);
       const stepZ = -length / 2 + (i + 0.5) * stepDepth;
 
       // Solid concrete core under step extending all the way to floor level
       const stepMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(width, stepY, stepDepth + 0.01),
+        new THREE.BoxGeometry(stepWidth, stepY, stepDepth + 0.005),
         stepMat
       );
       stepMesh.position.set(0, stepY / 2, stepZ);
       stepMesh.receiveShadow = true;
       stair.add(stepMesh);
 
-      // Distinct tread nosing trim along front tread edge
+      // Distinct tread nosing trim along front tread edge (contained cleanly between side walls)
       const nosing = new THREE.Mesh(
-        new THREE.BoxGeometry(width + 0.02, 0.035, 0.07),
+        new THREE.BoxGeometry(stepWidth, 0.035, 0.07),
         nosingMat
       );
       nosing.position.set(0, stepY, stepZ + stepDepth / 2 - 0.035);
       stair.add(nosing);
     }
 
-    // 2. Solid Masonry Flank Walls (Tembok Samping Tangga)
-    const wallThick = 0.20;
-    const parapetHeight = 0.95;
-    const slopeAngle = Math.atan2(height, length);
-    const slopeLength = Math.hypot(height, length);
+    // 2. Continuous Solid Smooth Masonry Flank Walls (Tembok Samping Lurus Rapi, Tidak Bergerigi)
+    // Profile is a smooth diagonal right-trapezoid prism with flat outer faces (no stepped teeth, no black bars)
+    const wallGeo = EnvironmentPropFactory.createSmoothFlankWallGeometry(
+      wallThick,
+      length,
+      height,
+      parapetHeight
+    );
 
-    // Left and right solid wall columns rising with the steps
-    for (let i = 0; i < numSteps; i++) {
-      const stepY = stepHeight * (i + 1);
-      const colHeight = stepY + parapetHeight;
-      const stepZ = -length / 2 + (i + 0.5) * stepDepth;
+    // Left flank wall (outer face exactly flush at -width / 2)
+    const leftWall = new THREE.Mesh(wallGeo, wallMat);
+    leftWall.position.set(-width / 2 + wallThick / 2, 0, 0);
+    leftWall.receiveShadow = true;
+    leftWall.castShadow = true;
+    stair.add(leftWall);
 
-      // Left flank wall column
-      const colLeft = new THREE.Mesh(
-        new THREE.BoxGeometry(wallThick, colHeight, stepDepth + 0.01),
-        wallMat
-      );
-      colLeft.position.set(-width / 2 - wallThick / 2, colHeight / 2, stepZ);
-      colLeft.receiveShadow = true;
-      colLeft.castShadow = true;
-      stair.add(colLeft);
-
-      // Right flank wall column
-      const colRight = new THREE.Mesh(
-        new THREE.BoxGeometry(wallThick, colHeight, stepDepth + 0.01),
-        wallMat
-      );
-      colRight.position.set(width / 2 + wallThick / 2, colHeight / 2, stepZ);
-      colRight.receiveShadow = true;
-      colRight.castShadow = true;
-      stair.add(colRight);
-    }
-
-    // Smooth beveled concrete coping cap (Lis Beton Penutup Tembok) along the top of both walls
-    const copingGeo = new THREE.BoxGeometry(wallThick + 0.08, 0.08, slopeLength + 0.15);
-
-    const leftCoping = new THREE.Mesh(copingGeo, copingMat);
-    leftCoping.rotation.x = -slopeAngle + Math.PI / 2;
-    leftCoping.position.set(-width / 2 - wallThick / 2, height / 2 + parapetHeight, 0);
-    stair.add(leftCoping);
-
-    const rightCoping = new THREE.Mesh(copingGeo, copingMat);
-    rightCoping.rotation.x = -slopeAngle + Math.PI / 2;
-    rightCoping.position.set(width / 2 + wallThick / 2, height / 2 + parapetHeight, 0);
-    stair.add(rightCoping);
-
-    // Solid start/end newel pillars (Tiang Sudut Tembok)
-    const pillarGeo = new THREE.BoxGeometry(wallThick + 0.06, parapetHeight + 0.12, wallThick + 0.06);
-
-    const pStartLeft = new THREE.Mesh(pillarGeo, baseMat);
-    pStartLeft.position.set(-width / 2 - wallThick / 2, (parapetHeight + 0.12) / 2, -length / 2);
-    stair.add(pStartLeft);
-
-    const pStartRight = new THREE.Mesh(pillarGeo, baseMat);
-    pStartRight.position.set(width / 2 + wallThick / 2, (parapetHeight + 0.12) / 2, -length / 2);
-    stair.add(pStartRight);
-
-    const pEndLeft = new THREE.Mesh(pillarGeo, baseMat);
-    pEndLeft.position.set(-width / 2 - wallThick / 2, height + (parapetHeight + 0.12) / 2, length / 2);
-    stair.add(pEndLeft);
-
-    const pEndRight = new THREE.Mesh(pillarGeo, baseMat);
-    pEndRight.position.set(width / 2 + wallThick / 2, height + (parapetHeight + 0.12) / 2, length / 2);
-    stair.add(pEndRight);
+    // Right flank wall (outer face exactly flush at +width / 2)
+    const rightWall = new THREE.Mesh(wallGeo, wallMat);
+    rightWall.position.set(width / 2 - wallThick / 2, 0, 0);
+    rightWall.receiveShadow = true;
+    rightWall.castShadow = true;
+    stair.add(rightWall);
 
     return stair;
   }
@@ -806,10 +796,8 @@ export class EnvironmentPropFactory {
     }
 
     const wallMat = new THREE.MeshLambertMaterial({ color: wallColor });
-    const copingMat = new THREE.MeshLambertMaterial({ color: copingColor });
-    const baseMat = new THREE.MeshLambertMaterial({ color: baseColor });
 
-    const wallThick = 0.20;
+    const wallThick = 0.22;
 
     // Solid masonry parapet wall body
     const wall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, height, length), wallMat);
@@ -818,24 +806,14 @@ export class EnvironmentPropFactory {
     wall.castShadow = true;
     group.add(wall);
 
-    // Beveled stone/concrete coping cap along top
+    // Clean matching parapet top coping cap
     const coping = new THREE.Mesh(
-      new THREE.BoxGeometry(wallThick + 0.08, 0.08, length + 0.04),
-      copingMat
+      new THREE.BoxGeometry(wallThick + 0.02, 0.06, length),
+      wallMat
     );
-    coping.position.y = height;
+    coping.position.y = height + 0.03;
+    coping.receiveShadow = true;
     group.add(coping);
-
-    // End newel pillars at both extremities
-    const pillarGeo = new THREE.BoxGeometry(wallThick + 0.06, height + 0.08, wallThick + 0.06);
-
-    const post1 = new THREE.Mesh(pillarGeo, baseMat);
-    post1.position.set(0, (height + 0.08) / 2, -length / 2);
-    group.add(post1);
-
-    const post2 = new THREE.Mesh(pillarGeo, baseMat);
-    post2.position.set(0, (height + 0.08) / 2, length / 2);
-    group.add(post2);
 
     return group;
   }

@@ -1072,23 +1072,23 @@ export class LabyrinthBuilder {
         let endWz: number;
 
         if (stepX !== 0) {
-          // Stairs run horizontally along X
+          // Stairs run horizontally along X: seamless connection to floor slab boundaries
           if (stepX > 0) {
-            startWx = ramp.startCell.x * cellSize - halfWidth + 0.15;
+            startWx = ramp.startCell.x * cellSize - halfWidth;
             endWx = ramp.endCell.x * cellSize - halfWidth;
           } else {
-            startWx = (ramp.startCell.x + 1) * cellSize - halfWidth - 0.15;
+            startWx = (ramp.startCell.x + 1) * cellSize - halfWidth;
             endWx = (ramp.endCell.x + 1) * cellSize - halfWidth;
           }
           startWz = (ramp.startCell.z + 0.5) * cellSize - halfHeight;
           endWz = (ramp.endCell.z + 0.5) * cellSize - halfHeight;
         } else {
-          // Stairs run vertically along Z
+          // Stairs run vertically along Z: seamless connection to floor slab boundaries
           if (stepZ > 0) {
-            startWz = ramp.startCell.z * cellSize - halfHeight + 0.15;
+            startWz = ramp.startCell.z * cellSize - halfHeight;
             endWz = ramp.endCell.z * cellSize - halfHeight;
           } else {
-            startWz = (ramp.startCell.z + 1) * cellSize - halfHeight - 0.15;
+            startWz = (ramp.startCell.z + 1) * cellSize - halfHeight;
             endWz = (ramp.endCell.z + 1) * cellSize - halfHeight;
           }
           startWx = (ramp.startCell.x + 0.5) * cellSize - halfWidth;
@@ -1109,7 +1109,8 @@ export class LabyrinthBuilder {
         const normX = -dirZ;
         const normZ = dirX;
 
-        const rampWidth = cellSize * 0.78;
+        // Stair width fills the full corridor cell opening so left and right flank walls sit 100% flush (rapat) against the floor slab
+        const rampWidth = cellSize;
         const stairMesh = EnvironmentPropFactory.createWallStaircase(
           rampWidth,
           height,

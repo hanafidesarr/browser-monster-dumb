@@ -1104,8 +1104,11 @@ export class GameManager {
       // Update Grenade Projectile & Explosion Smoke/Fire Particles
       const blockingMeshes = this.levelBuild ? this.levelBuild.blockingMeshes : [];
       const monsterPositions = this.monsters.map((m) => m.position);
-      const groundY = this.levelBuild?.playerWorldSpawn?.y || 0;
-      GrenadeSystem.getInstance().update(dt, this.scene, blockingMeshes, monsterPositions, groundY);
+      const floorHeight = this.levelBuild?.floorHeight || 3.8;
+      const currentFloorY = this.fpController
+        ? Math.max(0, this.fpController.currentFloor * floorHeight)
+        : (this.levelBuild?.playerWorldSpawn?.y || 0);
+      GrenadeSystem.getInstance().update(dt, this.scene, blockingMeshes, monsterPositions, currentFloorY);
 
       // 3. Attack Check & Weapon Pickup Discovery (during STEALTH phase)
       if (this.state === 'STEALTH') {
