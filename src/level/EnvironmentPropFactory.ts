@@ -566,112 +566,276 @@ export class EnvironmentPropFactory {
   }
 
   public static createSchoolStaircase(width: number, height: number, length: number): THREE.Group {
-    const stair = new THREE.Group();
-    stair.name = 'SchoolStaircase';
+    return EnvironmentPropFactory.createWallStaircase(width, height, length, 'school');
+  }
 
-    const numSteps = 19;
+  public static createSchoolStairwellRailing(length: number, height: number = 1.05): THREE.Group {
+    return EnvironmentPropFactory.createWallStairwellParapet(length, height, 'school');
+  }
+
+  public static createWallStaircase(
+    width: number,
+    height: number,
+    length: number,
+    theme: string = 'concrete'
+  ): THREE.Group {
+    const stair = new THREE.Group();
+    stair.name = 'WallStaircase';
+
+    // Theme color palette
+    let stepColor = 0x484e56;
+    let nosingColor = 0x22262a;
+    let wallColor = 0x5a626c;
+    let copingColor = 0x30363e;
+    let baseColor = 0x3e444c;
+
+    switch (theme) {
+      case 'school':
+        stepColor = 0x444c48;
+        nosingColor = 0x1f2522;
+        wallColor = 0x647067;
+        copingColor = 0x2e3530;
+        baseColor = 0x38413b;
+        break;
+      case 'hospital':
+        stepColor = 0x5e6870;
+        nosingColor = 0x242d32;
+        wallColor = 0x76828a;
+        copingColor = 0x354048;
+        baseColor = 0x465058;
+        break;
+      case 'sewer':
+        stepColor = 0x2e3634;
+        nosingColor = 0x161c1a;
+        wallColor = 0x3c4642;
+        copingColor = 0x222a26;
+        baseColor = 0x28302c;
+        break;
+      case 'factory':
+        stepColor = 0x3c4248;
+        nosingColor = 0x1c1e22;
+        wallColor = 0x505862;
+        copingColor = 0x282e34;
+        baseColor = 0x363c42;
+        break;
+      case 'hotel':
+        stepColor = 0x645a50;
+        nosingColor = 0x383028;
+        wallColor = 0x786e64;
+        copingColor = 0x443a32;
+        baseColor = 0x544a40;
+        break;
+      case 'subway':
+        stepColor = 0x464c54;
+        nosingColor = 0x1e2226;
+        wallColor = 0x5a646e;
+        copingColor = 0x2c3238;
+        baseColor = 0x3a424a;
+        break;
+      case 'research_facility':
+        stepColor = 0x48525c;
+        nosingColor = 0x1e242a;
+        wallColor = 0x64707e;
+        copingColor = 0x2e3640;
+        baseColor = 0x3c444e;
+        break;
+      case 'nightmare':
+        stepColor = 0x201e26;
+        nosingColor = 0x100e14;
+        wallColor = 0x2c2634;
+        copingColor = 0x16131c;
+        baseColor = 0x1c1822;
+        break;
+    }
+
+    const stepMat = new THREE.MeshLambertMaterial({ color: stepColor });
+    const nosingMat = new THREE.MeshLambertMaterial({ color: nosingColor });
+    const wallMat = new THREE.MeshLambertMaterial({ color: wallColor });
+    const copingMat = new THREE.MeshLambertMaterial({ color: copingColor });
+    const baseMat = new THREE.MeshLambertMaterial({ color: baseColor });
+
+    // Number of steps (approx 18-20cm rise per step)
+    const numSteps = Math.max(8, Math.round(height / 0.20));
     const stepHeight = height / numSteps;
     const stepDepth = length / numSteps;
 
-    const concreteMat = new THREE.MeshLambertMaterial({ color: 0x3d4741 });
-    const nosingMat = new THREE.MeshLambertMaterial({ color: 0x1f2622 });
-    const carriageMat = new THREE.MeshLambertMaterial({ color: 0x2c342f });
-
-    // Individual solid steps
+    // 1. Individual solid steps with nosing
     for (let i = 0; i < numSteps; i++) {
       const stepY = stepHeight * (i + 1);
       const stepZ = -length / 2 + (i + 0.5) * stepDepth;
 
+      // Solid concrete core under step extending all the way to floor level
       const stepMesh = new THREE.Mesh(
-        new THREE.BoxGeometry(width, stepY, stepDepth),
-        concreteMat
+        new THREE.BoxGeometry(width, stepY, stepDepth + 0.01),
+        stepMat
       );
       stepMesh.position.set(0, stepY / 2, stepZ);
       stepMesh.receiveShadow = true;
       stair.add(stepMesh);
 
-      // Dark nosing trim along front tread edge
+      // Distinct tread nosing trim along front tread edge
       const nosing = new THREE.Mesh(
-        new THREE.BoxGeometry(width + 0.04, 0.03, 0.06),
+        new THREE.BoxGeometry(width + 0.02, 0.035, 0.07),
         nosingMat
       );
-      nosing.position.set(0, stepY, stepZ + stepDepth / 2 - 0.03);
+      nosing.position.set(0, stepY, stepZ + stepDepth / 2 - 0.035);
       stair.add(nosing);
     }
 
-    // Solid angled carriage beams underneath on both flanks (closes off sides and underside)
+    // 2. Solid Masonry Flank Walls (Tembok Samping Tangga)
+    const wallThick = 0.20;
+    const parapetHeight = 0.95;
     const slopeAngle = Math.atan2(height, length);
-    const carriageLength = Math.hypot(height, length);
-    const carriageGeo = new THREE.BoxGeometry(0.12, 0.45, carriageLength);
+    const slopeLength = Math.hypot(height, length);
 
-    const leftCarriage = new THREE.Mesh(carriageGeo, carriageMat);
-    leftCarriage.rotation.x = -slopeAngle + Math.PI / 2;
-    leftCarriage.position.set(-width / 2 - 0.06, height / 2 - 0.08, 0);
-    stair.add(leftCarriage);
+    // Left and right solid wall columns rising with the steps
+    for (let i = 0; i < numSteps; i++) {
+      const stepY = stepHeight * (i + 1);
+      const colHeight = stepY + parapetHeight;
+      const stepZ = -length / 2 + (i + 0.5) * stepDepth;
 
-    const rightCarriage = new THREE.Mesh(carriageGeo, carriageMat);
-    rightCarriage.rotation.x = -slopeAngle + Math.PI / 2;
-    rightCarriage.position.set(width / 2 + 0.06, height / 2 - 0.08, 0);
-    stair.add(rightCarriage);
+      // Left flank wall column
+      const colLeft = new THREE.Mesh(
+        new THREE.BoxGeometry(wallThick, colHeight, stepDepth + 0.01),
+        wallMat
+      );
+      colLeft.position.set(-width / 2 - wallThick / 2, colHeight / 2, stepZ);
+      colLeft.receiveShadow = true;
+      colLeft.castShadow = true;
+      stair.add(colLeft);
 
-    // Painted school iron handrails with vertical pickets along stair slope
-    const railMat = new THREE.MeshLambertMaterial({ color: 0x202723 });
-    const handrailGeo = new THREE.CylinderGeometry(0.04, 0.04, carriageLength + 0.3, 6);
-
-    const leftHandrail = new THREE.Mesh(handrailGeo, railMat);
-    leftHandrail.rotation.x = -slopeAngle + Math.PI / 2;
-    leftHandrail.position.set(-width / 2 - 0.06, height / 2 + 0.95, 0);
-    stair.add(leftHandrail);
-
-    const rightHandrail = new THREE.Mesh(handrailGeo, railMat);
-    rightHandrail.rotation.x = -slopeAngle + Math.PI / 2;
-    rightHandrail.position.set(width / 2 + 0.06, height / 2 + 0.95, 0);
-    stair.add(rightHandrail);
-
-    // Vertical stair posts (newels) every ~1.5m
-    const numStairPosts = 5;
-    for (let p = 0; p <= numStairPosts; p++) {
-      const frac = p / numStairPosts;
-      const pY = frac * height + 0.5;
-      const pZ = -length / 2 + frac * length;
-
-      const pLeft = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 0.08), railMat);
-      pLeft.position.set(-width / 2 - 0.06, pY, pZ);
-      stair.add(pLeft);
-
-      const pRight = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.0, 0.08), railMat);
-      pRight.position.set(width / 2 + 0.06, pY, pZ);
-      stair.add(pRight);
+      // Right flank wall column
+      const colRight = new THREE.Mesh(
+        new THREE.BoxGeometry(wallThick, colHeight, stepDepth + 0.01),
+        wallMat
+      );
+      colRight.position.set(width / 2 + wallThick / 2, colHeight / 2, stepZ);
+      colRight.receiveShadow = true;
+      colRight.castShadow = true;
+      stair.add(colRight);
     }
+
+    // Smooth beveled concrete coping cap (Lis Beton Penutup Tembok) along the top of both walls
+    const copingGeo = new THREE.BoxGeometry(wallThick + 0.08, 0.08, slopeLength + 0.15);
+
+    const leftCoping = new THREE.Mesh(copingGeo, copingMat);
+    leftCoping.rotation.x = -slopeAngle + Math.PI / 2;
+    leftCoping.position.set(-width / 2 - wallThick / 2, height / 2 + parapetHeight, 0);
+    stair.add(leftCoping);
+
+    const rightCoping = new THREE.Mesh(copingGeo, copingMat);
+    rightCoping.rotation.x = -slopeAngle + Math.PI / 2;
+    rightCoping.position.set(width / 2 + wallThick / 2, height / 2 + parapetHeight, 0);
+    stair.add(rightCoping);
+
+    // Solid start/end newel pillars (Tiang Sudut Tembok)
+    const pillarGeo = new THREE.BoxGeometry(wallThick + 0.06, parapetHeight + 0.12, wallThick + 0.06);
+
+    const pStartLeft = new THREE.Mesh(pillarGeo, baseMat);
+    pStartLeft.position.set(-width / 2 - wallThick / 2, (parapetHeight + 0.12) / 2, -length / 2);
+    stair.add(pStartLeft);
+
+    const pStartRight = new THREE.Mesh(pillarGeo, baseMat);
+    pStartRight.position.set(width / 2 + wallThick / 2, (parapetHeight + 0.12) / 2, -length / 2);
+    stair.add(pStartRight);
+
+    const pEndLeft = new THREE.Mesh(pillarGeo, baseMat);
+    pEndLeft.position.set(-width / 2 - wallThick / 2, height + (parapetHeight + 0.12) / 2, length / 2);
+    stair.add(pEndLeft);
+
+    const pEndRight = new THREE.Mesh(pillarGeo, baseMat);
+    pEndRight.position.set(width / 2 + wallThick / 2, height + (parapetHeight + 0.12) / 2, length / 2);
+    stair.add(pEndRight);
 
     return stair;
   }
 
-  public static createSchoolStairwellRailing(length: number, height: number = 1.0): THREE.Group {
+  public static createWallStairwellParapet(
+    length: number,
+    height: number = 1.05,
+    theme: string = 'concrete'
+  ): THREE.Group {
     const group = new THREE.Group();
-    group.name = 'SchoolStairwellRailing';
+    group.name = 'WallStairwellParapet';
 
-    const railMat = new THREE.MeshLambertMaterial({ color: 0x222a25 });
+    let wallColor = 0x5a626c;
+    let copingColor = 0x30363e;
+    let baseColor = 0x3e444c;
 
-    // Top rail
-    const topRail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, length), railMat);
-    topRail.position.y = height;
-    group.add(topRail);
-
-    // Mid safety rail
-    const midRail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, length), railMat);
-    midRail.position.y = height * 0.52;
-    group.add(midRail);
-
-    // Sturdy square posts
-    const postCount = Math.max(2, Math.floor(length / 1.2));
-    const startZ = -length / 2;
-    for (let i = 0; i <= postCount; i++) {
-      const z = startZ + (i * length) / postCount;
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, height, 0.09), railMat);
-      post.position.set(0, height / 2, z);
-      group.add(post);
+    switch (theme) {
+      case 'school':
+        wallColor = 0x647067;
+        copingColor = 0x2e3530;
+        baseColor = 0x38413b;
+        break;
+      case 'hospital':
+        wallColor = 0x76828a;
+        copingColor = 0x354048;
+        baseColor = 0x465058;
+        break;
+      case 'sewer':
+        wallColor = 0x3c4642;
+        copingColor = 0x222a26;
+        baseColor = 0x28302c;
+        break;
+      case 'factory':
+        wallColor = 0x505862;
+        copingColor = 0x282e34;
+        baseColor = 0x363c42;
+        break;
+      case 'hotel':
+        wallColor = 0x786e64;
+        copingColor = 0x443a32;
+        baseColor = 0x544a40;
+        break;
+      case 'subway':
+        wallColor = 0x5a646e;
+        copingColor = 0x2c3238;
+        baseColor = 0x3a424a;
+        break;
+      case 'research_facility':
+        wallColor = 0x64707e;
+        copingColor = 0x2e3640;
+        baseColor = 0x3c444e;
+        break;
+      case 'nightmare':
+        wallColor = 0x2c2634;
+        copingColor = 0x16131c;
+        baseColor = 0x1c1822;
+        break;
     }
+
+    const wallMat = new THREE.MeshLambertMaterial({ color: wallColor });
+    const copingMat = new THREE.MeshLambertMaterial({ color: copingColor });
+    const baseMat = new THREE.MeshLambertMaterial({ color: baseColor });
+
+    const wallThick = 0.20;
+
+    // Solid masonry parapet wall body
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, height, length), wallMat);
+    wall.position.y = height / 2;
+    wall.receiveShadow = true;
+    wall.castShadow = true;
+    group.add(wall);
+
+    // Beveled stone/concrete coping cap along top
+    const coping = new THREE.Mesh(
+      new THREE.BoxGeometry(wallThick + 0.08, 0.08, length + 0.04),
+      copingMat
+    );
+    coping.position.y = height;
+    group.add(coping);
+
+    // End newel pillars at both extremities
+    const pillarGeo = new THREE.BoxGeometry(wallThick + 0.06, height + 0.08, wallThick + 0.06);
+
+    const post1 = new THREE.Mesh(pillarGeo, baseMat);
+    post1.position.set(0, (height + 0.08) / 2, -length / 2);
+    group.add(post1);
+
+    const post2 = new THREE.Mesh(pillarGeo, baseMat);
+    post2.position.set(0, (height + 0.08) / 2, length / 2);
+    group.add(post2);
 
     return group;
   }
@@ -1295,127 +1459,10 @@ export class EnvironmentPropFactory {
   }
 
   public static createStaircase(width: number, height: number, length: number): THREE.Group {
-    const stair = new THREE.Group();
-    stair.name = 'Staircase';
-
-    const numSteps = Math.max(4, Math.round(height / 0.26));
-    const stepHeight = height / numSteps;
-    const stepDepth = length / numSteps;
-
-    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x4a4f56 });
-    const woodMat = new THREE.MeshLambertMaterial({ color: 0x6e5238 });
-    const stringerMat = new THREE.MeshLambertMaterial({ color: 0x363a40 });
-
-    for (let i = 0; i < numSteps; i++) {
-      const stepGeo = new THREE.BoxGeometry(width, stepHeight * (i + 1), stepDepth);
-      const stepMesh = new THREE.Mesh(stepGeo, stoneMat);
-      const y = (stepHeight * (i + 1)) / 2;
-      const z = -length / 2 + (i + 0.5) * stepDepth;
-      stepMesh.position.set(0, y, z);
-      stepMesh.receiveShadow = true;
-      stair.add(stepMesh);
-
-      // Wooden tread nosing
-      const noseGeo = new THREE.BoxGeometry(width + 0.06, 0.04, 0.08);
-      const noseMesh = new THREE.Mesh(noseGeo, woodMat);
-      noseMesh.position.set(0, stepHeight * (i + 1), z + stepDepth / 2 - 0.04);
-      stair.add(noseMesh);
-    }
-
-    // Integrated Upper Landing Platform (Connects seamlessly to upper floor slab)
-    const landingDepth = 0.75;
-    const landingGeo = new THREE.BoxGeometry(width, 0.12, landingDepth);
-    const landingMesh = new THREE.Mesh(landingGeo, stoneMat);
-    landingMesh.position.set(0, height - 0.06, length / 2 + landingDepth / 2);
-    landingMesh.receiveShadow = true;
-    stair.add(landingMesh);
-
-    const landingNoseGeo = new THREE.BoxGeometry(width + 0.06, 0.04, 0.08);
-    const landingNose = new THREE.Mesh(landingNoseGeo, woodMat);
-    landingNose.position.set(0, height, length / 2 + landingDepth - 0.04);
-    stair.add(landingNose);
-
-    // Solid closed side stringers along the stair slope
-    const stringerLength = Math.hypot(height, length + landingDepth * 0.5);
-    const stringerAngle = Math.atan2(height, length);
-    const stringerGeo = new THREE.BoxGeometry(0.06, 0.38, stringerLength);
-
-    const leftStringer = new THREE.Mesh(stringerGeo, stringerMat);
-    leftStringer.rotation.x = -stringerAngle + Math.PI / 2;
-    leftStringer.position.set(-width / 2 - 0.03, height / 2, 0);
-    stair.add(leftStringer);
-
-    const rightStringer = new THREE.Mesh(stringerGeo, stringerMat);
-    rightStringer.rotation.x = -stringerAngle + Math.PI / 2;
-    rightStringer.position.set(width / 2 + 0.03, height / 2, 0);
-    stair.add(rightStringer);
-
-    // Side handrails and vertical newel posts
-    const railMat = new THREE.MeshLambertMaterial({ color: 0x22262b });
-    const postMat = new THREE.MeshLambertMaterial({ color: 0x2d3238 });
-    const railLength = Math.hypot(height, length);
-    const railGeo = new THREE.CylinderGeometry(0.04, 0.04, railLength + landingDepth * 0.8, 6);
-    const railAngle = Math.atan2(height, length);
-
-    const leftRail = new THREE.Mesh(railGeo, railMat);
-    leftRail.rotation.x = -railAngle + Math.PI / 2;
-    leftRail.position.set(-width / 2 - 0.05, height / 2 + 0.85, landingDepth * 0.2);
-    stair.add(leftRail);
-
-    const rightRail = new THREE.Mesh(railGeo, railMat);
-    rightRail.rotation.x = -railAngle + Math.PI / 2;
-    rightRail.position.set(width / 2 + 0.05, height / 2 + 0.85, landingDepth * 0.2);
-    stair.add(rightRail);
-
-    // Vertical Newel Posts (Bottom, Middle, and Top Landing)
-    const postGeo = new THREE.BoxGeometry(0.08, 0.95, 0.08);
-    const postZPositions = [-length / 2 + 0.2, 0, length / 2];
-    for (let pz of postZPositions) {
-      const frac = (pz + length / 2) / length;
-      const py = frac * height + 0.45;
-
-      const pLeft = new THREE.Mesh(postGeo, postMat);
-      pLeft.position.set(-width / 2 - 0.05, py, pz);
-      stair.add(pLeft);
-
-      const pRight = new THREE.Mesh(postGeo, postMat);
-      pRight.position.set(width / 2 + 0.05, py, pz);
-      stair.add(pRight);
-    }
-
-    return stair;
+    return EnvironmentPropFactory.createWallStaircase(width, height, length, 'concrete');
   }
 
-  public static createStairwellBalustrade(length: number, height: number = 0.95): THREE.Group {
-    const group = new THREE.Group();
-    group.name = 'StairwellBalustrade';
-
-    const postMat = new THREE.MeshLambertMaterial({ color: 0x3d3024 });
-    const railMat = new THREE.MeshLambertMaterial({ color: 0x5c4228 });
-
-    // Top rail
-    const topRailGeo = new THREE.BoxGeometry(0.12, 0.08, length);
-    const topRail = new THREE.Mesh(topRailGeo, railMat);
-    topRail.position.y = height;
-    group.add(topRail);
-
-    // Mid rail
-    const midRailGeo = new THREE.BoxGeometry(0.08, 0.05, length);
-    const midRail = new THREE.Mesh(midRailGeo, railMat);
-    midRail.position.y = height * 0.52;
-    group.add(midRail);
-
-    // Vertical posts
-    const postCount = Math.max(2, Math.floor(length / 1.4));
-    const postGeo = new THREE.BoxGeometry(0.1, height, 0.1);
-    const startZ = -length / 2;
-    for (let i = 0; i <= postCount; i++) {
-      const z = startZ + (i * length) / postCount;
-      const post = new THREE.Mesh(postGeo, postMat);
-      post.position.set(0, height / 2, z);
-      group.add(post);
-    }
-
-    return group;
+  public static createStairwellBalustrade(length: number, height: number = 1.05): THREE.Group {
+    return EnvironmentPropFactory.createWallStairwellParapet(length, height, 'concrete');
   }
 }

@@ -602,37 +602,30 @@ export class LabyrinthBuilder {
     const stairOpenings: StairwellOpening[] = [];
     if (level.ramps && level.ramps.length > 0) {
       level.ramps.forEach((r) => {
-        let minGx: number;
-        let maxGx: number;
-        let minGz: number;
-        let maxGz: number;
+        const dx = r.endCell.x - r.startCell.x;
+        const dz = r.endCell.z - r.startCell.z;
+        const stepX = Math.sign(dx);
+        const stepZ = Math.sign(dz);
 
-        if (level.theme === 'school' && r.isStair) {
-          // School stair rises along cells 7 and 8 at z = 9, meeting cell 9 floor slab flush
-          minGx = Math.min(r.startCell.x, r.endCell.x - 1);
-          maxGx = Math.max(r.startCell.x, r.endCell.x - 1);
-          minGz = Math.min(r.startCell.z, r.endCell.z);
-          maxGz = Math.max(r.startCell.z, r.endCell.z);
-        } else {
-          const dx = r.endCell.x - r.startCell.x;
-          const dz = r.endCell.z - r.startCell.z;
-          const stepX = Math.sign(dx);
-          const stepZ = Math.sign(dz);
+        // Open incline on toFloor covers incline cells up to the landing threshold
+        const openEndGx = stepX !== 0 ? r.endCell.x - stepX : r.endCell.x;
+        const openEndGz = stepZ !== 0 ? r.endCell.z - stepZ : r.endCell.z;
 
-          // Open incline on toFloor covers incline cells up to the landing threshold
-          const openEndGx = stepX !== 0 ? r.endCell.x - stepX : r.endCell.x;
-          const openEndGz = stepZ !== 0 ? r.endCell.z - stepZ : r.endCell.z;
-
-          minGx = Math.min(r.startCell.x, openEndGx);
-          maxGx = Math.max(r.startCell.x, openEndGx);
-          minGz = Math.min(r.startCell.z, openEndGz);
-          maxGz = Math.max(r.startCell.z, openEndGz);
-        }
+        const minGx = Math.min(r.startCell.x, openEndGx);
+        const maxGx = Math.max(r.startCell.x, openEndGx);
+        const minGz = Math.min(r.startCell.z, openEndGz);
+        const maxGz = Math.max(r.startCell.z, openEndGz);
 
         const minWx = minGx * cellSize - halfWidth;
         const maxWx = (maxGx + 1) * cellSize - halfWidth;
         const minWz = minGz * cellSize - halfHeight;
         const maxWz = (maxGz + 1) * cellSize - halfHeight;
+
+        // Inset by 0.15m at the open exit landing so walking off the top step onto the upper floor is never flagged as in void
+        const boxMinX = minWx + (stepX < 0 ? 0.15 : -0.1);
+        const boxMaxX = maxWx - (stepX > 0 ? 0.15 : -0.1);
+        const boxMinZ = minWz + (stepZ < 0 ? 0.15 : -0.1);
+        const boxMaxZ = maxWz - (stepZ > 0 ? 0.15 : -0.1);
 
         stairOpenings.push({
           floor: r.toFloor,
@@ -641,8 +634,8 @@ export class LabyrinthBuilder {
           minGz,
           maxGz,
           box: new THREE.Box3(
-            new THREE.Vector3(minWx - 0.25, r.toFloor * floorHeight - 0.5, minWz - 0.25),
-            new THREE.Vector3(maxWx + 0.25, r.toFloor * floorHeight + 2.5, maxWz + 0.25)
+            new THREE.Vector3(boxMinX, r.toFloor * floorHeight - 0.5, boxMinZ),
+            new THREE.Vector3(boxMaxX, r.toFloor * floorHeight + 2.5, boxMaxZ)
           ),
         });
       });
@@ -1068,43 +1061,61 @@ export class LabyrinthBuilder {
     const railingBoxes: BoxCollider[] = [];
     if (level.ramps && level.ramps.length > 0) {
       level.ramps.forEach((ramp) => {
-        const isSchoolStair = level.theme === 'school' && ramp.isStair;
+        const dx = ramp.endCell.x - ramp.startCell.x;
+        const dz = ramp.endCell.z - ramp.startCell.z;
+        const stepX = Math.sign(dx);
+        const stepZ = Math.sign(dz);
+
         let startWx: number;
         let startWz: number;
         let endWx: number;
         let endWz: number;
 
-        if (isSchoolStair) {
-          // School stair starts cleanly at west edge of cell 7 and connects flush to cell 9 slab edge
-          startWx = ramp.startCell.x * cellSize - halfWidth;
+        if (stepX !== 0) {
+          // Stairs run horizontally along X
+          if (stepX > 0) {
+            startWx = ramp.startCell.x * cellSize - halfWidth + 0.15;
+            endWx = ramp.endCell.x * cellSize - halfWidth;
+          } else {
+            startWx = (ramp.startCell.x + 1) * cellSize - halfWidth - 0.15;
+            endWx = (ramp.endCell.x + 1) * cellSize - halfWidth;
+          }
           startWz = (ramp.startCell.z + 0.5) * cellSize - halfHeight;
-          endWx = ramp.endCell.x * cellSize - halfWidth;
           endWz = (ramp.endCell.z + 0.5) * cellSize - halfHeight;
         } else {
+          // Stairs run vertically along Z
+          if (stepZ > 0) {
+            startWz = ramp.startCell.z * cellSize - halfHeight + 0.15;
+            endWz = ramp.endCell.z * cellSize - halfHeight;
+          } else {
+            startWz = (ramp.startCell.z + 1) * cellSize - halfHeight - 0.15;
+            endWz = (ramp.endCell.z + 1) * cellSize - halfHeight;
+          }
           startWx = (ramp.startCell.x + 0.5) * cellSize - halfWidth;
-          startWz = (ramp.startCell.z + 0.5) * cellSize - halfHeight;
           endWx = (ramp.endCell.x + 0.5) * cellSize - halfWidth;
-          endWz = (ramp.endCell.z + 0.5) * cellSize - halfHeight;
         }
 
         const startY = ramp.fromFloor * floorHeight;
         const endY = ramp.toFloor * floorHeight;
 
-        const dx = endWx - startWx;
-        const dz = endWz - startWz;
-        const length = Math.hypot(dx, dz);
+        const deltaX = endWx - startWx;
+        const deltaZ = endWz - startWz;
+        const length = Math.hypot(deltaX, deltaZ);
         const height = endY - startY;
-        const angle = Math.atan2(dx, dz);
+        const angle = Math.atan2(deltaX, deltaZ);
 
-        const dirX = length > 0.001 ? dx / length : 1;
-        const dirZ = length > 0.001 ? dz / length : 0;
+        const dirX = length > 0.001 ? deltaX / length : 1;
+        const dirZ = length > 0.001 ? deltaZ / length : 0;
         const normX = -dirZ;
         const normZ = dirX;
 
-        const rampWidth = cellSize * 0.75;
-        const stairMesh = isSchoolStair
-          ? EnvironmentPropFactory.createSchoolStaircase(rampWidth, height, length)
-          : EnvironmentPropFactory.createStaircase(rampWidth, height, length);
+        const rampWidth = cellSize * 0.78;
+        const stairMesh = EnvironmentPropFactory.createWallStaircase(
+          rampWidth,
+          height,
+          length,
+          level.theme
+        );
         const midX = (startWx + endWx) / 2;
         const midZ = (startWz + endWz) / 2;
 
@@ -1112,23 +1123,21 @@ export class LabyrinthBuilder {
         stairMesh.rotation.y = angle;
         rootGroup.add(stairMesh);
 
-        // Safety Balustrades around the 3 closed sides of the upper-floor stairwell opening
-        // Note: Railings terminate cleanly at the stair exit (endWx / endWz) so the upper-floor landing and hallways are 100% open
+        // Safety Parapets around the 3 closed sides of the upper-floor stairwell opening
+        // Note: Parapets terminate cleanly at the stair exit (endWx / endWz) so the upper-floor landing and hallways are 100% open
         const upperY = ramp.toFloor * floorHeight;
-        const railingThick = 0.25;
+        const railingThick = 0.22;
 
-        if (Math.abs(dx) >= Math.abs(dz)) {
-          // Stairs run horizontally along X: balustrades on North & South sides, plus back end
-          const sideMinX = isSchoolStair ? startWx : (dx > 0 ? startWx - 0.2 : endWx);
-          const sideMaxX = isSchoolStair ? endWx : (dx > 0 ? endWx : startWx + 0.2);
+        if (Math.abs(deltaX) >= Math.abs(deltaZ)) {
+          // Stairs run horizontally along X: parapets on North & South sides, plus back end at startWx
+          const sideMinX = Math.min(startWx, endWx);
+          const sideMaxX = Math.max(startWx, endWx);
           const sideMinZ = midZ - rampWidth / 2;
           const sideMaxZ = midZ + rampWidth / 2;
           const sideLength = sideMaxX - sideMinX;
           const sideMidX = (sideMinX + sideMaxX) / 2;
 
-          const bNorth = isSchoolStair
-            ? EnvironmentPropFactory.createSchoolStairwellRailing(sideLength)
-            : EnvironmentPropFactory.createStairwellBalustrade(sideLength);
+          const bNorth = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
           bNorth.position.set(sideMidX, upperY, sideMinZ);
           bNorth.rotation.y = Math.PI / 2;
           rootGroup.add(bNorth);
@@ -1139,12 +1148,10 @@ export class LabyrinthBuilder {
             maxZ: sideMinZ + railingThick,
             minY: upperY,
             maxY: upperY + 1.2,
-            label: 'balustrade_north',
+            label: 'parapet_north',
           });
 
-          const bSouth = isSchoolStair
-            ? EnvironmentPropFactory.createSchoolStairwellRailing(sideLength)
-            : EnvironmentPropFactory.createStairwellBalustrade(sideLength);
+          const bSouth = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
           bSouth.position.set(sideMidX, upperY, sideMaxZ);
           bSouth.rotation.y = Math.PI / 2;
           rootGroup.add(bSouth);
@@ -1155,35 +1162,32 @@ export class LabyrinthBuilder {
             maxZ: sideMaxZ + railingThick,
             minY: upperY,
             maxY: upperY + 1.2,
-            label: 'balustrade_south',
+            label: 'parapet_south',
           });
 
-          // Back railing above the foot of the stairs
-          const backX = dx > 0 ? sideMinX : sideMaxX;
-          const bBack = isSchoolStair
-            ? EnvironmentPropFactory.createSchoolStairwellRailing(rampWidth)
-            : EnvironmentPropFactory.createStairwellBalustrade(rampWidth);
-          bBack.position.set(backX, upperY, midZ);
+          // Back parapet above the foot of the stairs (at startWx)
+          const bBack = EnvironmentPropFactory.createWallStairwellParapet(rampWidth, 1.05, level.theme);
+          bBack.position.set(startWx, upperY, midZ);
           rootGroup.add(bBack);
           railingBoxes.push({
-            minX: backX - railingThick,
-            maxX: backX + railingThick,
+            minX: startWx - railingThick,
+            maxX: startWx + railingThick,
             minZ: sideMinZ,
             maxZ: sideMaxZ,
             minY: upperY,
             maxY: upperY + 1.2,
-            label: 'balustrade_back',
+            label: 'parapet_back',
           });
         } else {
-          // Stairs run vertically along Z: balustrades on West & East sides, plus back end
+          // Stairs run vertically along Z: parapets on West & East sides, plus back end at startWz
           const sideMinX = midX - rampWidth / 2;
           const sideMaxX = midX + rampWidth / 2;
-          const sideMinZ = dz > 0 ? startWz - 0.2 : endWz;
-          const sideMaxZ = dz > 0 ? endWz : startWz + 0.2;
+          const sideMinZ = Math.min(startWz, endWz);
+          const sideMaxZ = Math.max(startWz, endWz);
           const sideLength = sideMaxZ - sideMinZ;
           const sideMidZ = (sideMinZ + sideMaxZ) / 2;
 
-          const bWest = EnvironmentPropFactory.createStairwellBalustrade(sideLength);
+          const bWest = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
           bWest.position.set(sideMinX, upperY, sideMidZ);
           rootGroup.add(bWest);
           railingBoxes.push({
@@ -1193,10 +1197,10 @@ export class LabyrinthBuilder {
             maxZ: sideMaxZ,
             minY: upperY,
             maxY: upperY + 1.2,
-            label: 'balustrade_west',
+            label: 'parapet_west',
           });
 
-          const bEast = EnvironmentPropFactory.createStairwellBalustrade(sideLength);
+          const bEast = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
           bEast.position.set(sideMaxX, upperY, sideMidZ);
           rootGroup.add(bEast);
           railingBoxes.push({
@@ -1206,23 +1210,22 @@ export class LabyrinthBuilder {
             maxZ: sideMaxZ,
             minY: upperY,
             maxY: upperY + 1.2,
-            label: 'balustrade_east',
+            label: 'parapet_east',
           });
 
-          // Back railing above the foot of the stairs
-          const backZ = dz > 0 ? sideMinZ : sideMaxZ;
-          const bBack = EnvironmentPropFactory.createStairwellBalustrade(rampWidth);
-          bBack.position.set(midX, upperY, backZ);
+          // Back parapet above the foot of the stairs (at startWz)
+          const bBack = EnvironmentPropFactory.createWallStairwellParapet(rampWidth, 1.05, level.theme);
+          bBack.position.set(midX, upperY, startWz);
           bBack.rotation.y = Math.PI / 2;
           rootGroup.add(bBack);
           railingBoxes.push({
             minX: sideMinX,
             maxX: sideMaxX,
-            minZ: backZ - railingThick,
-            maxZ: backZ + railingThick,
+            minZ: startWz - railingThick,
+            maxZ: startWz + railingThick,
             minY: upperY,
             maxY: upperY + 1.2,
-            label: 'balustrade_back',
+            label: 'parapet_back',
           });
         }
 

@@ -90,28 +90,29 @@ export class SpawnManager {
       ],
     }],
 
-    // LEVEL 3: The Labyrinth (1 Pocong, 2 floors)
+    // LEVEL 3: The Labyrinth (1 Pocong, 1 floor)
     [3, {
       monsterCount: 1,
       minPlayerMonsterDist: 9.0,
       minPlayerExitDist: 12.0,
       minMonsterMonsterDist: 6.0,
-      minMonsterExitDist: 26.0,
+      minMonsterExitDist: 15.0,
       playerCandidates: [
-        { x: 2, z: 2, floor: 0, rotationY: 0 },
-        { x: 2, z: 18, floor: 0, rotationY: 0 },
-        { x: 6, z: 6, floor: 1, rotationY: Math.PI / 2 },
-        { x: 18, z: 6, floor: 1, rotationY: Math.PI },
+        { x: 1, z: 1, floor: 0, rotationY: 0 },
+        { x: 3, z: 1, floor: 0, rotationY: 0 },
+        { x: 1, z: 3, floor: 0, rotationY: 0 },
+        { x: 5, z: 1, floor: 0, rotationY: 0 },
       ],
       monsterCandidates: [
-        { x: 4, z: 2, floor: 0, rotationY: 0 },
-        { x: 6, z: 14, floor: 0, rotationY: Math.PI },
-        { x: 6, z: 2, floor: 1, rotationY: 0 },
-        { x: 8, z: 10, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 7, z: 7, floor: 0, rotationY: 0 },
+        { x: 9, z: 7, floor: 0, rotationY: Math.PI / 2 },
+        { x: 7, z: 9, floor: 0, rotationY: Math.PI },
+        { x: 5, z: 7, floor: 0, rotationY: -Math.PI / 2 },
       ],
       exitCandidates: [
-        { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 18, z: 14, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 13, z: 13, floor: 0, rotationY: 0 },
+        { x: 11, z: 13, floor: 0, rotationY: -Math.PI / 2 },
+        { x: 13, z: 11, floor: 0, rotationY: 0 },
       ],
     }],
 
@@ -123,10 +124,10 @@ export class SpawnManager {
       minMonsterMonsterDist: 5.5,
       minMonsterExitDist: 25.0,
       playerCandidates: [
-        { x: 3, z: 3, floor: 0, rotationY: 0 },
-        { x: 3, z: 17, floor: 0, rotationY: 0 },
-        { x: 16, z: 4, floor: 1, rotationY: Math.PI },
-        { x: 5, z: 15, floor: 2, rotationY: 0 },
+        { x: 3, z: 3, floor: 0, rotationY: Math.PI / 4 },
+        { x: 3, z: 17, floor: 0, rotationY: -Math.PI / 4 },
+        { x: 17, z: 3, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 7, z: 17, floor: 2, rotationY: 0 },
       ],
       monsterCandidates: [
         { x: 4, z: 4, floor: 0, rotationY: 0 },

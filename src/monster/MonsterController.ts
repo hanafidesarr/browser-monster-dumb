@@ -73,6 +73,10 @@ export class MonsterController {
   private hopTimer: number = 0;
   private wasAirborne: boolean = true;
 
+  // Multi-monster tactical ambush coordination
+  private lastPlayerPos: THREE.Vector3 = new THREE.Vector3();
+  private playerVelocity: THREE.Vector3 = new THREE.Vector3();
+
   // Latch flag: once in rear striking zone, keep attack button active until player backs far away
   private isPlayerInRearStrikeZone: boolean = false;
 
@@ -850,15 +854,119 @@ export class MonsterController {
       return;
     }
 
+    // Track player velocity for tactical ambush and lead-targeting
+    if (this.lastPlayerPos.lengthSq() > 0.01 && dt > 0.001) {
+      const pvx = (playerPos.x - this.lastPlayerPos.x) / dt;
+      const pvz = (playerPos.z - this.lastPlayerPos.z) / dt;
+      this.playerVelocity.x = THREE.MathUtils.lerp(this.playerVelocity.x, pvx, Math.min(1, 8.0 * dt));
+      this.playerVelocity.z = THREE.MathUtils.lerp(this.playerVelocity.z, pvz, Math.min(1, 8.0 * dt));
+    }
+    this.lastPlayerPos.copy(playerPos);
+
+    // Multi-Monster Tactical Ambush Coordination
+    // When monsters > 1: Monster 1 chases from behind; Monster 2 cuts off the player from ahead/flanks!
+    let targetDestinationX = playerPos.x;
+    let targetDestinationZ = playerPos.z;
+
+    if (this.otherMonsters && this.otherMonsters.length > 1) {
+      const chasingMonsters = this.otherMonsters.filter(m => m.state === 'CHASE');
+      if (chasingMonsters.length > 1) {
+        // Sort chasing monsters by distance to player
+        chasingMonsters.sort((a, b) => {
+          const da = Math.hypot(a.position.x - playerPos.x, a.position.z - playerPos.z);
+          const db = Math.hypot(b.position.x - playerPos.x, b.position.z - playerPos.z);
+          return da - db;
+        });
+        const myRank = chasingMonsters.indexOf(this);
+
+        if (myRank === 0) {
+          // Rank 0 (Closest): Direct Chaser - drives the player to flee
+          targetDestinationX = playerPos.x;
+          targetDestinationZ = playerPos.z;
+        } else if (myRank === 1) {
+          // Rank 1 (Second closest): Ambush Interceptor / Front Cut-Off
+          const pSpeed = Math.hypot(this.playerVelocity.x, this.playerVelocity.z);
+          if (pSpeed > 0.4) {
+            // Player is running: project cut-off target ahead along flight trajectory (6.0 - 9.0 meters ahead)
+            const leadDist = Math.min(9.0, Math.max(5.5, pSpeed * 1.5));
+            const nvx = this.playerVelocity.x / pSpeed;
+            const nvz = this.playerVelocity.z / pSpeed;
+            const rawLeadX = playerPos.x + nvx * leadDist;
+            const rawLeadZ = playerPos.z + nvz * leadDist;
+
+            if (this.pathfinding) {
+              const snapped = this.pathfinding.findNearestWalkableWorld(rawLeadX, rawLeadZ, 4);
+              targetDestinationX = snapped.wx;
+              targetDestinationZ = snapped.wz;
+            } else {
+              targetDestinationX = rawLeadX;
+              targetDestinationZ = rawLeadZ;
+            }
+          } else {
+            // Player is cornered or stationary: flank from opposite angle of primary chaser (pincer)
+            const primary = chasingMonsters[0];
+            const pdx = primary.position.x - playerPos.x;
+            const pdz = primary.position.z - playerPos.z;
+            const pDist = Math.hypot(pdx, pdz);
+            if (pDist > 0.1) {
+              const oppAngle = Math.atan2(pdz, pdx) + Math.PI;
+              const rawOppX = playerPos.x + Math.cos(oppAngle) * 5.0;
+              const rawOppZ = playerPos.z + Math.sin(oppAngle) * 5.0;
+              if (this.pathfinding) {
+                const snapped = this.pathfinding.findNearestWalkableWorld(rawOppX, rawOppZ, 4);
+                targetDestinationX = snapped.wx;
+                targetDestinationZ = snapped.wz;
+              } else {
+                targetDestinationX = rawOppX;
+                targetDestinationZ = rawOppZ;
+              }
+            }
+          }
+        } else {
+          // Rank 2+ (Third monster in Level 7 / 8): Side Flanker (pincer envelope)
+          const pSpeed = Math.hypot(this.playerVelocity.x, this.playerVelocity.z);
+          let flankAngle = 0;
+          if (pSpeed > 0.4) {
+            flankAngle = Math.atan2(this.playerVelocity.z, this.playerVelocity.x) + (myRank % 2 === 0 ? Math.PI / 2 : -Math.PI / 2);
+          } else {
+            flankAngle = (myRank * 2 * Math.PI) / chasingMonsters.length;
+          }
+          const rawFlankX = playerPos.x + Math.cos(flankAngle) * 6.0;
+          const rawFlankZ = playerPos.z + Math.sin(flankAngle) * 6.0;
+          if (this.pathfinding) {
+            const snapped = this.pathfinding.findNearestWalkableWorld(rawFlankX, rawFlankZ, 4);
+            targetDestinationX = snapped.wx;
+            targetDestinationZ = snapped.wz;
+          } else {
+            targetDestinationX = rawFlankX;
+            targetDestinationZ = rawFlankZ;
+          }
+        }
+      }
+    }
+
+    // When within close striking range (< 3.2m), immediately home in directly on the player
+    if (horizontalDist < 3.2) {
+      targetDestinationX = playerPos.x;
+      targetDestinationZ = playerPos.z;
+    }
+
     // Recalculate A* path periodically
     this.pathRecalcTimer += dt;
     if (this.pathRecalcTimer >= 0.35 || this.currentPath.length === 0) {
       this.pathRecalcTimer = 0;
       if (this.pathfinding) {
-        const path = this.pathfinding.findPath(
+        let path = this.pathfinding.findPath(
           { x: this.position.x, z: this.position.z },
-          { x: playerPos.x, z: playerPos.z }
+          { x: targetDestinationX, z: targetDestinationZ }
         );
+        // Fallback to player directly if intercept waypoint is unreachable
+        if (path.length === 0 && (targetDestinationX !== playerPos.x || targetDestinationZ !== playerPos.z)) {
+          path = this.pathfinding.findPath(
+            { x: this.position.x, z: this.position.z },
+            { x: playerPos.x, z: playerPos.z }
+          );
+        }
         if (path.length > 1) {
           this.currentPath = path.slice(1);
         } else {
@@ -867,9 +975,9 @@ export class MonsterController {
       }
     }
 
-    // Determine target position: follow waypoint or pursue player directly!
-    let targetX = playerPos.x;
-    let targetZ = playerPos.z;
+    // Determine target position: follow waypoint or pursue target destination directly!
+    let targetX = targetDestinationX;
+    let targetZ = targetDestinationZ;
 
     if (this.currentPath.length > 0) {
       const targetWp = this.currentPath[0];
@@ -1015,7 +1123,7 @@ export class MonsterController {
 
       // 4. Multi-Monster Mutual Separation / Local Avoidance
       if (this.otherMonsters && this.otherMonsters.length > 1) {
-        const separationRadius = 1.35;
+        const separationRadius = 2.20;
         for (let i = 0; i < this.otherMonsters.length; i++) {
           const other = this.otherMonsters[i];
           if (other === this) continue;
@@ -1024,7 +1132,7 @@ export class MonsterController {
             const mdz = this.position.z - other.position.z;
             const mdist = Math.hypot(mdx, mdz);
             if (mdist < separationRadius && mdist > 0.001) {
-              const push = ((separationRadius - mdist) / separationRadius) * 2.2 * dt;
+              const push = ((separationRadius - mdist) / separationRadius) * 3.2 * dt;
               this.position.x += (mdx / mdist) * push;
               this.position.z += (mdz / mdist) * push;
             }

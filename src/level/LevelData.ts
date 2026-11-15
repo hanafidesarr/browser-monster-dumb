@@ -114,22 +114,22 @@ const LEVEL_2_GRID = create21x21Grid((g) => {
   }
 });
 
-// 3. LEVEL 3: THE LABYRINTH (Original 15x15 single-path concrete labyrinth)
+// 3. LEVEL 3: THE LABYRINTH (Authentic dense multi-branch concrete labyrinth: 23 forks, loops, and dead-end traps)
 const LEVEL_3_GRID: number[][] = [
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1], // (1,1): Player Spawn, facing +X (East)
-  [1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
-  [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1],
-  [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1], // (1,5): Weapon Pickup
-  [1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1], // (7,7): Monster Pocong
-  [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
-  [1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1],
-  [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1],
-  [1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
-  [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1], // (13,13): Exit Door
+  [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1], // (1,1): Player Spawn, facing +Z (South)
+  [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+  [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1], // (1,5): Weapon Pickup (Chair)
+  [1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1], // (7,7): Monster Pocong
+  [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+  [1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1],
+  [1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1], // (13,13): Exit Door
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ];
 
@@ -137,22 +137,18 @@ const LEVEL_3_GRID: number[][] = [
 const LEVEL_4_GRID = create21x21Grid((g) => {
   for (let z = 2; z <= 8; z++) {
     for (let x = 2; x <= 8; x++) {
-      if (z === 5 && x !== 5) g[z][x] = 1;
-      if (x === 5 && z !== 5) g[z][x] = 1;
+      if (z === 5 || x === 5) g[z][x] = 1;
     }
     for (let x = 12; x <= 18; x++) {
-      if (z === 5 && x !== 15) g[z][x] = 1;
-      if (x === 15 && z !== 5) g[z][x] = 1;
+      if (z === 5 || x === 15) g[z][x] = 1;
     }
   }
   for (let z = 12; z <= 18; z++) {
     for (let x = 2; x <= 8; x++) {
-      if (z === 15 && x !== 5) g[z][x] = 1;
-      if (x === 5 && z !== 15) g[z][x] = 1;
+      if (z === 15 || x === 5) g[z][x] = 1;
     }
     for (let x = 12; x <= 18; x++) {
-      if (z === 15 && x !== 15) g[z][x] = 1;
-      if (x === 15 && z !== 15) g[z][x] = 1;
+      if (z === 15 || x === 15) g[z][x] = 1;
     }
   }
 });
@@ -319,7 +315,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     floorHeight: 3.8,
     monsterCount: 1,
     ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 7, z: 9 }, endCell: { x: 9, z: 9 }, isStair: true },
+      { fromFloor: 0, toFloor: 1, startCell: { x: 2, z: 12 }, endCell: { x: 2, z: 9 }, isStair: true },
     ],
     bridges: [
       { id: 'l2_bridge', floor: 1, startCell: { x: 12, z: 9 }, endCell: { x: 15, z: 9 }, type: 'stable' },
@@ -344,7 +340,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     id: 3,
     title: 'THE LABYRINTH',
     subtitle: 'SECTOR 03 — CONCRETE UNDERGROUND',
-    description: 'Labirin beton murni dengan satu jalur teratur. Temukan senjata dan serang monster untuk membuka pintu keluar.',
+    description: 'Labirin beton bawah tanah dengan banyak percabangan, rute memutar, dan lorong buntu jebakan. Temukan kursi dan serang Pocong!',
     difficultyRating: 3,
     theme: 'labyrinth',
     gridWidth: 15,
@@ -396,8 +392,8 @@ export const ALL_LEVELS: LevelDefinition[] = [
     floorHeight: 3.8,
     monsterCount: 2,
     ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 10, z: 7 }, endCell: { x: 10, z: 9 }, isStair: true },
-      { fromFloor: 1, toFloor: 2, startCell: { x: 10, z: 11 }, endCell: { x: 10, z: 13 }, isStair: true },
+      { fromFloor: 0, toFloor: 1, startCell: { x: 10, z: 5 }, endCell: { x: 10, z: 2 }, isStair: true },
+      { fromFloor: 1, toFloor: 2, startCell: { x: 10, z: 15 }, endCell: { x: 10, z: 18 }, isStair: true },
     ],
     bridges: [
       { id: 'l4_bridge', floor: 1, startCell: { x: 6, z: 10 }, endCell: { x: 9, z: 10 }, type: 'unstable' },
@@ -437,7 +433,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     floorHeight: 3.8,
     monsterCount: 2,
     ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 8, z: 10 }, endCell: { x: 10, z: 10 }, isStair: true },
+      { fromFloor: 0, toFloor: 1, startCell: { x: 5, z: 10 }, endCell: { x: 2, z: 10 }, isStair: true },
     ],
     bridges: [
       { id: 'l5_bridge_1', floor: 1, startCell: { x: 9, z: 5 }, endCell: { x: 12, z: 5 }, type: 'unstable' },
@@ -478,8 +474,8 @@ export const ALL_LEVELS: LevelDefinition[] = [
     floorHeight: 3.8,
     monsterCount: 3,
     ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 8, z: 8 }, endCell: { x: 10, z: 8 }, isStair: true },
-      { fromFloor: 1, toFloor: 2, startCell: { x: 10, z: 12 }, endCell: { x: 10, z: 14 }, isStair: true },
+      { fromFloor: 0, toFloor: 1, startCell: { x: 2, z: 10 }, endCell: { x: 2, z: 7 }, isStair: true },
+      { fromFloor: 1, toFloor: 2, startCell: { x: 18, z: 7 }, endCell: { x: 18, z: 10 }, isStair: true },
     ],
     bridges: [
       { id: 'l6_bridge', floor: 1, startCell: { x: 9, z: 13 }, endCell: { x: 9, z: 16 }, type: 'stable' },
@@ -519,10 +515,10 @@ export const ALL_LEVELS: LevelDefinition[] = [
     floorHeight: 3.4,
     monsterCount: 3,
     ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 7, z: 8 }, endCell: { x: 9, z: 8 }, isStair: true },
-      { fromFloor: 1, toFloor: 2, startCell: { x: 11, z: 8 }, endCell: { x: 13, z: 8 }, isStair: true },
-      { fromFloor: 2, toFloor: 3, startCell: { x: 10, z: 11 }, endCell: { x: 10, z: 13 }, isStair: true },
-      { fromFloor: 3, toFloor: 4, startCell: { x: 8, z: 12 }, endCell: { x: 10, z: 12 }, isStair: true },
+      { fromFloor: 0, toFloor: 1, startCell: { x: 2, z: 12 }, endCell: { x: 2, z: 9 }, isStair: true },
+      { fromFloor: 1, toFloor: 2, startCell: { x: 4, z: 8 }, endCell: { x: 7, z: 8 }, isStair: true },
+      { fromFloor: 2, toFloor: 3, startCell: { x: 11, z: 12 }, endCell: { x: 14, z: 12 }, isStair: true },
+      { fromFloor: 3, toFloor: 4, startCell: { x: 18, z: 8 }, endCell: { x: 18, z: 11 }, isStair: true },
     ],
     bridges: [
       { id: 'l7_bridge_1', floor: 2, startCell: { x: 7, z: 5 }, endCell: { x: 10, z: 5 }, type: 'unstable' },
@@ -563,8 +559,8 @@ export const ALL_LEVELS: LevelDefinition[] = [
     floorHeight: 3.8,
     monsterCount: 3,
     ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 6, z: 10 }, endCell: { x: 8, z: 10 }, isStair: true },
-      { fromFloor: 1, toFloor: 2, startCell: { x: 12, z: 10 }, endCell: { x: 14, z: 10 }, isStair: true },
+      { fromFloor: 0, toFloor: 1, startCell: { x: 14, z: 2 }, endCell: { x: 17, z: 2 }, isStair: true },
+      { fromFloor: 1, toFloor: 2, startCell: { x: 5, z: 18 }, endCell: { x: 2, z: 18 }, isStair: true },
     ],
     bridges: [
       { id: 'l8_bridge_1', floor: 1, startCell: { x: 8, z: 6 }, endCell: { x: 11, z: 6 }, type: 'stable' },
@@ -606,10 +602,10 @@ export const ALL_LEVELS: LevelDefinition[] = [
     floorHeight: 3.6,
     monsterCount: 4,
     ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 8, z: 10 }, endCell: { x: 10, z: 10 }, isStair: true },
-      { fromFloor: 1, toFloor: 2, startCell: { x: 10, z: 11 }, endCell: { x: 10, z: 13 }, isStair: true },
-      { fromFloor: 2, toFloor: 3, startCell: { x: 10, z: 7 }, endCell: { x: 10, z: 9 }, isStair: true },
-      { fromFloor: 3, toFloor: 4, startCell: { x: 11, z: 10 }, endCell: { x: 13, z: 10 }, isStair: true },
+      { fromFloor: 0, toFloor: 1, startCell: { x: 5, z: 6 }, endCell: { x: 2, z: 6 }, isStair: true },
+      { fromFloor: 1, toFloor: 2, startCell: { x: 15, z: 2 }, endCell: { x: 18, z: 2 }, isStair: true },
+      { fromFloor: 2, toFloor: 3, startCell: { x: 5, z: 14 }, endCell: { x: 2, z: 14 }, isStair: true },
+      { fromFloor: 3, toFloor: 4, startCell: { x: 15, z: 14 }, endCell: { x: 18, z: 14 }, isStair: true },
     ],
     bridges: [
       { id: 'l9_bridge_1', floor: 2, startCell: { x: 10, z: 4 }, endCell: { x: 10, z: 7 }, type: 'stable' },

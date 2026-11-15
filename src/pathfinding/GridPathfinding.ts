@@ -42,6 +42,28 @@ export class GridPathfinding {
     return this.grid[gz][gx] === 0;
   }
 
+  // Find the nearest walkable cell in world coordinates to a given world position
+  public findNearestWalkableWorld(targetWx: number, targetWz: number, maxRadius: number = 4): { wx: number; wz: number } {
+    const { gx, gz } = this.worldToGrid(targetWx, targetWz);
+    if (this.isWalkable(gx, gz)) {
+      return { wx: targetWx, wz: targetWz };
+    }
+    for (let r = 1; r <= maxRadius; r++) {
+      for (let dz = -r; dz <= r; dz++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.abs(dx) === r || Math.abs(dz) === r) {
+            const ngx = gx + dx;
+            const ngz = gz + dz;
+            if (this.isWalkable(ngx, ngz)) {
+              return this.gridToWorld(ngx, ngz);
+            }
+          }
+        }
+      }
+    }
+    return { wx: targetWx, wz: targetWz };
+  }
+
   // Line-of-sight raycast on grid using fine-step sampling
   // Prevents diagonal wall corner-cutting leaks and guarantees walls block vision completely
   public hasLineOfSight(wx1: number, wz1: number, wx2: number, wz2: number): boolean {

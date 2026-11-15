@@ -495,12 +495,21 @@ export class FirstPersonController {
     // If player is on an upper floor, check if they are standing over a stairwell opening or bridge gap
     let effectiveFloor = nominalFloor;
     if (nominalFloor > 0) {
-      const inStairOpening = this.stairOpenings.some(
-        (o) => o.floor === nominalFloor && o.box.containsPoint(this.position)
-      );
-      if (inStairOpening) {
-        // Player is over the stair opening void: floor below applies!
-        effectiveFloor = nominalFloor - 1;
+      // Check if player is near the top landing threshold of any ramp on this floor
+      const nearLanding = this.ramps.some((r) => {
+        if (r.toFloor !== nominalFloor) return false;
+        const d = Math.hypot(this.position.x - r.endWorld.x, this.position.z - r.endWorld.z);
+        return d < 1.2 && Math.abs(this.position.y - (r.endWorld.y + this.playerHeight)) < 0.6;
+      });
+
+      if (!nearLanding) {
+        const inStairOpening = this.stairOpenings.some(
+          (o) => o.floor === nominalFloor && o.box.containsPoint(this.position)
+        );
+        if (inStairOpening) {
+          // Player is over the stair opening void: floor below applies!
+          effectiveFloor = nominalFloor - 1;
+        }
       }
 
       // Check if player stepped into a broken bridge gap or chasm
