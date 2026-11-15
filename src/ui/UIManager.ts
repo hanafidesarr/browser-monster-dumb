@@ -51,6 +51,9 @@ export class UIManager {
   // Level Selection Container
   private levelsContainer = document.getElementById('levels-container')!;
 
+  // Settings navigation state
+  private settingsSource: 'main_menu' | 'pause' | 'overview' = 'main_menu';
+
   // Callbacks
   public onPlayRequested: ((levelId: number) => void) | null = null;
   public onStartLevelRequested: () => void = null as unknown as () => void;
@@ -113,7 +116,12 @@ export class UIManager {
     this.screenLevelSelect.classList.add('active');
   }
 
-  public showSettings(fromPause: boolean = false): void {
+  public showSettings(from: 'main_menu' | 'pause' | 'overview' | boolean = 'main_menu'): void {
+    if (typeof from === 'boolean') {
+      this.settingsSource = from ? 'pause' : 'main_menu';
+    } else {
+      this.settingsSource = from;
+    }
     this.hideAllScreens();
     this.screenSettings.classList.add('active');
   }
@@ -456,9 +464,9 @@ export class UIManager {
       audio.playUiClick();
       requestFullScreenAndLandscape();
       checkShowLandscapePrompt();
-      const currentUnlocked = SaveManager.getInstance().getData().unlockedLevel;
+      const currentLevel = SaveManager.getInstance().getCurrentLevel();
       if (this.onPlayRequested) {
-        this.onPlayRequested(currentUnlocked);
+        this.onPlayRequested(currentLevel);
       }
     });
 
@@ -469,7 +477,7 @@ export class UIManager {
 
     document.getElementById('btn-menu-settings')?.addEventListener('click', () => {
       audio.playUiClick();
-      this.showSettings(false);
+      this.showSettings('main_menu');
     });
 
     // Level Select Back
@@ -496,7 +504,16 @@ export class UIManager {
     // Settings Back
     document.getElementById('btn-settings-back')?.addEventListener('click', () => {
       audio.playUiClick();
-      this.showMainMenu();
+      if (this.settingsSource === 'pause') {
+        this.hideAllScreens();
+        this.hudGameplay.classList.add('active');
+        this.screenPause.classList.add('active');
+      } else if (this.settingsSource === 'overview') {
+        this.hideAllScreens();
+        this.screenOverview.classList.add('active');
+      } else {
+        this.showMainMenu();
+      }
     });
 
     // Overview Buttons
@@ -519,6 +536,11 @@ export class UIManager {
       startBtn.addEventListener('click', onStart);
       startBtn.addEventListener('touchend', onStart);
     }
+
+    document.getElementById('btn-overview-settings')?.addEventListener('click', () => {
+      audio.playUiClick();
+      this.showSettings('overview');
+    });
 
     document.getElementById('btn-overview-back')?.addEventListener('click', () => {
       audio.playUiClick();
@@ -562,7 +584,7 @@ export class UIManager {
 
     bindAction('btn-pause-settings', () => {
       audio.playUiClick();
-      this.showSettings(true);
+      this.showSettings('pause');
     });
 
     bindAction('btn-pause-menu', () => {
@@ -759,6 +781,7 @@ export class UIManager {
       if (isUnlocked) {
         card.addEventListener('click', () => {
           audio.playUiClick();
+          SaveManager.getInstance().setCurrentLevel(level.id);
           if (this.onPlayRequested) {
             this.onPlayRequested(level.id);
           }

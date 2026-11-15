@@ -131,12 +131,15 @@ export class GameManager {
       : '';
     const queryStr = searchPart ? searchPart.replace(/^\?/, '') : hash;
     const params = queryStr ? new URLSearchParams(queryStr) : null;
-    const qLevel = params ? parseInt(params.get('level') || '1', 10) : 1;
+    const hasExplicitLevel = params && params.has('level');
+    const qLevel = hasExplicitLevel ? parseInt(params.get('level') || '1', 10) : null;
     const qView = params ? params.get('view') : null;
     const hideUi = params ? params.get('hide_ui') === 'true' : false;
 
     // Start in level preview in background
-    const targetLevel = (qLevel >= 1 && qLevel <= ALL_LEVELS.length) ? qLevel : 1;
+    const targetLevel = (qLevel !== null && qLevel >= 1 && qLevel <= ALL_LEVELS.length)
+      ? qLevel
+      : SaveManager.getInstance().getCurrentLevel();
     this.loadLevel(targetLevel, false);
 
     // Show Main Menu by default unless audit hideUi or direct phase requested
@@ -325,6 +328,7 @@ export class GameManager {
     const levelIndex = ALL_LEVELS.findIndex((l) => l.id === levelId);
     this.currentLevelIndex = levelIndex >= 0 ? levelIndex : 0;
     this.currentLevelDef = ALL_LEVELS[this.currentLevelIndex];
+    SaveManager.getInstance().setCurrentLevel(this.currentLevelDef.id);
 
     // Remove existing level meshes and dispose hierarchy completely to prevent any collider or memory leaks
     if (this.levelBuild) {

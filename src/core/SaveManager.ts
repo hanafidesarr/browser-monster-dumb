@@ -1,5 +1,6 @@
 export interface SaveData {
   unlockedLevel: number;
+  currentLevel: number;
   completedLevels: Record<number, { time: number; date: string }>;
   unlockedWeapons: string[];
   selectedWeapon: string;
@@ -18,6 +19,7 @@ const STORAGE_KEY = 'monster_dumb_save_v1';
 
 const DEFAULT_SAVE: SaveData = {
   unlockedLevel: 1,
+  currentLevel: 1,
   completedLevels: {},
   unlockedWeapons: ['baseball_bat'],
   selectedWeapon: 'baseball_bat',
@@ -76,9 +78,14 @@ export class SaveManager {
           parsed.selectedWeapon = 'machine_gun';
         }
 
+        const currentLevel = typeof parsed.currentLevel === 'number'
+          ? Math.min(Math.max(1, parsed.currentLevel), 10)
+          : (parsed.unlockedLevel || 1);
+
         return {
           ...DEFAULT_SAVE,
           ...parsed,
+          currentLevel,
           settings,
         };
       }
@@ -120,9 +127,21 @@ export class SaveManager {
       return {
         ...this.data,
         unlockedLevel: Math.max(10, this.data.unlockedLevel),
+        currentLevel: this.data.currentLevel || 1,
       };
     }
     return this.data;
+  }
+
+  public getCurrentLevel(): number {
+    return this.data.currentLevel || 1;
+  }
+
+  public setCurrentLevel(levelNumber: number): void {
+    if (levelNumber >= 1 && levelNumber <= 10) {
+      this.data.currentLevel = levelNumber;
+      this.save();
+    }
   }
 
   public getUnlockedLevel(): number {
@@ -133,6 +152,7 @@ export class SaveManager {
   public unlockLevel(levelNumber: number): void {
     if (levelNumber > this.data.unlockedLevel) {
       this.data.unlockedLevel = levelNumber;
+      this.data.currentLevel = levelNumber;
       this.save();
     }
   }
@@ -145,6 +165,9 @@ export class SaveManager {
     // Unlock next level if applicable (up to 10)
     if (levelNumber + 1 <= 10 && levelNumber + 1 > this.data.unlockedLevel) {
       this.data.unlockedLevel = levelNumber + 1;
+    }
+    if (levelNumber + 1 <= 10) {
+      this.data.currentLevel = levelNumber + 1;
     }
     this.save();
   }
