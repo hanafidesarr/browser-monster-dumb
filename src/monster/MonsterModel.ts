@@ -17,6 +17,8 @@ export class MonsterModel {
   // Animation mixer for skinned / animated models (Kunti)
   private mixer: THREE.AnimationMixer | null = null;
   private crawlAction: THREE.AnimationAction | null = null;
+  private isSittingEvaluated: boolean = false;
+  private crawlAnimAccumulator: number = 0;
 
   // Animation states
   public isLoaded: boolean = false;
@@ -48,7 +50,8 @@ export class MonsterModel {
       this.rightEyeGlow.position.set(0.08, 0.48, 0.58);
       this.innerGroup.add(this.rightEyeGlow);
 
-      this.eyeLight = new THREE.PointLight(0xff0000, 1.4, 4.0, 1.5);
+      // Lightweight soft point light (localized, does not tax surrounding geometry)
+      this.eyeLight = new THREE.PointLight(0xff0000, 0.4, 1.8, 2.0);
       this.eyeLight.position.set(0, 0.48, 0.65);
       this.innerGroup.add(this.eyeLight);
 
@@ -85,15 +88,12 @@ export class MonsterModel {
 
     const dressMat = new THREE.MeshLambertMaterial({
       color: 0xdddddd,
-      roughness: 0.85,
     });
     const skinMat = new THREE.MeshLambertMaterial({
       color: 0x948b80,
-      roughness: 0.7,
     });
     const hairMat = new THREE.MeshLambertMaterial({
       color: 0x111111,
-      roughness: 0.9,
     });
 
     // Crawling low torso (angled forward)
@@ -172,16 +172,38 @@ export class MonsterModel {
             fbx.traverse((child: THREE.Object3D) => {
               if (child instanceof THREE.Mesh) {
                 child.castShadow = true;
-                child.receiveShadow = true;
-                child.frustumCulled = false;
+                // Disable shadow reception on mobile skinned mesh to eliminate shadow map sampling overhead
+                child.receiveShadow = false;
+                // Enable frustum culling with expanded bounding sphere so off-screen Kuntilanak is culled without disappearing
+                if (child.geometry) {
+                  child.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 15);
+                }
+                child.frustumCulled = true;
+
                 if (child.material) {
-                  if (Array.isArray(child.material)) {
-                    child.material.forEach((m) => {
-                      m.side = THREE.DoubleSide;
+                  const mats = Array.isArray(child.material) ? child.material : [child.material];
+                  const optimizedMats = mats.map((m: any) => {
+                    if (!m) return m;
+
+                    // PS1 retro pixelated texture filtering (saves texture filtering bandwidth)
+                    if (m.map) {
+                      m.map.minFilter = THREE.NearestFilter;
+                      m.map.magFilter = THREE.NearestFilter;
+                      m.map.generateMipmaps = false;
+                    }
+
+                    // Only double-side hair/thin planes; body & clothing use hardware FrontSide culling
+                    const isThinPart = child.name.toLowerCase().includes('hair') || child.name.toLowerCase().includes('eyelash');
+                    const side = isThinPart ? THREE.DoubleSide : THREE.FrontSide;
+
+                    // Lightweight MeshLambertMaterial replaces expensive Phong/PBR specular shaders
+                    return new THREE.MeshLambertMaterial({
+                      color: m.color || 0xd0d0d0,
+                      map: m.map || null,
+                      side: side,
                     });
-                  } else {
-                    child.material.side = THREE.DoubleSide;
-                  }
+                  });
+                  child.material = Array.isArray(child.material) ? optimizedMats : optimizedMats[0];
                 }
               }
             });
@@ -231,7 +253,6 @@ export class MonsterModel {
 
     const shroudMat = new THREE.MeshLambertMaterial({
       color: 0xcccccc,
-      roughness: 0.9,
     });
 
     // Wrapped body column
@@ -276,7 +297,6 @@ export class MonsterModel {
       normalMap: clothNormal,
       aoMap: clothAO,
       side: THREE.DoubleSide,
-      roughness: 0.85,
     });
 
     const faceMaterial = new THREE.MeshLambertMaterial({
@@ -284,7 +304,6 @@ export class MonsterModel {
       normalMap: faceNormal,
       specularMap: faceSpec,
       side: THREE.DoubleSide,
-      roughness: 0.65,
     });
 
     const fbxLoader = new FBXLoader();
@@ -342,9 +361,10 @@ export class MonsterModel {
   // 1. IDLE / SLEEPING: Motionless or subtle breathing in the dark
   public applySittingPosture(time: number): void {
     if (this.monsterType === 'kunti') {
-      if (this.mixer) {
-        // Evaluate at natural wide-splayed limb frame (~0.12s)
-        this.mixer.setTime(0.12 + Math.sin(time * 1.5) * 0.012);
+      if (this.mixer && !this.isSittingEvaluated) {
+        // Evaluate at natural wide-splayed limb frame (~0.12s) once instead of recomputing all bones every frame
+        this.mixer.setTime(0.12);
+        this.isSittingEvaluated = true;
       }
       const breathe = Math.sin(time * 1.8) * 0.012;
       // Clinging to vertical wall surface like a cicak (lizard/gecko):
@@ -354,7 +374,7 @@ export class MonsterModel {
       this.innerGroup.position.set(0, breathe, -0.06);
       this.innerGroup.rotation.set(-Math.PI / 2, 0, Math.PI + Math.sin(time * 1.2) * 0.02);
 
-      const eyeIntensity = 1.3 + Math.sin(time * 3.0) * 0.5;
+      const eyeIntensity = 0.5 + Math.sin(time * 3.0) * 0.2;
       this.eyeLight.intensity = eyeIntensity;
       (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff1111);
       (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff1111);
@@ -384,6 +404,7 @@ export class MonsterModel {
     const flinch = Math.sin(p * Math.PI);
 
     if (this.monsterType === 'kunti') {
+      this.isSittingEvaluated = false;
       // Recoils and smoothly transitions from wall-clinging cicak posture (-PI/2, 0, PI) to floor crawl posture (0, 0, 0)
       const rotX = THREE.MathUtils.lerp(-Math.PI / 2, 0, p);
       const rotZ = THREE.MathUtils.lerp(Math.PI, 0, p);
@@ -491,11 +512,17 @@ export class MonsterModel {
 
   // 5. CRAWL (MERANGKAK) — Kuntilanak Mixamo Crawl Animation Loop
   public applyCrawl(dt: number, speed: number): void {
+    this.isSittingEvaluated = false;
     if (this.mixer) {
       // mixamo.com clip duration is ~0.667s
       // Match crawling limb cycle to movement speed
       const animRate = Math.max(0.6, speed / 3.2);
-      this.mixer.update(dt * animRate);
+      this.crawlAnimAccumulator += dt;
+      // Throttled skeletal animation update (~33 FPS) to eliminate mobile CPU/GPU bottleneck while maintaining smooth motion
+      if (this.crawlAnimAccumulator >= 0.03) {
+        this.mixer.update(this.crawlAnimAccumulator * animRate);
+        this.crawlAnimAccumulator = 0;
+      }
     }
     // Stay low and grounded
     this.innerGroup.position.set(0, 0, 0);
@@ -503,7 +530,7 @@ export class MonsterModel {
     this.innerGroup.scale.set(1.0, 1.0, 1.0);
 
     // Glowing intense red eyes during chase
-    this.eyeLight.intensity = 2.4;
+    this.eyeLight.intensity = 1.0;
     (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
     (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
   }

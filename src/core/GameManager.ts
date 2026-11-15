@@ -637,7 +637,12 @@ export class GameManager {
       });
 
       // 2. Immediately trigger hit reaction on struck monster with weapon characteristics, scream, and chase!
-      hitMonster.triggerWeaponHit(weaponDef);
+      hitMonster.triggerWeaponHit(weaponDef, this.fpController.position);
+      for (const m of this.monsters) {
+        if (m !== hitMonster) {
+          m.wakeUpAndChase();
+        }
+      }
       this.triggerScreenShake(0.4);
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
       if (this.currentLevelDef.exitLockedInitially) {
@@ -748,6 +753,11 @@ export class GameManager {
 
       // Trigger hit reaction with gunshot sound, scream, knockback away from player (1.8m), and ranged sprint boost!
       hitMonster.triggerWeaponHit(weaponDef, this.fpController.position, 1.8, true);
+      for (const m of this.monsters) {
+        if (m !== hitMonster) {
+          m.wakeUpAndChase();
+        }
+      }
       this.triggerScreenShake(0.5);
 
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
@@ -815,6 +825,11 @@ export class GameManager {
 
       // Trigger hit reaction, explosion impact, scream, directional knockback (2.2m), and ranged sprint boost!
       hitMonster.triggerWeaponHit(weaponDef, impactPos, 2.2, true);
+      for (const m of this.monsters) {
+        if (m !== hitMonster) {
+          m.wakeUpAndChase();
+        }
+      }
       this.triggerScreenShake(0.65);
 
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';

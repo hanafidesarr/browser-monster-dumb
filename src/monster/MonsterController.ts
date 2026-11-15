@@ -289,7 +289,7 @@ export class MonsterController {
 
     // 1. Vertical separation validation (Floors/Ceilings separation threshold)
     const playerFeetY = playerPos.y - 1.65;
-    const monsterBaseY = this.position.y;
+    const monsterBaseY = this.isWallClinging ? this.baseGroundY : this.position.y;
     const verticalDist = Math.abs(playerFeetY - monsterBaseY);
     const fh = this.floorHeight > 0 ? this.floorHeight : 3.8;
 
@@ -708,6 +708,14 @@ export class MonsterController {
     this.model.applyScream(this.animProgress, totalTime);
 
     if (this.stateTime >= screamDuration) {
+      if (this.otherMonsters && this.otherMonsters.length > 0) {
+        for (const other of this.otherMonsters) {
+          if (other !== this && other.state === 'SITTING_IDLE') {
+            other.wakeUpAndChase();
+          }
+        }
+      }
+
       if (this.monsterType === 'kunti') {
         // Kuntilanak: drops straight into fast crawl chase immediately after scream!
         this.state = 'CHASE';
