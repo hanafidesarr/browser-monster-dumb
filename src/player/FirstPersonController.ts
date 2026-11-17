@@ -504,7 +504,7 @@ export class FirstPersonController {
 
       if (!nearLanding) {
         const inStairOpening = this.stairOpenings.some(
-          (o) => o.floor === nominalFloor && o.box.containsPoint(this.position)
+          (o) => o.floor === nominalFloor && o.box && o.box.containsPoint(this.position)
         );
         if (inStairOpening) {
           // Player is over the stair opening void: floor below applies!

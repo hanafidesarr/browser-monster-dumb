@@ -1441,4 +1441,527 @@ export class TextureGenerator {
     tex.wrapT = THREE.RepeatWrapping;
     return this.setPixelated(tex);
   }
+
+  // =========================================================================
+  // LEVEL 5 — MILITARY UNDERGROUND BUNKER TEXTURES (2 FLOORS)
+  // =========================================================================
+
+  // PS1 Reinforced Concrete Bunker Wall (Dinding Beton Tebal Bunker Militer — Lantai 1)
+  public static createBunkerWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Medium-dark cold concrete base
+    ctx.fillStyle = '#4a4d4a';
+    ctx.fillRect(0, 0, size, size);
+
+    // Concrete aggregate grain and pores
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 28;
+        const r = Math.max(40, Math.min(105, 75 + n));
+        const g = Math.max(42, Math.min(108, 78 + n * 0.98));
+        const b = Math.max(40, Math.min(105, 74 + n * 0.95));
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Heavy horizontal formwork seam lines (garis cetakan beton tebal)
+    for (const ySeam of [32, 64, 96]) {
+      ctx.fillStyle = 'rgba(25, 26, 25, 0.8)';
+      ctx.fillRect(0, ySeam - 1, size, 2);
+      ctx.fillStyle = 'rgba(125, 130, 125, 0.4)';
+      ctx.fillRect(0, ySeam + 1, size, 1);
+    }
+
+    // Vertical panel joints
+    for (const xJoint of [42, 84]) {
+      ctx.fillStyle = 'rgba(25, 26, 25, 0.7)';
+      ctx.fillRect(xJoint, 0, 2, size);
+    }
+
+    // Steel anchor bolts (baut baja dinding bunker besar & kokoh)
+    const boltPoints = [
+      { x: 14, y: 18 }, { x: 64, y: 18 }, { x: 114, y: 18 },
+      { x: 14, y: 50 }, { x: 64, y: 50 }, { x: 114, y: 50 },
+      { x: 14, y: 82 }, { x: 64, y: 82 }, { x: 114, y: 82 },
+    ];
+    for (const bp of boltPoints) {
+      ctx.fillStyle = '#141714';
+      ctx.fillRect(bp.x - 3, bp.y - 3, 7, 7);
+      ctx.fillStyle = '#9ca3af';
+      ctx.fillRect(bp.x - 1, bp.y - 1, 3, 3);
+    }
+
+    // Rust drip stains from bolts (lelehan karat besi tebal)
+    for (let i = 0; i < 3; i++) {
+      const rx = 14 + i * 50;
+      const ry = 52;
+      ctx.fillStyle = 'rgba(110, 50, 20, 0.6)';
+      ctx.fillRect(rx - 1, ry, 3, 26);
+      ctx.fillStyle = 'rgba(150, 75, 30, 0.45)';
+      ctx.fillRect(rx, ry + 3, 1, 20);
+    }
+
+    // Military Hazard Yellow/Black warning stripe at bottom skirt (garis hazard tegas)
+    const hY = size - 18;
+    for (let x = 0; x < size; x += 16) {
+      ctx.fillStyle = '#eab308'; // bright warning yellow
+      ctx.fillRect(x, hY, 8, 18);
+      ctx.fillStyle = '#18181b'; // hazard black
+      ctx.fillRect(x + 8, hY, 8, 18);
+    }
+    // Hazard top trim line
+    ctx.fillStyle = '#09090b';
+    ctx.fillRect(0, hY - 1, size, 2);
+
+    // Green stencil label "SECTOR-05" (jelas dan terbaca di level mata)
+    ctx.fillStyle = '#22c55e';
+    ctx.font = 'bold 11px monospace';
+    ctx.fillText('SECTOR-05', 10, 28);
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Reinforced Armored Black Steel Bunker Wall (Dinding Pelat Baja Hitam Lapis Baja — Lantai 2)
+  public static createArmoredBunkerWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Dark charcoal gunmetal steel base
+    ctx.fillStyle = '#1e2225';
+    ctx.fillRect(0, 0, size, size);
+
+    // Fine steel brushed texture and metallic grain
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 20;
+        const r = Math.max(20, Math.min(65, 34 + n));
+        const g = Math.max(22, Math.min(70, 38 + n * 1.05));
+        const b = Math.max(24, Math.min(75, 42 + n * 1.1));
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Heavy bolted steel armor plate boundary seams (horizontal structural ribs)
+    for (const yRib of [30, 68, 102]) {
+      ctx.fillStyle = '#0f1113';
+      ctx.fillRect(0, yRib - 2, size, 4);
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(0, yRib - 1, size, 1);
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(0, yRib + 1, size, 1);
+    }
+
+    // Vertical armor plate seams
+    for (const xSeam of [36, 92]) {
+      ctx.fillStyle = '#0f1113';
+      ctx.fillRect(xSeam - 2, 0, 4, size);
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(xSeam - 1, 0, 1, size);
+    }
+
+    // Heavy steel industrial rivets / paku keling ganda di sekeliling pelat baja
+    const rivetX = [8, 22, 50, 78, 106, 120];
+    const rivetY = [12, 48, 84, 116];
+    for (const rx of rivetX) {
+      for (const ry of rivetY) {
+        ctx.fillStyle = '#090a0b';
+        ctx.fillRect(rx - 2, ry - 2, 5, 5);
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(rx - 1, ry - 1, 3, 3);
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillRect(rx, ry, 1, 1);
+      }
+    }
+
+    // Industrial hydraulic fluid / black grease drips
+    for (let i = 0; i < 4; i++) {
+      const gx = 24 + i * 28;
+      const gy = 32;
+      ctx.fillStyle = 'rgba(10, 12, 14, 0.75)';
+      ctx.fillRect(gx, gy, 2, 22);
+      ctx.fillStyle = 'rgba(25, 30, 36, 0.45)';
+      ctx.fillRect(gx - 1, gy + 4, 4, 14);
+    }
+
+    // Red & White Hazard Caution diagonal warning stripe along bottom skirt (kontras tegas dari Lantai 1)
+    const hY = size - 18;
+    for (let x = 0; x < size; x += 16) {
+      ctx.fillStyle = '#dc2626'; // bright danger red
+      ctx.fillRect(x, hY, 8, 18);
+      ctx.fillStyle = '#f8fafc'; // crisp warning white
+      ctx.fillRect(x + 8, hY, 8, 18);
+    }
+    // Top black trim line for hazard stripe
+    ctx.fillStyle = '#090a0b';
+    ctx.fillRect(0, hY - 1, size, 2);
+
+    // Yellow warning stencil "SUB-02 / RESTRICTED"
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText('SUB-02 / RESTRICTED', 8, 22);
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Industrial Concrete Bunker Floor (Lantai Beton Halus Bunker)
+  public static createBunkerFloorTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Dark grey concrete floor slab
+    ctx.fillStyle = '#3c403d';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 20;
+        const r = Math.max(30, Math.min(85, 60 + n));
+        const g = Math.max(32, Math.min(88, 64 + n * 0.98));
+        const b = Math.max(30, Math.min(85, 62 + n * 0.95));
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Expansion joint grid lines (garis nat lantai beton)
+    ctx.fillStyle = '#1e211e';
+    ctx.fillRect(0, 63, size, 2);
+    ctx.fillRect(63, 0, 2, size);
+
+    // Scuff marks and oil stains
+    for (let i = 0; i < 4; i++) {
+      const ox = Math.random() * size;
+      const oy = Math.random() * size;
+      ctx.fillStyle = 'rgba(18, 18, 18, 0.45)';
+      ctx.beginPath();
+      ctx.arc(ox, oy, 4 + Math.random() * 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Outdoor Bunker Outpost Ground (Tanah Parit Pertahanan Luar Bunker)
+  public static createOutdoorBunkerTrenchTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Dark damp gravel & dirt trench base
+    ctx.fillStyle = '#323028';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 24;
+        const r = Math.max(30, Math.min(80, 52 + n));
+        const g = Math.max(28, Math.min(76, 50 + n * 0.95));
+        const b = Math.max(24, Math.min(65, 42 + n * 0.8));
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Patches of cracked concrete outpost slabs
+    for (let i = 0; i < 6; i++) {
+      const cx = Math.random() * (size - 24);
+      const cy = Math.random() * (size - 24);
+      ctx.fillStyle = '#4c504a';
+      ctx.fillRect(cx, cy, 20, 16);
+      ctx.fillStyle = '#222421';
+      ctx.fillRect(cx + 6, cy + 2, 1, 12); // crack line
+    }
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Cemetery Ground Texture (Tanah Pekuburan Lembap Berlumut & Bertanah Gelap)
+  public static createCemeteryGroundTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Damp dark earth base
+    ctx.fillStyle = '#23201b';
+    ctx.fillRect(0, 0, size, size);
+
+    // Soil & rotting organic noise
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 26;
+        const r = Math.max(22, Math.min(65, 38 + n));
+        const g = Math.max(20, Math.min(68, 42 + n * 0.95));
+        const b = Math.max(16, Math.min(50, 30 + n * 0.7));
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Mossy patches (lumut hijau gelap tanah kuburan)
+    for (let i = 0; i < 9; i++) {
+      const mx = Math.random() * (size - 16);
+      const my = Math.random() * (size - 16);
+      const mr = 6 + Math.random() * 10;
+      ctx.fillStyle = 'rgba(42, 60, 32, 0.5)';
+      ctx.beginPath();
+      ctx.arc(mx, my, mr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Dry fallen leaves & twigs (serasah daun kamboja & beringin gugur)
+    for (let i = 0; i < 18; i++) {
+      const lx = Math.random() * size;
+      const ly = Math.random() * size;
+      ctx.fillStyle = i % 2 === 0 ? '#4a3319' : '#5c4826';
+      ctx.fillRect(lx, ly, 3, 2);
+    }
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Banyan Tree Bark Texture (Kulit Batang Beringin Tua Berserat Kasar)
+  public static createBanyanBarkTexture(): THREE.CanvasTexture {
+    const width = 64;
+    const height = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+
+    // Dark greyish-brown aged banyan bark base
+    ctx.fillStyle = '#342f29';
+    ctx.fillRect(0, 0, width, height);
+
+    // Deep vertical bark grooves & fibrous ridges
+    for (let x = 0; x < width; x += 2) {
+      const v = (Math.random() - 0.5) * 28;
+      const r = Math.max(35, Math.min(85, 58 + v));
+      const g = Math.max(32, Math.min(80, 52 + v * 0.92));
+      const b = Math.max(26, Math.min(70, 44 + v * 0.8));
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fillRect(x, 0, 2, height);
+    }
+
+    // Wavy aerial root striations
+    ctx.strokeStyle = 'rgba(22, 19, 16, 0.75)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 7; i++) {
+      const startX = 6 + i * 8;
+      ctx.beginPath();
+      ctx.moveTo(startX, 0);
+      ctx.bezierCurveTo(startX + 4, height * 0.35, startX - 3, height * 0.65, startX + 2, height);
+      ctx.stroke();
+    }
+
+    // Moss highlights on trunk crevices
+    for (let y = 0; y < height; y += 4) {
+      if (Math.random() > 0.6) {
+        ctx.fillStyle = 'rgba(52, 72, 38, 0.65)';
+        ctx.fillRect(Math.random() * width, y, 4, 3);
+      }
+    }
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Banyan Canopy Texture (Kanopi Dedaunan Beringin Rimbun Berakar Gantung)
+  public static createBanyanCanopyTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Deep shadow foliage base
+    ctx.fillStyle = '#172414';
+    ctx.fillRect(0, 0, size, size);
+
+    // Dense leaf clusters noise
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 32;
+        const r = Math.max(16, Math.min(60, 28 + n * 0.7));
+        const g = Math.max(30, Math.min(95, 52 + n));
+        const b = Math.max(14, Math.min(52, 24 + n * 0.6));
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Overlapping leaf silhouette flecks
+    for (let i = 0; i < 70; i++) {
+      const lx = Math.random() * size;
+      const ly = Math.random() * size;
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(58, 92, 42, 0.7)' : 'rgba(18, 32, 14, 0.8)';
+      ctx.beginPath();
+      ctx.ellipse(lx, ly, 3, 5, Math.random() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Poleng Cloth Texture (Kain Poleng Hitam-Putih Tradisional Pohon Keramat)
+  public static createPolengClothTexture(): THREE.CanvasTexture {
+    const size = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // 8x8 checkerboard pattern (kain sarung kotak catur keramat)
+    const tileSize = 8;
+    for (let y = 0; y < size; y += tileSize) {
+      for (let x = 0; x < size; x += tileSize) {
+        const isWhite = ((x / tileSize) + (y / tileSize)) % 2 === 0;
+        if (isWhite) {
+          ctx.fillStyle = '#e5dec9'; // Off-white aged fabric
+        } else {
+          ctx.fillStyle = '#171717'; // Charcoal deep black
+        }
+        ctx.fillRect(x, y, tileSize, tileSize);
+      }
+    }
+
+    // Fabric weave texture noise
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        if (Math.random() > 0.5) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+
+    // Weathered fringe boundary seam
+    ctx.strokeStyle = 'rgba(70, 60, 45, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, size, size);
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Indonesian Tombstone & Kijing Texture (Batu Nisan & Kijing Makam Tua Berlumut)
+  public static createTombstoneTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Weathered grey stone base
+    ctx.fillStyle = '#4c504d';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 28;
+        const c = Math.max(40, Math.min(115, 78 + n));
+        ctx.fillStyle = `rgb(${c}, ${c + 2}, ${c - 2})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Moss stains (bercak lumut hijau pekat di sudut nisan)
+    for (let i = 0; i < 7; i++) {
+      const mx = Math.random() * size;
+      const my = size - 35 + Math.random() * 30;
+      ctx.fillStyle = 'rgba(48, 68, 38, 0.65)';
+      ctx.beginPath();
+      ctx.arc(mx, my, 8 + Math.random() * 12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Stone cracks (retakan batu nisan kuno)
+    ctx.strokeStyle = '#232522';
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 3; i++) {
+      const sx = 20 + Math.random() * (size - 40);
+      const sy = 15 + Math.random() * 40;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + (Math.random() - 0.5) * 16, sy + 18 + Math.random() * 14);
+      ctx.stroke();
+    }
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Cave Stalagmite / Rock Pillar Texture (Batu Karang Stalagmit Purba)
+  public static createStalagmiteTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Dark grey limestone rock base
+    ctx.fillStyle = '#3e413f';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 26;
+        const c = Math.max(35, Math.min(100, 68 + n));
+        ctx.fillStyle = `rgb(${c}, ${c + 1}, ${c + 3})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Vertical mineral drip streaks
+    ctx.fillStyle = 'rgba(28, 30, 29, 0.6)';
+    for (let i = 0; i < 8; i++) {
+      const rx = 10 + i * 14;
+      ctx.fillRect(rx, 0, 2 + Math.random() * 2, size);
+    }
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
 }

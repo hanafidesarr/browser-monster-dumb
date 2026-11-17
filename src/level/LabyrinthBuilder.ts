@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { LevelDefinition } from './LevelData.ts';
 import { TextureGenerator } from './TextureGenerator.ts';
 import { BananaTreeFactory } from './BananaTreeFactory.ts';
+import { BanyanTreeFactory } from './BanyanTreeFactory.ts';
 import { WeaponId } from '../weapon/WeaponData.ts';
 import { WeaponModelFactory } from '../weapon/WeaponModelFactory.ts';
 import { EnvironmentPropFactory } from './EnvironmentPropFactory.ts';
@@ -72,7 +73,17 @@ export class LabyrinthBuilder {
       return this.buildBananaGardenLevel(level, spawns);
     }
 
-    // For Levels 2 to 10: Build distinct themed 3D environments
+    // LEVEL 4: Sacred Indonesian Cemetery & Banyan Grove (Expansive Outdoor)
+    if (level.theme === 'cemetery' || level.id === 4) {
+      return this.buildCemeteryLevel(level, spawns);
+    }
+
+    // LEVEL 5: Military Underground Bunker (Outdoor Outpost & Expansive Concrete Bunker)
+    if (level.theme === 'bunker' || level.id === 5) {
+      return this.buildBunkerLevel(level, spawns);
+    }
+
+    // For Levels 2, 3, 6 to 10: Build distinct themed 3D environments
     return this.buildThemedLevel(level, spawns);
   }
 
@@ -411,6 +422,1075 @@ export class LabyrinthBuilder {
       bridges: [],
       stairOpenings: [],
       blockingMeshes: [wallsMesh, floorMesh],
+    };
+  }
+
+  // =========================================================================
+  // LEVEL 4 — SACRED INDONESIAN CEMETERY & EXPANSIVE BANYAN GROVE
+  // =========================================================================
+  private static buildCemeteryLevel(level: LevelDefinition, spawns?: SelectedSpawns): LevelBuildResult {
+    const rootGroup = new THREE.Group();
+    rootGroup.name = 'CemeteryRoot';
+
+    const { gridWidth, gridHeight, cellSize, wallHeight } = level;
+    const halfWidth = (gridWidth * cellSize) / 2;
+    const halfHeight = (gridHeight * cellSize) / 2;
+
+    // 1. Expansive Dark Damp Cemetery Ground
+    const floorTex = typeof document !== 'undefined'
+      ? TextureGenerator.createCemeteryGroundTexture()
+      : undefined;
+    if (floorTex) {
+      floorTex.repeat.set(gridWidth * 1.5, gridHeight * 1.5);
+    }
+
+    const floorMat = new THREE.MeshLambertMaterial({
+      map: floorTex,
+      roughness: 0.9,
+      side: THREE.DoubleSide,
+    });
+
+    const totalW = gridWidth * cellSize + 60;
+    const totalH = gridHeight * cellSize + 60;
+
+    const floorGeo = new THREE.PlaneGeometry(totalW, totalH);
+    floorGeo.rotateX(-Math.PI / 2);
+    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.position.set(0, 0, 0);
+    floorMesh.receiveShadow = true;
+    rootGroup.add(floorMesh);
+
+    // 2. Open Eerie Night Sky & Starfield
+    const starCount = 380;
+    const starGeo = new THREE.BufferGeometry();
+    const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      starPositions[i * 3] = (Math.random() - 0.5) * totalW * 2.5;
+      starPositions[i * 3 + 1] = 30 + Math.random() * 50;
+      starPositions[i * 3 + 2] = (Math.random() - 0.5) * totalH * 2.5;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starMat = new THREE.PointsMaterial({
+      color: 0xe8eef5,
+      size: 0.24,
+      transparent: true,
+      opacity: 0.65,
+    });
+    rootGroup.add(new THREE.Points(starGeo, starMat));
+
+    // 3. Cemetery Atmospheric Lighting — Brightness matched to Level 1
+    const skyLight = new THREE.DirectionalLight(0xd6e5d8, 2.0);
+    skyLight.position.set(halfWidth * 0.8, 60, -halfHeight * 0.85);
+    skyLight.target.position.set(0, 0, 0);
+    rootGroup.add(skyLight);
+    rootGroup.add(skyLight.target);
+
+    const ambientLight = new THREE.AmbientLight(0x3d4740, 2.3);
+    rootGroup.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0xd6e5d8, 0x2d3630, 1.05);
+    rootGroup.add(hemiLight);
+
+    // 4. Spawns Calculation
+    const selectedSpawns = spawns || SpawnManager.generateSpawns(level);
+    const pSpawnWx = selectedSpawns.player.x;
+    const pSpawnWy = selectedSpawns.player.y;
+    const pSpawnWz = selectedSpawns.player.z;
+
+    const monsterSpawns = selectedSpawns.monsters;
+    const mSpawnWx = monsterSpawns[0].x;
+    const mSpawnWy = monsterSpawns[0].y;
+    const mSpawnWz = monsterSpawns[0].z;
+
+    const exitWx = selectedSpawns.exit.x;
+    const exitWy = selectedSpawns.exit.y;
+    const exitWz = selectedSpawns.exit.z;
+
+    // 5. Perimeter Boundaries & Obstacle Colliders
+    const treeColliders: Array<{ x: number; z: number; radius: number; label?: string }> = [];
+    const updatedGrid: number[][] = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(0));
+
+    for (let gz = 0; gz < gridHeight; gz++) {
+      for (let gx = 0; gx < gridWidth; gx++) {
+        if (gx === 0 || gx === gridWidth - 1 || gz === 0 || gz === gridHeight - 1) {
+          updatedGrid[gz][gx] = 1;
+        }
+      }
+    }
+
+    // Boundary Perimeter Trees (Pohon Beringin Pembatas Luar — No walls, natural tree boundary like Level 1)
+    for (let gx = 0; gx < gridWidth; gx++) {
+      const nWx = (gx + 0.5) * cellSize - halfWidth;
+      const nWz = 0.5 * cellSize - halfHeight;
+      const sWz = (gridHeight - 0.5) * cellSize - halfHeight;
+
+      const nBanyan = BanyanTreeFactory.createBanyanTree({ height: 8.5, trunkRadius: 1.1, canopyRadius: 4.8 });
+      nBanyan.position.set(nWx, 0, nWz);
+      rootGroup.add(nBanyan);
+      treeColliders.push({ x: nWx, z: nWz, radius: 1.25, label: 'perimeter_banyan' });
+
+      const sBanyan = BanyanTreeFactory.createBanyanTree({ height: 8.8, trunkRadius: 1.15, canopyRadius: 5.0 });
+      sBanyan.position.set(nWx, 0, sWz);
+      rootGroup.add(sBanyan);
+      treeColliders.push({ x: nWx, z: sWz, radius: 1.25, label: 'perimeter_banyan' });
+    }
+
+    for (let gz = 1; gz < gridHeight - 1; gz++) {
+      const wWx = 0.5 * cellSize - halfWidth;
+      const eWx = (gridWidth - 0.5) * cellSize - halfWidth;
+      const wWz = (gz + 0.5) * cellSize - halfHeight;
+
+      const wBanyan = BanyanTreeFactory.createBanyanTree({ height: 8.4, trunkRadius: 1.1, canopyRadius: 4.8 });
+      wBanyan.position.set(wWx, 0, wWz);
+      rootGroup.add(wBanyan);
+      treeColliders.push({ x: wWx, z: wWz, radius: 1.25, label: 'perimeter_banyan' });
+
+      const eBanyan = BanyanTreeFactory.createBanyanTree({ height: 8.6, trunkRadius: 1.12, canopyRadius: 4.9 });
+      eBanyan.position.set(eWx, 0, wWz);
+      rootGroup.add(eBanyan);
+      treeColliders.push({ x: eWx, z: wWz, radius: 1.25, label: 'perimeter_banyan' });
+    }
+
+    // Invisible dummy wall mesh so LabyrinthBuild interface has wallsMesh (just like Level 1)
+    const wallMat = new THREE.MeshBasicMaterial({ visible: false });
+    const wallsMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1), wallMat);
+    rootGroup.add(wallsMesh);
+
+    // 6. Sacred Centerpiece Banyan Tree at Map Center (gx: 13, gz: 13)
+    const centerWx = (13 + 0.5) * cellSize - halfWidth;
+    const centerWz = (13 + 0.5) * cellSize - halfHeight;
+    const centerTree = BanyanTreeFactory.createBanyanTree({
+      height: 11.2,
+      trunkRadius: 1.45,
+      canopyRadius: 7.2,
+      isSacredCenterpiece: true,
+    });
+    centerTree.position.set(centerWx, 0, centerWz);
+    rootGroup.add(centerTree);
+    treeColliders.push({ x: centerWx, z: centerWz, radius: 1.6, label: 'sacred_banyan_center' });
+    updatedGrid[13][13] = 1;
+
+    // 7. Kuncen Caretaker Shack (Gubuk Kuncen) at gx: 7, gz: 13
+    const kuncenWx = (7 + 0.5) * cellSize - halfWidth;
+    const kuncenWz = (13 + 0.5) * cellSize - halfHeight;
+    const kuncenHut = EnvironmentPropFactory.createKuncenHut();
+    kuncenHut.position.set(kuncenWx, 0, kuncenWz);
+    kuncenHut.rotation.y = -Math.PI / 2; // Facing east towards central sacred banyan
+    rootGroup.add(kuncenHut);
+    treeColliders.push({ x: kuncenWx, z: kuncenWz, radius: 2.1, label: 'kuncen_hut' });
+    updatedGrid[13][7] = 1;
+
+    // 8. Dense Organic Banyan Grove (Pohon Beringin Rapat seperti Level 1)
+    let seed = 4829107;
+    const rnd = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+
+    const isNearClearings = (x: number, z: number): boolean => {
+      if (Math.hypot(x - pSpawnWx, z - pSpawnWz) < 7.0) return true;
+      for (let i = 0; i < monsterSpawns.length; i++) {
+        if (Math.hypot(x - monsterSpawns[i].x, z - monsterSpawns[i].z) < 4.5) return true;
+      }
+      if (Math.hypot(x - exitWx, z - exitWz) < 8.0) return true;
+      if (Math.hypot(x - kuncenWx, z - kuncenWz) < 5.5) return true;
+      if (Math.hypot(x - centerWx, z - centerWz) < 5.5) return true;
+      // Arterial paths: diagonal avenue and central cross axes for player sprint & monster chase
+      if (Math.abs(x - z) < 2.4 && Math.hypot(x, z) < halfWidth * 0.9) return true;
+      if (Math.abs(x) < 2.2 || Math.abs(z) < 2.2) return true;
+      if (Math.abs(x) > halfWidth - 5.0 || Math.abs(z) > halfHeight - 5.0) return true;
+      return false;
+    };
+
+    const minTreeSpacing = 6.2;
+    const candidateAttempts = 450;
+
+    for (let i = 0; i < candidateAttempts; i++) {
+      const tx = (rnd() * 2 - 1) * (halfWidth - 5.5);
+      const tz = (rnd() * 2 - 1) * (halfHeight - 5.5);
+
+      if (isNearClearings(tx, tz)) continue;
+
+      let tooClose = false;
+      for (let j = 0; j < treeColliders.length; j++) {
+        const ct = treeColliders[j];
+        if (Math.hypot(tx - ct.x, tz - ct.z) < minTreeSpacing) {
+          tooClose = true;
+          break;
+        }
+      }
+
+      if (!tooClose) {
+        const treeH = 7.4 + rnd() * 2.8;
+        const trunkR = 0.82 + rnd() * 0.35;
+        const canopyR = 4.2 + rnd() * 1.4;
+
+        const banyan = BanyanTreeFactory.createBanyanTree({
+          height: treeH,
+          trunkRadius: trunkR,
+          canopyRadius: canopyR,
+        });
+        banyan.position.set(tx, 0, tz);
+        banyan.rotation.y = rnd() * Math.PI * 2;
+        rootGroup.add(banyan);
+
+        treeColliders.push({ x: tx, z: tz, radius: trunkR + 0.25, label: 'banyan_tree' });
+
+        const gx = Math.floor((tx + halfWidth) / cellSize);
+        const gz = Math.floor((tz + halfHeight) / cellSize);
+        if (gx >= 0 && gx < gridWidth && gz >= 0 && gz < gridHeight) {
+          if (!isNearClearings(tx, tz)) {
+            updatedGrid[gz][gx] = 1;
+          }
+        }
+      }
+    }
+
+    // 9. Indonesian Cemetery Clusters & Rows (Banyak Makam Khas Indonesia)
+    // IMPORTANT: To ensure player and monsters can freely walk, run, and sprint smoothly,
+    // graves are visual fixtures without large blocking cylinder colliders or solid grid flags!
+    const graveTypes: Array<'kijing_stone' | 'kijing_mossy' | 'kijing_white' | 'earthen'> = [
+      'kijing_mossy', 'kijing_stone', 'kijing_mossy', 'kijing_white', 'earthen', 'earthen'
+    ];
+
+    const spawnGrave = (
+      type: 'kijing_stone' | 'kijing_mossy' | 'kijing_white' | 'earthen',
+      wx: number,
+      wz: number,
+      rotY: number = 0
+    ) => {
+      let grave: THREE.Group;
+      if (type === 'kijing_stone') {
+        grave = EnvironmentPropFactory.createIndonesianGraveKijing('stone');
+      } else if (type === 'kijing_mossy') {
+        grave = EnvironmentPropFactory.createIndonesianGraveKijing('mossy');
+      } else if (type === 'kijing_white') {
+        grave = EnvironmentPropFactory.createIndonesianGraveKijing('whitewash');
+      } else {
+        grave = EnvironmentPropFactory.createIndonesianGraveEarthen();
+      }
+
+      grave.position.set(wx, 0, wz);
+      grave.rotation.y = rotY;
+      rootGroup.add(grave);
+    };
+
+    // Organized cemetery rows (Barisan Pemakaman Tradisional Indonesia)
+    let graveIdx = 0;
+
+    // Sector A: North-East Kijing & Earthen Cemetery Rows (gx: 15..22, gz: 4..10)
+    for (let gz = 4; gz <= 10; gz += 2) {
+      for (let gx = 15; gx <= 22; gx += 2) {
+        const type = graveTypes[graveIdx++ % graveTypes.length];
+        const gWx = (gx + 0.5) * cellSize - halfWidth + (rnd() - 0.5) * 0.5;
+        const gWz = (gz + 0.5) * cellSize - halfHeight + (rnd() - 0.5) * 0.5;
+        spawnGrave(type, gWx, gWz, (rnd() - 0.5) * 0.15);
+      }
+    }
+
+    // Sector B: South-West Earthen Mounds & Mossy Tombstones (gx: 4..11, gz: 15..21)
+    for (let gz = 15; gz <= 21; gz += 2) {
+      for (let gx = 4; gx <= 11; gx += 2) {
+        const type = graveTypes[graveIdx++ % graveTypes.length];
+        const gWx = (gx + 0.5) * cellSize - halfWidth + (rnd() - 0.5) * 0.5;
+        const gWz = (gz + 0.5) * cellSize - halfHeight + (rnd() - 0.5) * 0.5;
+        spawnGrave(type, gWx, gWz, (rnd() - 0.5) * 0.2);
+      }
+    }
+
+    // Sector C: South-East Ancient Family Graveyard (gx: 15..22, gz: 15..21)
+    for (let gz = 15; gz <= 21; gz += 2) {
+      for (let gx = 15; gx <= 22; gx += 2) {
+        if (gx >= 23 && gz >= 23) continue; // Leave exit path clear
+        const type = graveTypes[graveIdx++ % graveTypes.length];
+        const gWx = (gx + 0.5) * cellSize - halfWidth + (rnd() - 0.5) * 0.5;
+        const gWz = (gz + 0.5) * cellSize - halfHeight + (rnd() - 0.5) * 0.5;
+        spawnGrave(type, gWx, gWz, (rnd() - 0.5) * 0.15);
+      }
+    }
+
+    // Sector D: North-West Ancient Mossy Plots (gx: 5..10, gz: 6..10)
+    for (let gz = 6; gz <= 10; gz += 2) {
+      for (let gx = 5; gx <= 10; gx += 2) {
+        const gWx = (gx + 0.5) * cellSize - halfWidth + (rnd() - 0.5) * 0.5;
+        const gWz = (gz + 0.5) * cellSize - halfHeight + (rnd() - 0.5) * 0.5;
+        if (Math.hypot(gWx - pSpawnWx, gWz - pSpawnWz) < 6.0) continue;
+        const type = graveTypes[graveIdx++ % graveTypes.length];
+        spawnGrave(type, gWx, gWz, Math.PI / 2 + (rnd() - 0.5) * 0.15);
+      }
+    }
+
+    // Sector E: Sacred Banyan Clearing Surrounding Graves (Makam Keramat Sesepuh)
+    const elderGraves = [
+      { gx: 12, gz: 11, rot: 0 },
+      { gx: 14, gz: 11, rot: 0.05 },
+      { gx: 12, gz: 15, rot: -0.05 },
+      { gx: 14, gz: 15, rot: 0 },
+      { gx: 11, gz: 13, rot: Math.PI / 2 },
+      { gx: 15, gz: 13, rot: -Math.PI / 2 },
+    ];
+    for (const eg of elderGraves) {
+      const gWx = (eg.gx + 0.5) * cellSize - halfWidth;
+      const gWz = (eg.gz + 0.5) * cellSize - halfHeight;
+      spawnGrave('kijing_mossy', gWx, gWz, eg.rot);
+    }
+
+    // 11. Cemetery Bamboo Torches & Lantern Posts (Obor Bambu Kuburan)
+    const torchCoords = [
+      { gx: 3, gz: 5 },
+      { gx: 7, gz: 11 },
+      { gx: 13, gz: 11 },
+      { gx: 13, gz: 15 },
+      { gx: 15, gz: 8 },
+      { gx: 19, gz: 12 },
+      { gx: 8, gz: 17 },
+      { gx: 12, gz: 17 },
+      { gx: 21, gz: 19 },
+      { gx: 23, gz: 22 },
+    ];
+
+    torchCoords.forEach((tc) => {
+      const tWx = (tc.gx + 0.5) * cellSize - halfWidth;
+      const tWz = (tc.gz + 0.5) * cellSize - halfHeight;
+      const torch = EnvironmentPropFactory.createCemeteryLanternPost();
+      torch.position.set(tWx, 0, tWz);
+      rootGroup.add(torch);
+    });
+
+    // 12. Ancient Cemetery Exit Gate at (exitWx, exitWy, exitWz)
+    const exitGateGroup = new THREE.Group();
+    exitGateGroup.name = 'CemeteryExitGateGroup';
+    const exitGate = EnvironmentPropFactory.createCemeteryIronGate();
+    exitGateGroup.add(exitGate);
+    exitGateGroup.position.set(exitWx, exitWy, exitWz);
+    exitGateGroup.rotation.y = selectedSpawns.exit.rotationY || 0;
+    rootGroup.add(exitGateGroup);
+
+    const exitTriggerBox = new THREE.Box3(
+      new THREE.Vector3(exitWx - cellSize * 0.8, exitWy, exitWz - cellSize * 0.8),
+      new THREE.Vector3(exitWx + cellSize * 0.8, exitWy + wallHeight, exitWz + cellSize * 0.8)
+    );
+
+    // 13. Markers for Overview Camera
+    const markers = this.createOverviewMarkers(pSpawnWx, monsterSpawns, exitWx, exitWz, wallHeight, pSpawnWz);
+    rootGroup.add(markers.playerMarker);
+    markers.monsterMarkers.forEach((m) => rootGroup.add(m));
+    rootGroup.add(markers.exitMarker);
+
+    // 14. World Weapon Pickups (Sapu Ijuk di depan Gubuk Kuncen)
+    const weaponPickups = this.spawnWorldPickups(level, halfWidth, halfHeight, cellSize, rootGroup);
+
+    // 15. Level Collision Configuration (Pure Open Cemetery Ground with Cylinder Colliders)
+    const collisionConfig: LevelCollisionConfig = {
+      levelId: 4,
+      environmentId: 'sacred_cemetery',
+      multiFloor: false,
+      floorCount: 1,
+      floorHeight: 0,
+      perimeterMargin: 1.2,
+      useGridWalls: false, // Open outdoor cemetery, player weaves freely through trees and graves
+      cylinderColliders: treeColliders.map((t) => ({
+        x: t.x,
+        z: t.z,
+        radius: t.radius,
+        label: t.label || 'cemetery_obstacle',
+      })),
+      boxColliders: [],
+      hasStairs: false,
+      ramps: [],
+      bridges: [],
+      stairOpenings: [],
+      fallZones: [],
+    };
+
+    // 16. 2D Paper Sketch Collider Map
+    const overviewMapGroup = LabyrinthBuilder.createOverviewColliderMap(
+      level,
+      updatedGrid,
+      treeColliders,
+      pSpawnWx,
+      pSpawnWz,
+      selectedSpawns.player.rotationY,
+      monsterSpawns
+    );
+
+    return {
+      rootGroup,
+      wallsMesh,
+      exitDoorMesh: exitGateGroup,
+      exitTriggerBox,
+      playerMarker: markers.playerMarker,
+      monsterMarker: markers.monsterMarkers[0],
+      monsterMarkers: markers.monsterMarkers,
+      exitMarker: markers.exitMarker,
+      overviewMapGroup,
+      playerWorldSpawn: {
+        x: pSpawnWx,
+        y: pSpawnWy,
+        z: pSpawnWz,
+        rotationY: selectedSpawns.player.rotationY,
+        floor: 0,
+      },
+      monsterWorldSpawn: {
+        x: mSpawnWx,
+        y: mSpawnWy,
+        z: mSpawnWz,
+        rotationY: monsterSpawns[0].rotationY,
+        floor: 0,
+      },
+      monsterWorldSpawns: monsterSpawns,
+      exitWorldPos: { x: exitWx, y: exitWy, z: exitWz, floor: 0 },
+      selectedSpawns,
+      treeColliders,
+      updatedGrid,
+      navigationGrid: updatedGrid,
+      collisionConfig,
+      weaponPickups,
+      floorCount: 1,
+      floorHeight: 0,
+      ramps: [],
+      bridges: [],
+      stairOpenings: [],
+      blockingMeshes: [wallsMesh, floorMesh],
+    };
+  }
+
+  // =========================================================================
+  // LEVEL 5 — MILITARY UNDERGROUND BUNKER (Outdoor Outpost & Expansive Bunker)
+  // =========================================================================
+  private static buildBunkerLevel(
+    level: LevelDefinition,
+    spawns?: SelectedSpawns
+  ): LevelBuildResult {
+    const rootGroup = new THREE.Group();
+    rootGroup.name = 'MilitaryBunkerRoot';
+
+    const { gridWidth, gridHeight, cellSize, wallHeight } = level;
+    const halfWidth = (gridWidth * cellSize) / 2;
+    const halfHeight = (gridHeight * cellSize) / 2;
+
+    // 1. Spawns Calculation
+    const selectedSpawns = spawns || SpawnManager.generateSpawns(level);
+    const pSpawnWx = selectedSpawns.player.x;
+    const pSpawnWy = selectedSpawns.player.y;
+    const pSpawnWz = selectedSpawns.player.z;
+
+    const monsterSpawns = selectedSpawns.monsters;
+    const mSpawnWx = monsterSpawns[0].x;
+    const mSpawnWy = monsterSpawns[0].y;
+    const mSpawnWz = monsterSpawns[0].z;
+
+    const exitWx = selectedSpawns.exit.x;
+    const exitWy = selectedSpawns.exit.y;
+    const exitWz = selectedSpawns.exit.z;
+
+    // 2. Grids and Colliders Setup
+    const updatedGrid: number[][] = level.grid.map((row) => [...row]);
+    const obstacleColliders: Array<{ x: number; z: number; radius: number; label?: string }> = [];
+
+    // 3. Dual Floors: Outdoor Trench Outpost (z <= -32m) & Concrete Bunker Interior (z >= -32m)
+    // 3A. Outdoor Outpost Ground (z: -66m to -32m, strictly non-overlapping with bunker floor to eliminate blinking)
+    const outdoorTex = typeof document !== 'undefined'
+      ? TextureGenerator.createOutdoorBunkerTrenchTexture()
+      : undefined;
+    if (outdoorTex) {
+      // Calm, spacious repeat matching the rest of the game to eliminate moiré and grain shimmering
+      outdoorTex.repeat.set(gridWidth * 0.35, 6 * 0.35);
+    }
+    const outdoorMat = new THREE.MeshLambertMaterial({
+      map: outdoorTex,
+      side: THREE.DoubleSide,
+    });
+    // Outdoor ground spans from z = -66m to z = -32m (center z = -49m, depth = 34m, width = 132m)
+    const outdoorFloorGeo = new THREE.PlaneGeometry(gridWidth * cellSize + 24, 34);
+    outdoorFloorGeo.rotateX(-Math.PI / 2);
+    const outdoorFloorMesh = new THREE.Mesh(outdoorFloorGeo, outdoorMat);
+    outdoorFloorMesh.position.set(0, 0, -49);
+    outdoorFloorMesh.receiveShadow = true;
+    rootGroup.add(outdoorFloorMesh);
+
+    // 3B. Bunker Concrete Floor (z: -32m to 66m, meets outdoor floor seamlessly at z = -32m with ZERO overlap)
+    const bunkerFloorTex = typeof document !== 'undefined'
+      ? TextureGenerator.createBunkerFloorTexture()
+      : undefined;
+    if (bunkerFloorTex) {
+      bunkerFloorTex.repeat.set(gridWidth * 0.35, (gridHeight - 5) * 0.35);
+    }
+    const bunkerFloorMat = new THREE.MeshLambertMaterial({
+      map: bunkerFloorTex,
+      side: THREE.DoubleSide,
+    });
+    // Bunker concrete floor spans from z = -32m to z = 66m (center z = 17m, depth = 98m, width = 132m)
+    const bunkerFloorGeo = new THREE.PlaneGeometry(gridWidth * cellSize + 24, 98);
+    bunkerFloorGeo.rotateX(-Math.PI / 2);
+    const bunkerFloorMesh = new THREE.Mesh(bunkerFloorGeo, bunkerFloorMat);
+    bunkerFloorMesh.position.set(0, 0, 17);
+    bunkerFloorMesh.receiveShadow = true;
+    rootGroup.add(bunkerFloorMesh);
+
+    // 4. Open Night Sky & Starfield (Strictly over outdoor outpost sky, z <= -34m)
+    const starCount = 280;
+    const starGeo = new THREE.BufferGeometry();
+    const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      starPositions[i * 3] = (Math.random() - 0.5) * (gridWidth * cellSize + 24);
+      starPositions[i * 3 + 1] = 22 + Math.random() * 40;
+      starPositions[i * 3 + 2] = -halfHeight - 12 + Math.random() * 30; // strictly z: -66 to -36
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starMat = new THREE.PointsMaterial({
+      color: 0xf0f4f8,
+      size: 0.22,
+      transparent: true,
+      opacity: 0.7,
+    });
+    rootGroup.add(new THREE.Points(starGeo, starMat));
+
+    // 5. Tactical Metal Stairwells & Upper Mezzanine Setup (2 Floors)
+    const floorCount = level.floorCount || 2;
+    const floorHeight = level.floorHeight || 4.8;
+    const totalLevelHeight = floorCount * floorHeight;
+
+    // Identify stairwell cutouts on Floor 1 so stairs are physically and visibly open
+    const stairOpenings: StairwellOpening[] = [];
+    if (level.ramps && level.ramps.length > 0) {
+      level.ramps.forEach((r) => {
+        const dx = r.endCell.x - r.startCell.x;
+        const dz = r.endCell.z - r.startCell.z;
+        const stepX = Math.sign(dx);
+        const stepZ = Math.sign(dz);
+
+        // Open incline on toFloor covers incline cells up to the landing threshold (landing itself has solid floor!)
+        const openEndGx = stepX !== 0 ? r.endCell.x - stepX : r.endCell.x;
+        const openEndGz = stepZ !== 0 ? r.endCell.z - stepZ : r.endCell.z;
+
+        const minGx = Math.min(r.startCell.x, openEndGx);
+        const maxGx = Math.max(r.startCell.x, openEndGx);
+        const minGz = Math.min(r.startCell.z, openEndGz);
+        const maxGz = Math.max(r.startCell.z, openEndGz);
+
+        const minWx = minGx * cellSize - halfWidth;
+        const maxWx = (maxGx + 1) * cellSize - halfWidth;
+        const minWz = minGz * cellSize - halfHeight;
+        const maxWz = (maxGz + 1) * cellSize - halfHeight;
+
+        // Inset by 0.15m at the open exit landing so walking off the top step onto the upper floor is never flagged as in void
+        const boxMinX = minWx + (stepX < 0 ? 0.15 : -0.1);
+        const boxMaxX = maxWx - (stepX > 0 ? 0.15 : -0.1);
+        const boxMinZ = minWz + (stepZ < 0 ? 0.15 : -0.1);
+        const boxMaxZ = maxWz - (stepZ > 0 ? 0.15 : -0.1);
+
+        stairOpenings.push({
+          floor: r.toFloor,
+          minGx,
+          maxGx,
+          minGz,
+          maxGz,
+          box: new THREE.Box3(
+            new THREE.Vector3(boxMinX, r.toFloor * floorHeight - 0.5, boxMinZ),
+            new THREE.Vector3(boxMaxX, r.toFloor * floorHeight + 2.5, boxMaxZ)
+          ),
+        });
+      });
+    }
+
+    // 5A. Upper Mezzanine Platform (Lantai 2: y = 4.8m, gz: 5..25, gx: 1..25)
+    const upperFloorQuads: THREE.BufferGeometry[] = [];
+    const upperSoffitQuads: THREE.BufferGeometry[] = [];
+
+    for (let gz = 5; gz <= 25; gz++) {
+      for (let gx = 1; gx <= 25; gx++) {
+        // Open only the stairwell incline cutouts; landing cells (gz: 9) have solid floors!
+        const inStair = stairOpenings.some(
+          (o) => gx >= o.minGx && gx <= o.maxGx && gz >= o.minGz && gz <= o.maxGz
+        );
+
+        if (!inStair) {
+          const cWx = (gx + 0.5) * cellSize - halfWidth;
+          const cWz = (gz + 0.5) * cellSize - halfHeight;
+
+          // Top walkable floor quad
+          const topQuad = new THREE.PlaneGeometry(cellSize, cellSize);
+          topQuad.rotateX(-Math.PI / 2);
+          topQuad.translate(cWx, floorHeight, cWz);
+          upperFloorQuads.push(topQuad);
+
+          // Underside ceiling quad (Floor 0 ceiling soffit)
+          const botQuad = new THREE.PlaneGeometry(cellSize, cellSize);
+          botQuad.rotateX(Math.PI / 2);
+          botQuad.translate(cWx, floorHeight - 0.2, cWz);
+          upperSoffitQuads.push(botQuad);
+        }
+      }
+    }
+
+    let upperFloorMesh: THREE.Mesh | null = null;
+    if (upperFloorQuads.length > 0) {
+      const mergedUpperGeo = this.mergeBufferGeometries(upperFloorQuads);
+      upperFloorMesh = new THREE.Mesh(mergedUpperGeo, bunkerFloorMat);
+      upperFloorMesh.name = 'BunkerFloor1_Platform';
+      upperFloorMesh.receiveShadow = true;
+      rootGroup.add(upperFloorMesh);
+    }
+
+    // Ceiling material for industrial underside and topmost ceiling
+    const bunkerCeilingTex = typeof document !== 'undefined'
+      ? TextureGenerator.createCeilingTexture()
+      : undefined;
+    if (bunkerCeilingTex) {
+      bunkerCeilingTex.repeat.set(gridWidth * 0.35, (gridHeight - 5) * 0.35);
+    }
+    const ceilingMat = new THREE.MeshLambertMaterial({
+      color: 0x383b38,
+      map: bunkerCeilingTex,
+      side: THREE.DoubleSide,
+    });
+
+    if (upperSoffitQuads.length > 0) {
+      const mergedSoffitGeo = this.mergeBufferGeometries(upperSoffitQuads);
+      const soffitMesh = new THREE.Mesh(mergedSoffitGeo, ceilingMat);
+      soffitMesh.name = 'BunkerFloor0_Soffit';
+      rootGroup.add(soffitMesh);
+    }
+
+    // 5B. Tactical Metal Stairwells (2 Tangga Baja Militer Penghubung Lantai 1 & Lantai 2)
+    const bunkerWallTex = typeof document !== 'undefined'
+      ? TextureGenerator.createBunkerWallTexture()
+      : undefined;
+    if (bunkerWallTex) {
+      bunkerWallTex.repeat.set(1, 1);
+    }
+
+    const worldRamps: WorldRamp[] = [];
+    const railingBoxes: BoxCollider[] = [];
+
+    if (level.ramps && level.ramps.length > 0) {
+      level.ramps.forEach((ramp) => {
+        const dx = ramp.endCell.x - ramp.startCell.x;
+        const dz = ramp.endCell.z - ramp.startCell.z;
+        const stepX = Math.sign(dx);
+        const stepZ = Math.sign(dz);
+
+        let startWx: number;
+        let startWz: number;
+        let endWx: number;
+        let endWz: number;
+
+        if (stepX !== 0) {
+          if (stepX > 0) {
+            startWx = ramp.startCell.x * cellSize - halfWidth;
+            endWx = ramp.endCell.x * cellSize - halfWidth;
+          } else {
+            startWx = (ramp.startCell.x + 1) * cellSize - halfWidth;
+            endWx = (ramp.endCell.x + 1) * cellSize - halfWidth;
+          }
+          startWz = (ramp.startCell.z + 0.5) * cellSize - halfHeight;
+          endWz = (ramp.endCell.z + 0.5) * cellSize - halfHeight;
+        } else {
+          if (stepZ > 0) {
+            startWz = ramp.startCell.z * cellSize - halfHeight;
+            endWz = ramp.endCell.z * cellSize - halfHeight;
+          } else {
+            startWz = (ramp.startCell.z + 1) * cellSize - halfHeight;
+            endWz = (ramp.endCell.z + 1) * cellSize - halfHeight;
+          }
+          startWx = (ramp.startCell.x + 0.5) * cellSize - halfWidth;
+          endWx = (ramp.endCell.x + 0.5) * cellSize - halfWidth;
+        }
+
+        const startY = ramp.fromFloor * floorHeight;
+        const endY = ramp.toFloor * floorHeight;
+
+        const deltaX = endWx - startWx;
+        const deltaZ = endWz - startWz;
+        const length = Math.hypot(deltaX, deltaZ);
+        const height = endY - startY;
+        const angle = Math.atan2(deltaX, deltaZ);
+
+        const dirX = length > 0.001 ? deltaX / length : 1;
+        const dirZ = length > 0.001 ? deltaZ / length : 0;
+        const normX = -dirZ;
+        const normZ = dirX;
+
+        const rampWidth = cellSize;
+        const stairMesh = EnvironmentPropFactory.createWallStaircase(
+          rampWidth,
+          height,
+          length,
+          level.theme,
+          bunkerWallTex
+        );
+        const midX = (startWx + endWx) / 2;
+        const midZ = (startWz + endWz) / 2;
+
+        stairMesh.position.set(midX, startY, midZ);
+        stairMesh.rotation.y = angle;
+        rootGroup.add(stairMesh);
+
+        // Safety Parapets / Railings around upper-floor stairwell opening
+        const railingThick = 0.25;
+        const upperY = endY;
+
+        const sideMinX = midX - rampWidth / 2;
+        const sideMaxX = midX + rampWidth / 2;
+        const sideMinZ = Math.min(startWz, endWz);
+        const sideMaxZ = Math.max(startWz, endWz);
+        const sideLength = sideMaxZ - sideMinZ;
+        const sideMidZ = (sideMinZ + sideMaxZ) / 2;
+
+        const minGz = Math.min(ramp.startCell.z, ramp.endCell.z);
+        const maxGz = Math.max(ramp.startCell.z, ramp.endCell.z);
+
+        const westGx = ramp.startCell.x - 1;
+        const hasWestWall = westGx >= 0 && westGx < gridWidth &&
+          Array.from({ length: maxGz - minGz + 1 }, (_, i) => minGz + i).every((gz) => updatedGrid[gz][westGx] === 1);
+
+        const eastGx = ramp.startCell.x + 1;
+        const hasEastWall = eastGx >= 0 && eastGx < gridWidth &&
+          Array.from({ length: maxGz - minGz + 1 }, (_, i) => minGz + i).every((gz) => updatedGrid[gz][eastGx] === 1);
+
+        if (!hasWestWall) {
+          const bWest = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
+          bWest.position.set(sideMinX, upperY, sideMidZ);
+          rootGroup.add(bWest);
+          railingBoxes.push({
+            minX: sideMinX - railingThick,
+            maxX: sideMinX + railingThick,
+            minZ: sideMinZ,
+            maxZ: sideMaxZ,
+            minY: upperY,
+            maxY: upperY + 1.2,
+            label: 'parapet_west',
+          });
+        }
+
+        if (!hasEastWall) {
+          const bEast = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
+          bEast.position.set(sideMaxX, upperY, sideMidZ);
+          rootGroup.add(bEast);
+          railingBoxes.push({
+            minX: sideMaxX - railingThick,
+            maxX: sideMaxX + railingThick,
+            minZ: sideMinZ,
+            maxZ: sideMaxZ,
+            minY: upperY,
+            maxY: upperY + 1.2,
+            label: 'parapet_east',
+          });
+        }
+
+        // Solid back wall collider at high end of stairs on Floor 0 (stops below upper floor landing)
+        railingBoxes.push({
+          minX: midX - rampWidth / 2,
+          maxX: midX + rampWidth / 2,
+          minZ: endWz - 0.25,
+          maxZ: endWz + 0.25,
+          minY: startY,
+          maxY: startY + height / 2,
+          label: 'stair_back_wall',
+        });
+
+        const box = new THREE.Box3(
+          new THREE.Vector3(
+            Math.min(startWx, endWx) - rampWidth / 2 - 0.4,
+            Math.min(startY, endY) - 0.5,
+            Math.min(startWz, endWz) - rampWidth / 2 - 0.4
+          ),
+          new THREE.Vector3(
+            Math.max(startWx, endWx) + rampWidth / 2 + 0.4,
+            Math.max(startY, endY) + 3.0,
+            Math.max(startWz, endWz) + rampWidth / 2 + 0.4
+          )
+        );
+
+        worldRamps.push({
+          fromFloor: ramp.fromFloor,
+          toFloor: ramp.toFloor,
+          startWorld: { x: startWx, y: startY, z: startWz },
+          endWorld: { x: endWx, y: endY, z: endWz },
+          width: rampWidth,
+          length,
+          box,
+          dirX,
+          dirZ,
+          normX,
+          normZ,
+        });
+      });
+    }
+
+    // 5C. Topmost Heavy Industrial Concrete Ceiling (At y = totalLevelHeight = 9.6m, over bunker interior)
+    const ceilingGeo = new THREE.PlaneGeometry(gridWidth * cellSize + 24, 98);
+    ceilingGeo.rotateX(Math.PI / 2);
+    const ceilingMesh = new THREE.Mesh(ceilingGeo, ceilingMat);
+    ceilingMesh.position.set(0, totalLevelHeight, 17);
+    rootGroup.add(ceilingMesh);
+
+    // 6. Atmospheric Lighting
+    // Directional cold moonlight over outdoor outpost
+    const moonLight = new THREE.DirectionalLight(0xd6e5d8, 1.8);
+    moonLight.position.set(halfWidth * 0.7, 50, -halfHeight * 0.85);
+    moonLight.target.position.set(0, 0, -halfHeight * 0.5);
+    rootGroup.add(moonLight);
+    rootGroup.add(moonLight.target);
+
+    // Bunker ambient fill
+    const ambientLight = new THREE.AmbientLight(0x353835, 2.2);
+    rootGroup.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0xd6e5d8, 0x222622, 0.95);
+    rootGroup.add(hemiLight);
+
+    // 7. Multi-Floor Bunker Walls (Lantai 1 Beton Abu-Abu & Lantai 2 Pelat Baja Hitam Lapis Baja)
+    // 7A. Lantai 1 Walls: Reinforced Concrete (y: 0 to 4.8m)
+    const bunkerWallMat = new THREE.MeshLambertMaterial({
+      map: bunkerWallTex,
+    });
+    const floor0WallGeos: THREE.BufferGeometry[] = [];
+
+    // Grand bunker blast entrance arch header above opening at gz: 5, gx: 12..14
+    const archH = floorHeight - 3.4;
+    const archGeo = new THREE.BoxGeometry(3 * cellSize, archH, cellSize);
+    archGeo.translate(
+      (13 + 0.5) * cellSize - halfWidth,
+      3.4 + archH / 2,
+      (5 + 0.5) * cellSize - halfHeight
+    );
+    floor0WallGeos.push(archGeo);
+
+    // Standard straight reinforced concrete bunker walls on Floor 0
+    for (let gz = 0; gz < gridHeight; gz++) {
+      for (let gx = 0; gx < gridWidth; gx++) {
+        if (updatedGrid[gz][gx] === 1) {
+          const bGeo = new THREE.BoxGeometry(cellSize, floorHeight, cellSize);
+          bGeo.translate(
+            (gx + 0.5) * cellSize - halfWidth,
+            floorHeight / 2,
+            (gz + 0.5) * cellSize - halfHeight
+          );
+          floor0WallGeos.push(bGeo);
+        }
+      }
+    }
+    const wallsMesh0 = new THREE.Mesh(this.mergeBufferGeometries(floor0WallGeos), bunkerWallMat);
+    wallsMesh0.name = 'BunkerConcreteWalls_Floor0';
+    wallsMesh0.castShadow = true;
+    wallsMesh0.receiveShadow = true;
+    rootGroup.add(wallsMesh0);
+
+    // 7B. Lantai 2 Walls: Reinforced Armored Steel Bulkheads (y: 4.8m to 9.6m, "tapi dengan dinding yang berbeda")
+    const armoredWallTex = typeof document !== 'undefined'
+      ? TextureGenerator.createArmoredBunkerWallTexture()
+      : undefined;
+    if (armoredWallTex) {
+      armoredWallTex.repeat.set(1, 1);
+    }
+    const armoredWallMat = new THREE.MeshLambertMaterial({
+      map: armoredWallTex,
+    });
+    const floor1WallGeos: THREE.BufferGeometry[] = [];
+
+    // Floor 1 walls (strictly inside bunker, gz >= 5)
+    for (let gz = 5; gz < gridHeight; gz++) {
+      for (let gx = 0; gx < gridWidth; gx++) {
+        if (updatedGrid[gz][gx] === 1) {
+          const bGeo = new THREE.BoxGeometry(cellSize, floorHeight, cellSize);
+          bGeo.translate(
+            (gx + 0.5) * cellSize - halfWidth,
+            floorHeight + floorHeight / 2,
+            (gz + 0.5) * cellSize - halfHeight
+          );
+          floor1WallGeos.push(bGeo);
+        }
+      }
+    }
+    const wallsMesh1 = new THREE.Mesh(this.mergeBufferGeometries(floor1WallGeos), armoredWallMat);
+    wallsMesh1.name = 'BunkerArmoredWalls_Floor1';
+    wallsMesh1.castShadow = true;
+    wallsMesh1.receiveShadow = true;
+    rootGroup.add(wallsMesh1);
+
+    // 8. Heavy Steel Blast Entrance Portal at Threshold (gz: 5, gx: 13)
+    const entranceGroup = new THREE.Group();
+    entranceGroup.name = 'BunkerBlastEntranceGroup';
+    const blastEntrance = EnvironmentPropFactory.createBunkerBlastEntrance();
+    blastEntrance.position.set((13 + 0.5) * cellSize - halfWidth, 0, (5 + 0.5) * cellSize - halfHeight);
+    entranceGroup.add(blastEntrance);
+    rootGroup.add(entranceGroup);
+
+    // 9. Outdoor Trench Outpost Props: Sandbag Fortifications & Ammo Crate Stacks
+    const sandbagCoords = [
+      { gx: 2, gz: 4 },
+      { gx: 8, gz: 4 },
+      { gx: 18, gz: 4 },
+      { gx: 24, gz: 4 },
+    ];
+    for (const sb of sandbagCoords) {
+      const sWx = (sb.gx + 0.5) * cellSize - halfWidth;
+      const sWz = (sb.gz + 0.5) * cellSize - halfHeight;
+      const sandbags = EnvironmentPropFactory.createBunkerSandbags();
+      sandbags.position.set(sWx, 0, sWz);
+      rootGroup.add(sandbags);
+      obstacleColliders.push({ x: sWx, z: sWz, radius: 1.1, label: 'sandbags' });
+    }
+
+    const crateCoords = [
+      { gx: 7, gz: 3 },
+      { gx: 19, gz: 3 },
+      { gx: 13, gz: 10 }, // Inside decontamination corridor
+      { gx: 4, gz: 16 },  // Inside barracks
+      { gx: 22, gz: 16 }, // Inside armory
+    ];
+    for (const cr of crateCoords) {
+      const cWx = (cr.gx + 0.5) * cellSize - halfWidth;
+      const cWz = (cr.gz + 0.5) * cellSize - halfHeight;
+      const crates = EnvironmentPropFactory.createBunkerCrateStack();
+      crates.position.set(cWx, 0, cWz);
+      rootGroup.add(crates);
+      obstacleColliders.push({ x: cWx, z: cWz, radius: 0.95, label: 'crates' });
+    }
+
+    // 10. Bunker Warning Cage Lights (Floor 0 & Floor 1)
+    // Floor 0 Lights (amber/red at y = 2.4m)
+    const lightCoords = [
+      { gx: 13, gz: 6, red: false },
+      { gx: 13, gz: 9, red: true },
+      { gx: 4, gz: 14, red: false },
+      { gx: 8, gz: 12, red: true },
+      { gx: 18, gz: 10, red: false },
+      { gx: 18, gz: 14, red: false },
+      { gx: 13, gz: 13, red: false },
+      { gx: 13, gz: 17, red: true },
+      { gx: 6, gz: 18, red: false },
+      { gx: 6, gz: 22, red: true },
+      { gx: 20, gz: 18, red: false },
+      { gx: 20, gz: 22, red: true },
+      { gx: 13, gz: 21, red: false },
+    ];
+    for (const lc of lightCoords) {
+      const lWx = (lc.gx + 0.5) * cellSize - halfWidth;
+      const lWz = (lc.gz + 0.5) * cellSize - halfHeight;
+      const lamp = EnvironmentPropFactory.createBunkerCageLight(lc.red);
+      lamp.position.set(lWx, 2.4, lWz);
+      rootGroup.add(lamp);
+    }
+
+    // Floor 1 Lights: Red flashing emergency cage lights in armored corridors (y = floorHeight + 2.4m)
+    const floor1LightCoords = [
+      { gx: 4, gz: 8, red: true },
+      { gx: 22, gz: 8, red: true },
+      { gx: 13, gz: 14, red: true },
+      { gx: 8, gz: 18, red: true },
+      { gx: 18, gz: 18, red: true },
+      { gx: 24, gz: 23, red: false }, // near exit vault door (amber)
+    ];
+    for (const flc of floor1LightCoords) {
+      const lWx = (flc.gx + 0.5) * cellSize - halfWidth;
+      const lWz = (flc.gz + 0.5) * cellSize - halfHeight;
+      const lamp = EnvironmentPropFactory.createBunkerCageLight(flc.red);
+      lamp.position.set(lWx, floorHeight + 2.4, lWz);
+      rootGroup.add(lamp);
+    }
+
+    // 11. Sektor 5: Emergency Vault Exit Door (On Floor 1 at exitWx, exitWy, exitWz)
+    const exitVaultGroup = new THREE.Group();
+    exitVaultGroup.name = 'BunkerExitVaultGroup';
+    const exitVault = EnvironmentPropFactory.createBunkerExitVault();
+    exitVaultGroup.add(exitVault);
+    exitVaultGroup.position.set(exitWx, exitWy, exitWz);
+    exitVaultGroup.rotation.y = selectedSpawns.exit.rotationY || 0;
+    rootGroup.add(exitVaultGroup);
+
+    const exitTriggerBox = new THREE.Box3(
+      new THREE.Vector3(exitWx - cellSize * 0.8, exitWy, exitWz - cellSize * 0.8),
+      new THREE.Vector3(exitWx + cellSize * 0.8, exitWy + floorHeight, exitWz + cellSize * 0.8)
+    );
+
+    // 12. Markers for Overview Camera
+    const markers = this.createOverviewMarkers(pSpawnWx, monsterSpawns, exitWx, exitWz, totalLevelHeight, pSpawnWz);
+    rootGroup.add(markers.playerMarker);
+    markers.monsterMarkers.forEach((m) => rootGroup.add(m));
+    rootGroup.add(markers.exitMarker);
+
+    // 13. World Weapon Pickups (Spatula di pos parit luar!)
+    const weaponPickups = this.spawnWorldPickups(level, halfWidth, halfHeight, cellSize, rootGroup);
+
+    // 14. Level Collision Configuration (Isolated Multi-Floor Military Bunker Collision)
+    const collisionConfig: LevelCollisionConfig = {
+      levelId: 5,
+      environmentId: 'military_bunker',
+      multiFloor: true,
+      floorCount: 2,
+      floorHeight: 4.8,
+      perimeterMargin: 1.2,
+      useGridWalls: true,
+      wallGrid: updatedGrid,
+      cylinderColliders: obstacleColliders.map((t) => ({
+        x: t.x,
+        z: t.z,
+        radius: t.radius,
+        label: t.label || 'bunker_obstacle',
+      })),
+      boxColliders: railingBoxes,
+      hasStairs: true,
+      ramps: worldRamps,
+      bridges: [],
+      stairOpenings,
+      fallZones: [],
+    };
+
+    // 15. 2D Paper Sketch Collider Map
+    const overviewMapGroup = LabyrinthBuilder.createOverviewColliderMap(
+      level,
+      updatedGrid,
+      obstacleColliders,
+      pSpawnWx,
+      pSpawnWz,
+      selectedSpawns.player.rotationY,
+      monsterSpawns
+    );
+
+    const blockingList: THREE.Object3D[] = [wallsMesh0, wallsMesh1, outdoorFloorMesh, bunkerFloorMesh, ceilingMesh];
+    if (upperFloorMesh) blockingList.push(upperFloorMesh);
+
+    return {
+      rootGroup,
+      wallsMesh: wallsMesh0,
+      exitDoorMesh: exitVaultGroup,
+      exitTriggerBox,
+      playerMarker: markers.playerMarker,
+      monsterMarker: markers.monsterMarkers[0],
+      monsterMarkers: markers.monsterMarkers,
+      exitMarker: markers.exitMarker,
+      overviewMapGroup,
+      playerWorldSpawn: {
+        x: pSpawnWx,
+        y: pSpawnWy,
+        z: pSpawnWz,
+        rotationY: selectedSpawns.player.rotationY,
+        floor: 0,
+      },
+      monsterWorldSpawn: {
+        x: mSpawnWx,
+        y: mSpawnWy,
+        z: mSpawnWz,
+        rotationY: monsterSpawns[0].rotationY,
+        floor: monsterSpawns[0].floor || 0,
+      },
+      monsterWorldSpawns: monsterSpawns,
+      exitWorldPos: { x: exitWx, y: exitWy, z: exitWz, floor: 1 },
+      selectedSpawns,
+      treeColliders: obstacleColliders,
+      updatedGrid,
+      navigationGrid: updatedGrid,
+      collisionConfig,
+      weaponPickups,
+      floorCount: 2,
+      floorHeight: 4.8,
+      ramps: worldRamps,
+      bridges: [],
+      stairOpenings,
+      blockingMeshes: blockingList,
     };
   }
 
@@ -995,7 +2075,19 @@ export class LabyrinthBuilder {
     // 7. Themed Exit Door
     const exitDoorGroup = new THREE.Group();
     exitDoorGroup.name = 'ThemedExitDoor';
-    exitDoorGroup.position.set(exitWx, exitWy, exitWz);
+
+    // In Level 3 (or when exit normal is {-1, 0}), flush the door firmly against the east dead-end wall at gx=8!
+    let finalExitWx = exitWx;
+    let finalExitWy = exitWy;
+    let finalExitWz = exitWz;
+    if (level.id === 3 || (level.exitDoor as any)?.normal?.x === -1) {
+      // East dead-end wall face is at gx=8 -> boundary at 8 * cellSize - halfWidth
+      finalExitWx = 8 * cellSize - halfWidth - 0.12;
+      finalExitWz = (15 + 0.5) * cellSize - halfHeight;
+    }
+
+    exitDoorGroup.position.set(finalExitWx, finalExitWy, finalExitWz);
+    exitDoorGroup.rotation.y = selectedSpawns.exit.rotationY ?? (level.exitDoor as any)?.rotationY ?? 0;
 
     const doorTex = TextureGenerator.createExitDoorTexture(level.exitLockedInitially || false);
     const doorMat = new THREE.MeshBasicMaterial({ map: doorTex });
@@ -1004,19 +2096,54 @@ export class LabyrinthBuilder {
     doorMesh.position.y = (wallHeight * 0.75) / 2;
     exitDoorGroup.add(doorMesh);
 
+    // Glowing Exit Header Sign
+    if (typeof document !== 'undefined') {
+      const lintelSignCanvas = document.createElement('canvas');
+      lintelSignCanvas.width = 256;
+      lintelSignCanvas.height = 64;
+      const lCtx = lintelSignCanvas.getContext('2d')!;
+      lCtx.fillStyle = '#064e3b';
+      lCtx.fillRect(0, 0, 256, 64);
+      lCtx.strokeStyle = '#22c55e';
+      lCtx.lineWidth = 4;
+      lCtx.strokeRect(4, 4, 248, 56);
+      lCtx.font = 'bold 24px monospace, sans-serif';
+      lCtx.textAlign = 'center';
+      lCtx.textBaseline = 'middle';
+      lCtx.fillStyle = '#4ade80';
+      lCtx.fillText('★ EXIT / KELUAR ★', 128, 32);
+      const lintelSignTex = new THREE.CanvasTexture(lintelSignCanvas);
+      lintelSignTex.needsUpdate = true;
+      const lintelSign = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.4, 0.6),
+        new THREE.MeshBasicMaterial({ map: lintelSignTex, side: THREE.DoubleSide })
+      );
+      lintelSign.position.set(0, wallHeight * 0.75 + 0.35, 0.12);
+      exitDoorGroup.add(lintelSign);
+    }
+
     const exitPointLight = new THREE.PointLight(
       level.exitLockedInitially ? 0xf59e0b : 0x22c55e,
-      2.2,
-      12,
-      1.2
+      3.6,
+      16,
+      1.1
     );
-    exitPointLight.position.set(0, (wallHeight * 0.75) / 2 + 0.8, 0.4);
+    exitPointLight.position.set(0, (wallHeight * 0.75) / 2 + 0.8, 0.6);
     exitDoorGroup.add(exitPointLight);
     rootGroup.add(exitDoorGroup);
 
+    // Generous and precise exit trigger box encompassing the entire exit corridor cell
     const exitTriggerBox = new THREE.Box3(
-      new THREE.Vector3(exitWx - cellSize * 0.8, exitWy, exitWz - cellSize * 0.8),
-      new THREE.Vector3(exitWx + cellSize * 0.8, exitWy + wallHeight, exitWz + cellSize * 0.8)
+      new THREE.Vector3(
+        (7 - 0.2) * cellSize - halfWidth,
+        exitWy - 0.5,
+        (15 - 0.4) * cellSize - halfHeight
+      ),
+      new THREE.Vector3(
+        (8 + 0.5) * cellSize - halfWidth,
+        exitWy + wallHeight + 1.0,
+        (15 + 1.4) * cellSize - halfHeight
+      )
     );
 
     // 8. Corridors Atmospheric Lights
@@ -1516,7 +2643,7 @@ export class LabyrinthBuilder {
     selectedSpawns?: SelectedSpawns
   ): void {
     if (level.theme === 'labyrinth' || level.id === 3) {
-      this.spawnLabyrinthLevelProps(level, halfWidth, halfHeight, cellSize, rootGroup);
+      this.spawnLabyrinthLevelProps(level, halfWidth, halfHeight, cellSize, rootGroup, selectedSpawns);
       return;
     }
     if (level.theme === 'school') {
@@ -1672,13 +2799,14 @@ export class LabyrinthBuilder {
     }
   }
 
-  // Dedicated Labyrinth (Level 3) Props: Guide Arrows pointing to stairs
+  // Dedicated Labyrinth (Level 3) Props: Guide Arrows pointing to stairs & Pocong Floor Trails
   private static spawnLabyrinthLevelProps(
     level: LevelDefinition,
     halfWidth: number,
     halfHeight: number,
     cellSize: number,
-    rootGroup: THREE.Group
+    rootGroup: THREE.Group,
+    selectedSpawns?: SelectedSpawns
   ): void {
     if (level.id !== 3) return;
 
@@ -1688,9 +2816,10 @@ export class LabyrinthBuilder {
       face: 'north' | 'south' | 'east' | 'west',
       dir: 'right' | 'left' | 'up',
       label: string,
-      floor: number = 0
+      floor: number = 0,
+      colorType: 'stairs' | 'exit' = 'stairs'
     ) => {
-      const decal = EnvironmentPropFactory.createDirectionalArrowDecal(dir, label);
+      const decal = EnvironmentPropFactory.createDirectionalArrowDecal(dir, label, colorType);
       const wy = floor * (level.floorHeight || 3.8);
 
       let wx = (wallGx + 0.5) * cellSize - halfWidth;
@@ -1698,16 +2827,16 @@ export class LabyrinthBuilder {
       let rotY = 0;
 
       if (face === 'west') {
-        wx = wallGx * cellSize - halfWidth - 0.02;
+        wx = wallGx * cellSize - halfWidth - 0.06;
         rotY = -Math.PI / 2;
       } else if (face === 'east') {
-        wx = (wallGx + 1) * cellSize - halfWidth + 0.02;
+        wx = (wallGx + 1) * cellSize - halfWidth + 0.06;
         rotY = Math.PI / 2;
       } else if (face === 'north') {
-        wz = wallGz * cellSize - halfHeight - 0.02;
+        wz = wallGz * cellSize - halfHeight - 0.06;
         rotY = Math.PI;
       } else if (face === 'south') {
-        wz = (wallGz + 1) * cellSize - halfHeight + 0.02;
+        wz = (wallGz + 1) * cellSize - halfHeight + 0.06;
         rotY = 0;
       }
 
@@ -1736,6 +2865,138 @@ export class LabyrinthBuilder {
 
     // 7. Base of the stairs at (17, 13): Wall at (17, 14), North face (facing the stairs at (17, 12))
     addArrow(17, 14, 'north', 'up', '⬆ LANTAI 2 / 2ND FLOOR', 0);
+
+    // =======================================================================
+    // FLOOR 2 EXIT SIGNS — HANYA DI AREA DEKAT PINTU MASUK & KORIDOR EXIT (7, 15)
+    // =======================================================================
+    const addFloorExitDecal = (cellX: number, cellZ: number, rotY: number, label: string = 'EXIT ➔') => {
+      const decal = EnvironmentPropFactory.createFloorExitArrowDecal(label);
+      const wx = (cellX + 0.5) * cellSize - halfWidth;
+      const wz = (cellZ + 0.5) * cellSize - halfHeight;
+      const wy = 1 * (level.floorHeight || 3.8) + 0.025; // Tepat menempel di lantai 2
+      decal.position.set(wx, wy, wz);
+      decal.rotation.y = rotY;
+      rootGroup.add(decal);
+    };
+
+    // 1. Tepat di pintu masuk lorong exit (ujung barat Row 13 belok ke selatan):
+    addArrow(0, 13, 'east', 'left', '⬅ PINTU EXIT (BELOK)', 1, 'exit'); // Dinding depan belokan
+    addFloorExitDecal(1, 14, Math.PI, 'EXIT ➔'); // Panah lantai hijau menunjuk ke selatan
+
+    // 2. Di belokan masuk ke koridor lurus Row 15:
+    addArrow(1, 16, 'north', 'left', '⬅ PINTU EXIT / EXIT', 1, 'exit'); // Dinding depan belokan ke timur
+    addFloorExitDecal(1, 15, -Math.PI / 2, 'EXIT ➔'); // Panah lantai hijau menunjuk ke timur masuk koridor
+
+    // 3. Di sepanjang koridor lurus Row 15 menuju Pintu Exit:
+    addFloorExitDecal(4, 15, -Math.PI / 2, 'EXIT ➔'); // Panah lantai hijau menuntun ke timur
+    addArrow(5, 14, 'south', 'right', 'PINTU EXIT ➔', 1, 'exit'); // Rambu dinding menuntun lurus ke timur
+    addFloorExitDecal(6, 15, -Math.PI / 2, '★ EXIT ★'); // Panah lantai hijau tepat di depan pintu exit
+
+    // 4. Tepat di Pintu Exit di (7, 15):
+    addArrow(7, 14, 'south', 'right', '★ PINTU EXIT ★', 1, 'exit'); // Rambu dinding di samping pintu exit
+    addArrow(8, 15, 'west', 'up', '★ PINTU EXIT / EXIT ★', 1, 'exit'); // Rambu dinding tempat pintu exit menempel
+
+    // =======================================================================
+    // FLOOR 1 (FLOOR 0) ACCURATE PROXIMITY BLOOD DECALS (HANYA DI AREA DEKAT POCONG)
+    // =======================================================================
+    let mGx = 11;
+    let mGz = 7;
+    let monsterWx = (11 + 0.5) * cellSize - halfWidth;
+    let monsterWz = (7 + 0.5) * cellSize - halfHeight;
+
+    if (selectedSpawns && selectedSpawns.monsters && selectedSpawns.monsters.length > 0) {
+      monsterWx = selectedSpawns.monsters[0].x;
+      monsterWz = selectedSpawns.monsters[0].z;
+      // Gunakan Math.floor agar koordinat sel grid Pocong 100% presisi
+      mGx = Math.floor((monsterWx + halfWidth) / cellSize);
+      mGz = Math.floor((monsterWz + halfHeight) / cellSize);
+    }
+
+    // 1. Genangan Darah Besar (Blood Pool) tepat di bawah kaki posisi Pocong berada
+    const nestDecal = EnvironmentPropFactory.createPocongTrailDecal('blood_pool');
+    nestDecal.position.set(monsterWx, 0.025, monsterWz);
+    nestDecal.rotation.y = Math.random() * Math.PI * 2;
+    rootGroup.add(nestDecal);
+
+    // 2. BFS di koridor lantai 0 HANYA sampai radius 4 langkah koridor dari Pocong
+    const maxProximityDist = 4;
+    const { grid, gridWidth, gridHeight } = level;
+    const dist: number[][] = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(-1));
+    const nextToMonster: Array<Array<{ x: number; z: number } | null>> = Array.from({ length: gridHeight }, () =>
+      Array(gridWidth).fill(null)
+    );
+
+    const queue: Array<{ x: number; z: number }> = [{ x: mGx, z: mGz }];
+    dist[mGz][mGx] = 0;
+
+    const dirs = [
+      { dx: 0, dz: -1 },
+      { dx: 0, dz: 1 },
+      { dx: -1, dz: 0 },
+      { dx: 1, dz: 0 },
+    ];
+
+    const nearCells: Array<{ x: number; z: number; dist: number; nextX: number; nextZ: number }> = [];
+
+    while (queue.length > 0) {
+      const curr = queue.shift()!;
+      if (dist[curr.z][curr.x] >= maxProximityDist) continue;
+
+      for (const d of dirs) {
+        const nx = curr.x + d.dx;
+        const nz = curr.z + d.dz;
+        if (nx >= 0 && nx < gridWidth && nz >= 0 && nz < gridHeight && grid[nz][nx] === 0 && dist[nz][nx] === -1) {
+          dist[nz][nx] = dist[curr.z][curr.x] + 1;
+          nextToMonster[nz][nx] = { x: curr.x, z: curr.z };
+          nearCells.push({
+            x: nx,
+            z: nz,
+            dist: dist[nz][nx],
+            nextX: curr.x,
+            nextZ: curr.z,
+          });
+          queue.push({ x: nx, z: nz });
+        }
+      }
+    }
+
+    // 3. Letakkan jejak darah akurat pada sel-sel di area dekat Pocong
+    for (const cell of nearCells) {
+      const dx = cell.nextX - cell.x;
+      const dz = cell.nextZ - cell.z;
+      // Rotasi yaw agar semburan dan seretan jejak darah menghadap akurat ke arah sel Pocong
+      const rotY = Math.atan2(-dx, -dz);
+
+      const cellCenterWx = (cell.x + 0.5) * cellSize - halfWidth;
+      const cellCenterWz = (cell.z + 0.5) * cellSize - halfHeight;
+
+      if (cell.dist === 1) {
+        // Tepat 1 langkah di koridor menuju Pocong:
+        // Seretan tapak berdarah tebal mengarah langsung ke sel Pocong
+        const dragDecal = EnvironmentPropFactory.createPocongTrailDecal('blood_drag');
+        dragDecal.position.set(cellCenterWx, 0.025, cellCenterWz);
+        dragDecal.rotation.y = rotY;
+        rootGroup.add(dragDecal);
+
+        // Tambahan cipratan darah segar menempel di lantai
+        const spDecal = EnvironmentPropFactory.createPocongTrailDecal('blood_splatter');
+        spDecal.position.set(cellCenterWx + dx * 0.35, 0.025, cellCenterWz + dz * 0.35);
+        spDecal.rotation.y = Math.random() * Math.PI * 2;
+        rootGroup.add(spDecal);
+      } else if (cell.dist === 2 || cell.dist === 3) {
+        // 2-3 langkah dari Pocong: jejak seretan darah menuntun menuju langkah berikutnya
+        const dragDecal = EnvironmentPropFactory.createPocongTrailDecal('blood_drag');
+        dragDecal.position.set(cellCenterWx, 0.025, cellCenterWz);
+        dragDecal.rotation.y = rotY;
+        rootGroup.add(dragDecal);
+      } else if (cell.dist === 4) {
+        // 4 langkah dari Pocong: cipratan bercak darah peringatan bahwa Pocong sudah dekat
+        const spDecal = EnvironmentPropFactory.createPocongTrailDecal('blood_splatter');
+        spDecal.position.set(cellCenterWx, 0.025, cellCenterWz);
+        spDecal.rotation.y = Math.random() * Math.PI * 2;
+        rootGroup.add(spDecal);
+      }
+    }
   }
 
   // Dedicated School Props Population across Floor 0 and Floor 1
@@ -2010,11 +3271,13 @@ export class LabyrinthBuilder {
       const wz = (c.z + 0.5) * cellSize - halfHeight;
 
       if (level.theme === 'labyrinth' || level.id === 3) {
-        // Pure ceiling light without physical prop to preserve 100% clean classic labyrinth corridors across both floors
+        // Pure ceiling light without physical prop to preserve 100% clean classic labyrinth corridors
+        // Floor 0: Cold industrial greenish-white (0xd6e5d8) | Floor 1: Emergency warm amber-gold (0xffb347)
         const fCount = level.floorCount || 1;
         const fHeight = level.floorHeight || 3.8;
         for (let f = 0; f < fCount; f++) {
-          const pureLight = new THREE.PointLight(lightHex, 2.0, 11, 1.2);
+          const hex = (f === 1 && level.id === 3) ? 0xffb347 : lightHex;
+          const pureLight = new THREE.PointLight(hex, f === 1 ? 2.4 : 2.0, 12, 1.2);
           pureLight.position.set(wx, f * fHeight + wallHeight * 0.85, wz);
           rootGroup.add(pureLight);
         }
@@ -2106,6 +3369,9 @@ export class LabyrinthBuilder {
   // TOP-DOWN 2D PAPER SKETCH COLLIDER MAP (Dull Off-White Paper, Hand-Drawn Black Ink Walls, Red Hantu & Blue Player)
   // =========================================================================
   private static createSketchMarkerTexture(label: 'Player' | 'Hantu', circleColor: string): THREE.CanvasTexture {
+    if (typeof document === 'undefined') {
+      return new THREE.Texture() as THREE.CanvasTexture;
+    }
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 512;

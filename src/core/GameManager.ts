@@ -422,9 +422,14 @@ export class GameManager {
       this.fpController.setMonsterObstacle(this.monsters[0].position);
     }
 
-    // Ensure exit door mesh and exit overview marker are hidden initially until monster is hit
+    // Ensure exit door is visible in 3D world (with amber warning light until monster is struck)
     if (this.levelBuild?.exitDoorMesh) {
-      this.levelBuild.exitDoorMesh.visible = false;
+      this.levelBuild.exitDoorMesh.visible = true;
+      const doorPointLight = this.levelBuild.exitDoorMesh.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
+      if (doorPointLight) {
+        doorPointLight.color.setHex(0xf59e0b); // Amber locked light initially
+        doorPointLight.intensity = 2.4;
+      }
     }
     if (this.levelBuild?.exitMarker) {
       this.levelBuild.exitMarker.visible = false;
@@ -456,6 +461,9 @@ export class GameManager {
   private getThemeFogColor(): number {
     switch (this.currentLevelDef.theme) {
       case 'banana_garden': return 0x242e29; // Matched to school (Level 2)
+      case 'cemetery': return 0x242e29;      // Same bright clear tone as banana garden (Level 1)
+      case 'bunker': return 0x24282c;        // Cold concrete military bunker tone
+      case 'cavern': return 0x222624;        // Atmospheric ancient cave tone
       case 'school': return 0x242e29;
       case 'labyrinth': return 0x262f33; // Bright clean tone matching Level 2
       case 'hospital': return 0x252e2a;  // Bright clean tone matching Level 2
@@ -650,9 +658,14 @@ export class GameManager {
       this.state = 'ATTACK';
       this.isAttackSuccessful = true;
 
-      // Reveal exit door in 3D world now that monster has been struck!
+      // Reveal exit door and unlock it with bright green illumination!
       if (this.levelBuild?.exitDoorMesh) {
         this.levelBuild.exitDoorMesh.visible = true;
+        const doorPointLight = this.levelBuild.exitDoorMesh.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
+        if (doorPointLight) {
+          doorPointLight.color.setHex(0x22c55e);
+          doorPointLight.intensity = 3.8;
+        }
       }
 
       // Clear monster obstacle and switch mobile button to SPRINT
@@ -780,9 +793,14 @@ export class GameManager {
       this.state = 'ATTACK';
       this.isAttackSuccessful = true;
 
-      // Reveal exit door
+      // Reveal exit door and unlock it with bright green illumination
       if (this.levelBuild?.exitDoorMesh) {
         this.levelBuild.exitDoorMesh.visible = true;
+        const doorPointLight = this.levelBuild.exitDoorMesh.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
+        if (doorPointLight) {
+          doorPointLight.color.setHex(0x22c55e);
+          doorPointLight.intensity = 3.8;
+        }
       }
 
       // Clear obstacle & switch mobile controls to SPRINT
@@ -866,9 +884,14 @@ export class GameManager {
       this.state = 'ATTACK';
       this.isAttackSuccessful = true;
 
-      // Reveal exit door
+      // Reveal exit door and unlock it with bright green illumination
       if (this.levelBuild?.exitDoorMesh) {
         this.levelBuild.exitDoorMesh.visible = true;
+        const doorPointLight = this.levelBuild.exitDoorMesh.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
+        if (doorPointLight) {
+          doorPointLight.color.setHex(0x22c55e);
+          doorPointLight.intensity = 3.8;
+        }
       }
 
       // Clear obstacle & switch mobile controls to SPRINT
@@ -1280,6 +1303,18 @@ export class GameManager {
           } else {
             this.triggerLevelComplete();
           }
+        } else if (
+          !this.isAttackSuccessful &&
+          this.levelBuild &&
+          this.levelBuild.exitDoorMesh?.visible &&
+          this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)
+        ) {
+          const mName = this.currentLevelDef.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
+          const fName = this.currentLevelDef.id === 3 ? 'LANTAI 1' : 'ARENA';
+          UIManager.getInstance().setStatusText(
+            `PINTU EXIT TERKUNCI! TEMUKAN & SERANG ${mName} DI ${fName} DULU!`,
+            `EXIT LOCKED! FIND & STRIKE ${mName} FIRST!`
+          );
         }
       }
 

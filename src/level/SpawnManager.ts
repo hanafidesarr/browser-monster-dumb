@@ -108,65 +108,65 @@ export class SpawnManager {
         { x: 9, z: 9, floor: 0, rotationY: Math.PI / 2 },
         { x: 13, z: 13, floor: 0, rotationY: Math.PI },
         { x: 15, z: 9, floor: 0, rotationY: -Math.PI / 2 },
+        { x: 7, z: 7, floor: 0, rotationY: 0 },
+        { x: 5, z: 7, floor: 0, rotationY: Math.PI / 2 },
+        { x: 7, z: 11, floor: 0, rotationY: -Math.PI / 2 },
+        { x: 13, z: 3, floor: 0, rotationY: Math.PI / 2 },
+        { x: 9, z: 5, floor: 0, rotationY: 0 },
+        { x: 11, z: 11, floor: 0, rotationY: Math.PI },
       ],
       exitCandidates: [
-        { x: 7, z: 15, floor: 1, rotationY: 0 },
-        { x: 5, z: 19, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 3, z: 11, floor: 1, rotationY: 0 },
-        { x: 13, z: 19, floor: 1, rotationY: Math.PI },
+        { x: 7, z: 15, floor: 1, rotationY: -Math.PI / 2 },
       ],
     }],
 
-    // LEVEL 4: The Hospital (2 Pocongs, 3 floors)
+    // LEVEL 4: The Sacred Cemetery (Expansive 27x27 outdoor cemetery & banyan grove, 2 monsters)
     [4, {
       monsterCount: 2,
-      minPlayerMonsterDist: 8.0,
-      minPlayerExitDist: 12.0,
-      minMonsterMonsterDist: 5.5,
-      minMonsterExitDist: 25.0,
+      minPlayerMonsterDist: 14.0,
+      minPlayerExitDist: 22.0,
+      minMonsterMonsterDist: 8.0,
+      minMonsterExitDist: 18.0,
       playerCandidates: [
         { x: 3, z: 3, floor: 0, rotationY: Math.PI / 4 },
-        { x: 3, z: 17, floor: 0, rotationY: -Math.PI / 4 },
-        { x: 17, z: 3, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 7, z: 17, floor: 2, rotationY: 0 },
+        { x: 4, z: 4, floor: 0, rotationY: 0 },
+        { x: 3, z: 6, floor: 0, rotationY: Math.PI / 2 },
       ],
       monsterCandidates: [
-        { x: 4, z: 4, floor: 0, rotationY: 0 },
-        { x: 6, z: 12, floor: 0, rotationY: Math.PI / 2 },
-        { x: 6, z: 6, floor: 1, rotationY: 0 },
-        { x: 4, z: 14, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 6, z: 6, floor: 2, rotationY: 0 },
-        { x: 8, z: 10, floor: 2, rotationY: Math.PI },
+        { x: 13, z: 13, floor: 0, rotationY: 0 }, // Center sacred banyan tree
+        { x: 20, z: 9, floor: 0, rotationY: -Math.PI / 2 }, // East kijing grave cluster
+        { x: 9, z: 19, floor: 0, rotationY: Math.PI / 2 }, // South earthen grave cluster
+        { x: 19, z: 19, floor: 0, rotationY: 0 }, // South-east cemetery sector
       ],
       exitCandidates: [
-        { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 18, z: 14, floor: 1, rotationY: -Math.PI / 2 },
-        { x: 18, z: 18, floor: 2, rotationY: 0 },
+        { x: 24, z: 24, floor: 0, rotationY: 0 }, // North-east rusty cemetery exit gate
+        { x: 23, z: 23, floor: 0, rotationY: -Math.PI / 4 },
       ],
     }],
 
-    // LEVEL 5: The Sewer (2 Pocongs, 2 floors)
+    // LEVEL 5: The Military Bunker (Outdoor outpost & expansive underground bunker, 3 monsters)
     [5, {
-      monsterCount: 2,
-      minPlayerMonsterDist: 8.0,
-      minPlayerExitDist: 12.0,
-      minMonsterMonsterDist: 5.5,
-      minMonsterExitDist: 25.0,
+      monsterCount: 3,
+      minPlayerMonsterDist: 14.0,
+      minPlayerExitDist: 22.0,
+      minMonsterMonsterDist: 7.5,
+      minMonsterExitDist: 8.0,
       playerCandidates: [
-        { x: 3, z: 3, floor: 0, rotationY: 0 },
-        { x: 3, z: 17, floor: 0, rotationY: 0 },
-        { x: 16, z: 4, floor: 1, rotationY: Math.PI },
-        { x: 16, z: 16, floor: 1, rotationY: Math.PI },
+        { x: 4, z: 3, floor: 0, rotationY: 0 },
+        { x: 6, z: 2, floor: 0, rotationY: 0 },
+        { x: 5, z: 3, floor: 0, rotationY: 0 },
       ],
       monsterCandidates: [
-        { x: 4, z: 4, floor: 0, rotationY: 0 },
-        { x: 6, z: 14, floor: 0, rotationY: Math.PI / 2 },
-        { x: 6, z: 6, floor: 1, rotationY: 0 },
-        { x: 8, z: 10, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 19, z: 11, floor: 0, rotationY: 0 }, // Sektor 3: Ruang Komando Lantai 1 (Kuntilanak dinding)
+        { x: 5, z: 15, floor: 0, rotationY: Math.PI / 2 }, // Sektor 2: Barak Militer Lantai 1 (Kuntilanak dinding)
+        { x: 13, z: 15, floor: 0, rotationY: 0 }, // Koridor Utama Tengah Lantai 1 (Pocong patroli)
+        { x: 7, z: 23, floor: 1, rotationY: -Math.PI / 2 }, // Lantai 2: Labirin Baja Barat
+        { x: 17, z: 23, floor: 1, rotationY: Math.PI / 2 }, // Lantai 2: Labirin Baja Dekat Vault Exit
+        { x: 13, z: 21, floor: 1, rotationY: 0 }, // Lantai 2: Koridor Penghubung Sektor Atas
       ],
       exitCandidates: [
-        { x: 18, z: 18, floor: 0, rotationY: 0 },
-        { x: 18, z: 14, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 24, z: 24, floor: 1, rotationY: 0 }, // Sektor 5: Emergency Vault Exit Door di Lantai 2!
+        { x: 23, z: 24, floor: 1, rotationY: -Math.PI / 4 },
       ],
     }],
 

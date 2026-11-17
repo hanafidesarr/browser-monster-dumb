@@ -255,7 +255,7 @@ const LEVEL_LOCALIZATION: Record<Language, Record<number, LevelLocalization>> = 
     2: {
       title: 'SEKOLAH TERBENGKALAI',
       subtitle: 'SEKTOR 02 — LORONG KOSONG (2 LANTAI)',
-      description: 'Sekolah tua berdebu 2 lantai dengan tangga dan jembatan mezanin. Carilah Wajan Penggorengan untuk memukul Kuntilanak!',
+      description: 'Sekolah tua berdebu 2 lantai dengan tangga. Carilah Wajan Penggorengan untuk memukul Kuntilanak!',
     },
     3: {
       title: 'LABIRIN BETON',
@@ -263,14 +263,14 @@ const LEVEL_LOCALIZATION: Record<Language, Record<number, LevelLocalization>> = 
       description: 'Labirin beton bertingkat 2 lantai dengan tangga dan lorong jebakan. Ikuti petunjuk panah di dinding untuk menemukan tangga ke lantai 2!',
     },
     4: {
-      title: 'RUMAH SAKIT TUA',
-      subtitle: 'SEKTOR 04 — KORIDOR STERIL (3 LANTAI)',
-      description: 'Bangsal rumah sakit 3 lantai dengan ranjang berkarat dan jembatan goyang. Temukan Sapu Ijuk legendaris di ruang cleaning!',
+      title: 'PEMAKAMAN BERINGIN KERAMAT',
+      subtitle: 'SEKTOR 04 — KUBURAN TUA BERINGIN LEBAT (AREA LUAS)',
+      description: 'Kompleks pemakaman tua yang sangat luas dinaungi pohon beringin raksasa berakar gantung dan nisan kuburan berlumut. Temukan Sapu Ijuk di gubuk kuncen!',
     },
     5: {
-      title: 'GORONG-GORONG',
-      subtitle: 'SEKTOR 05 — DEPOT PEMBUANGAN (2 LANTAI)',
-      description: 'Saluran pembuangan 2 tingkat dengan jembatan kayu retak patah (Broken Bridge)! Hati-hati jangan jatuh ke jurang limbah!',
+      title: 'BUNKER MILITER',
+      subtitle: 'SEKTOR 05 — BUNKER MILITER BAWAH TANAH (2 LANTAI)',
+      description: 'Bunker militer 2 lantai yang sangat luas. Dinding beton di lantai 1 dan labirin pelat baja lapis baja di lantai 2. Masuki gerbang baja dari parit luar, temukan tangga darurat untuk mencapai pintu evakuasi di lantai 2!',
     },
     6: {
       title: 'PABRIK TERBENGKALAI',
@@ -307,7 +307,7 @@ const LEVEL_LOCALIZATION: Record<Language, Record<number, LevelLocalization>> = 
     2: {
       title: 'ABANDONED SCHOOL',
       subtitle: 'SECTOR 02 — DESERTED HALLWAYS (2 FLOORS)',
-      description: 'A dusty 2-floor old school with stairs and a mezzanine bridge. Find the Frying Pan to strike the Kuntilanak!',
+      description: 'A dusty 2-floor old school with stairs. Find the Frying Pan to strike the Kuntilanak!',
     },
     3: {
       title: 'THE LABYRINTH',
@@ -315,14 +315,14 @@ const LEVEL_LOCALIZATION: Record<Language, Record<number, LevelLocalization>> = 
       description: 'A 2-floor concrete labyrinth with stairs and tricky dead-ends. Follow arrow markings on walls to find the stairs to the 2nd floor!',
     },
     4: {
-      title: 'THE HOSPITAL',
-      subtitle: 'SECTOR 04 — STERILE CORRIDORS (3 FLOORS)',
-      description: 'A 3-floor hospital ward with rusted beds and swaying bridges. Find the legendary Broom in the cleaning room!',
+      title: 'THE SACRED CEMETERY',
+      subtitle: 'SECTOR 04 — BANYAN GRAVEYARD (EXPANSIVE OUTDOOR)',
+      description: 'A vast ancient Indonesian cemetery shaded by towering banyan trees with hanging aerial roots and mossy tombstones. Find the Broom at the caretaker shack!',
     },
     5: {
-      title: 'THE SEWER',
-      subtitle: 'SECTOR 05 — DRAINAGE DEPOT (2 FLOORS)',
-      description: 'A 2-floor sewer canal with cracked broken bridges! Be careful not to fall into the hazardous abyss!',
+      title: 'THE MILITARY BUNKER',
+      subtitle: 'SECTOR 05 — REINFORCED UNDERGROUND BUNKER (2 FLOORS)',
+      description: 'A massive 2-floor underground military bunker. Reinforced concrete on floor 1 and an armored steel labyrinth on floor 2. Enter from the outdoor trench, find emergency stairwells, and reach the exit vault on floor 2!',
     },
     6: {
       title: 'THE FACTORY',

@@ -7,6 +7,9 @@ export type LevelTheme =
   | 'school'
   | 'labyrinth'
   | 'hospital'
+  | 'cemetery'
+  | 'bunker'
+  | 'cavern'
   | 'sewer'
   | 'factory'
   | 'hotel'
@@ -126,54 +129,54 @@ const LEVEL_3_GRID: number[][] = [
   [1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
   [1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
   [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1],
-  [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+  [1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
   [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
   [1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1],
+  [1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
   [1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1],
   [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
-  [1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1],
+  [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1],
   [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ];
 
-// 4. LEVEL 4: THE HOSPITAL (Wards, corridors, nurse station, patient beds)
-const LEVEL_4_GRID = create21x21Grid((g) => {
-  for (let z = 2; z <= 8; z++) {
-    for (let x = 2; x <= 8; x++) {
-      if (z === 5 || x === 5) g[z][x] = 1;
-    }
-    for (let x = 12; x <= 18; x++) {
-      if (z === 5 || x === 15) g[z][x] = 1;
-    }
-  }
-  for (let z = 12; z <= 18; z++) {
-    for (let x = 2; x <= 8; x++) {
-      if (z === 15 || x === 5) g[z][x] = 1;
-    }
-    for (let x = 12; x <= 18; x++) {
-      if (z === 15 || x === 15) g[z][x] = 1;
-    }
-  }
-});
+// 4. LEVEL 4: THE SACRED CEMETERY (Expansive outdoor 27x27 Indonesian cemetery & dense banyan grove)
+const LEVEL_4_GRID: number[][] = Array.from({ length: 27 }, (_, z) =>
+  Array.from({ length: 27 }, (_, x) => (x === 0 || x === 26 || z === 0 || z === 26 ? 1 : 0))
+);
 
-// 5. LEVEL 5: THE SEWER (Underground water tunnels, cross bridges, drainage)
-const LEVEL_5_GRID = create21x21Grid((g) => {
-  for (let x = 2; x <= 18; x++) {
-    if (x !== 5 && x !== 10 && x !== 15) {
-      g[7][x] = 1;
-      g[13][x] = 1;
-    }
-  }
-  for (let z = 2; z <= 18; z++) {
-    if (z !== 5 && z !== 10 && z !== 15) {
-      g[z][7] = 1;
-      g[z][13] = 1;
-    }
-  }
-});
+// 5. LEVEL 5: THE MILITARY BUNKER (Outdoor trench outpost & expansive underground bunker complex)
+const LEVEL_5_GRID: number[][] = Array.from({ length: 27 }, (_, z) =>
+  Array.from({ length: 27 }, (_, x) => {
+    // Outer perimeter concrete wall
+    if (x === 0 || x === 26 || z === 0 || z === 26) return 1;
+
+    // Outdoor trench divider wall (Heavy blast entrance open at x: 12, 13, 14)
+    if (z === 5 && (x < 12 || x > 14)) return 1;
+
+    // Sektor 2: West Wing (Barak & Mess Hall, Tangga Lantai 2 di x: 4, z: 9..12)
+    if (z === 9 && x >= 2 && x <= 10 && x !== 4 && x !== 8) return 1;
+    if (z === 13 && x >= 3 && x <= 11 && x !== 4 && x !== 6 && x !== 10) return 1;
+    if (z === 17 && x >= 2 && x <= 10 && x !== 4 && x !== 8) return 1;
+    if (x === 6 && z >= 10 && z <= 12) return 1;
+
+    // Sektor 3: East Wing (Pusat Komando & Generator, Tangga Lantai 2 di x: 22, z: 9..12)
+    if (z === 9 && x >= 16 && x <= 24 && x !== 18 && x !== 22) return 1;
+    if (z === 13 && x >= 15 && x <= 23 && x !== 16 && x !== 20 && x !== 22) return 1;
+    if (z === 17 && x >= 16 && x <= 24 && x !== 18 && x !== 22) return 1;
+    if (x === 20 && z >= 10 && z <= 12) return 1;
+
+    // Sektor 4: South Labyrinth (Gudang Amunisi & Sel Tahanan)
+    if (z === 21 && x >= 3 && x <= 10 && x !== 6) return 1;
+    if (z === 21 && x >= 16 && x <= 23 && x !== 20) return 1;
+    if (x === 8 && z >= 22 && z <= 24) return 1;
+    if (x === 18 && z >= 22 && z <= 24) return 1;
+
+    return 0;
+  })
+);
 
 // 6. LEVEL 6: THE FACTORY (Machinery blocks, conveyor barriers, cargo crates)
 const LEVEL_6_GRID = create21x21Grid((g) => {
@@ -305,7 +308,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     id: 2,
     title: 'THE ABANDONED SCHOOL',
     subtitle: 'SECTOR 02 — DESERTED HALLWAYS (2 FLOORS)',
-    description: 'Sekolah tua berdebu 2 lantai dengan tangga dan jembatan mezanin. Carilah Wajan Penggorengan untuk memukul Kuntilanak!',
+    description: 'Sekolah tua berdebu 2 lantai dengan tangga. Carilah Wajan Penggorengan untuk memukul Kuntilanak!',
     difficultyRating: 2,
     theme: 'school',
     monsterType: 'kunti',
@@ -323,9 +326,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     ramps: [
       { fromFloor: 0, toFloor: 1, startCell: { x: 2, z: 12 }, endCell: { x: 2, z: 9 }, isStair: true },
     ],
-    bridges: [
-      { id: 'l2_bridge', floor: 1, startCell: { x: 12, z: 9 }, endCell: { x: 15, z: 9 }, type: 'stable' },
-    ],
+    bridges: [],
     weaponPickups: [
       { weaponId: 'frying_pan', x: 17, z: 3 },
     ],
@@ -356,7 +357,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     grid: LEVEL_3_GRID,
     playerSpawn: { x: 1, z: 1, rotationY: Math.PI / 2 },
     monsterSpawn: { x: 11, z: 7, rotationY: 0 },
-    exitDoor: { x: 7, z: 15, normal: { x: 0, z: -1 }, floor: 1 },
+    exitDoor: { x: 7, z: 15, normal: { x: -1, z: 0 }, floor: 1, rotationY: -Math.PI / 2 },
     floorCount: 2,
     floorHeight: 3.8,
     monsterCount: 1,
@@ -380,83 +381,78 @@ export const ALL_LEVELS: LevelDefinition[] = [
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
   },
 
-  // LEVEL 4: THE HOSPITAL (3 FLOORS)
+  // LEVEL 4: THE SACRED CEMETERY (EXPANSIVE OUTDOOR 27x27 BANYAN GRAVEYARD)
   {
     id: 4,
-    title: 'THE HOSPITAL',
-    subtitle: 'SECTOR 04 — STERILE CORRIDORS (3 FLOORS)',
-    description: 'Bangsal rumah sakit 3 lantai dengan ranjang berkarat dan jembatan goyang. Temukan Sapu Ijuk legendaris di ruang cleaning!',
+    title: 'THE SACRED CEMETERY',
+    subtitle: 'SECTOR 04 — BANYAN GRAVEYARD (EXPANSIVE OUTDOOR)',
+    description: 'Kompleks pemakaman tua yang sangat luas dinaungi pohon beringin lebat berakar gantung dan nisan berlumut. Temukan Sapu Ijuk di gubuk kuncen!',
     difficultyRating: 4,
-    theme: 'hospital',
-    gridWidth: 21,
-    gridHeight: 21,
-    cellSize: 3.8,
-    wallHeight: 4.8,
+    theme: 'cemetery',
+    monsterType: 'kunti',
+    gridWidth: 27,
+    gridHeight: 27,
+    cellSize: 4.0,
+    wallHeight: 7.2,
     grid: LEVEL_4_GRID,
-    playerSpawn: { x: 3, z: 3, rotationY: 0 },
-    monsterSpawn: { x: 4, z: 4, rotationY: 0 },
-    exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
-    floorCount: 3,
-    floorHeight: 3.8,
+    playerSpawn: { x: 3, z: 3, rotationY: Math.PI / 4 },
+    monsterSpawn: { x: 13, z: 13, rotationY: 0 },
+    exitDoor: { x: 24, z: 24, normal: { x: 0, z: -1 }, floor: 0 },
+    floorCount: 1,
+    floorHeight: 0,
     monsterCount: 2,
-    ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 10, z: 5 }, endCell: { x: 10, z: 2 }, isStair: true },
-      { fromFloor: 1, toFloor: 2, startCell: { x: 10, z: 15 }, endCell: { x: 10, z: 18 }, isStair: true },
-    ],
-    bridges: [
-      { id: 'l4_bridge', floor: 1, startCell: { x: 6, z: 10 }, endCell: { x: 9, z: 10 }, type: 'unstable' },
-    ],
+    ramps: [],
+    bridges: [],
     weaponPickups: [
-      { weaponId: 'broom', x: 16, z: 3 },
+      { weaponId: 'broom', x: 7, z: 13 },
     ],
     monsterConfig: {
       detectionFovDeg: 92,
-      detectionDistance: 10.5,
-      reactionDelaySeconds: 0.70,
+      detectionDistance: 11.0,
+      reactionDelaySeconds: 0.75,
       rearAttackAngleDeg: 185,
       attackDistance: 2.4,
-      chaseSpeed: 5.28, // 88% of player sprint (6.0)
+      chaseSpeed: 5.25, // 87.5% of player sprint (6.0)
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
   },
 
-  // LEVEL 5: THE SEWER (2 FLOORS)
+  // LEVEL 5: THE MILITARY BUNKER (2 FLOORS: Concrete Ground Floor & Upper Armored Steel Labyrinth)
   {
     id: 5,
-    title: 'THE SEWER',
-    subtitle: 'SECTOR 05 — DRAINAGE DEPOT (2 FLOORS)',
-    description: 'Saluran pembuangan 2 tingkat dengan jembatan kayu retak patah (Broken Bridge)! Hati-hati jangan jatuh ke jurang limbah!',
+    title: 'THE MILITARY BUNKER',
+    subtitle: 'SECTOR 05 — REINFORCED UNDERGROUND BUNKER (2 FLOORS)',
+    description: 'Kompleks bunker pertahanan militer bawah tanah 2 lantai yang sangat luas. Dinding beton di lantai 1 dan labirin pelat baja lapis baja di lantai 2. Masuki gerbang baja dari parit luar, temukan tangga darurat untuk mencapai pintu evakuasi di lantai 2!',
     difficultyRating: 5,
-    theme: 'sewer',
-    gridWidth: 21,
-    gridHeight: 21,
-    cellSize: 3.8,
+    theme: 'bunker',
+    monsterType: 'kunti',
+    gridWidth: 27,
+    gridHeight: 27,
+    cellSize: 4.0,
     wallHeight: 4.8,
     grid: LEVEL_5_GRID,
-    playerSpawn: { x: 3, z: 3, rotationY: 0 },
-    monsterSpawn: { x: 4, z: 4, rotationY: 0 },
-    exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
+    playerSpawn: { x: 4, z: 3, rotationY: 0 },
+    monsterSpawn: { x: 19, z: 11, rotationY: 0 },
+    exitDoor: { x: 24, z: 24, normal: { x: 0, z: -1 }, floor: 1 },
     floorCount: 2,
-    floorHeight: 3.8,
-    monsterCount: 2,
+    floorHeight: 4.8,
+    monsterCount: 3,
     ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 5, z: 10 }, endCell: { x: 2, z: 10 }, isStair: true },
+      { fromFloor: 0, toFloor: 1, startCell: { x: 4, z: 12 }, endCell: { x: 4, z: 9 }, isStair: true },
+      { fromFloor: 0, toFloor: 1, startCell: { x: 22, z: 12 }, endCell: { x: 22, z: 9 }, isStair: true },
     ],
-    bridges: [
-      { id: 'l5_bridge_1', floor: 1, startCell: { x: 9, z: 5 }, endCell: { x: 12, z: 5 }, type: 'unstable' },
-      { id: 'l5_bridge_2', floor: 1, startCell: { x: 9, z: 15 }, endCell: { x: 12, z: 15 }, type: 'broken' },
-    ],
+    bridges: [],
     weaponPickups: [
-      { weaponId: 'spatula', x: 3, z: 17 },
+      { weaponId: 'spatula', x: 8, z: 3 },
     ],
     monsterConfig: {
-      detectionFovDeg: 92,
-      detectionDistance: 11.0,
-      reactionDelaySeconds: 0.65,
+      detectionFovDeg: 95,
+      detectionDistance: 13.0,
+      reactionDelaySeconds: 0.60,
       rearAttackAngleDeg: 180,
       attackDistance: 2.4,
-      chaseSpeed: 5.34, // 89% of player sprint (6.0)
+      chaseSpeed: 5.4, // 90% of player sprint (6.0)
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },

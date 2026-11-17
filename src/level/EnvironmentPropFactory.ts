@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { TextureGenerator } from './TextureGenerator.ts';
 
 export interface PropCollider {
   x: number;
@@ -1471,7 +1472,8 @@ export class EnvironmentPropFactory {
 
   public static createDirectionalArrowDecal(
     dir: 'right' | 'left' | 'up',
-    label: string = 'TANGGA / STAIRS'
+    label: string = 'TANGGA / STAIRS',
+    colorType: 'stairs' | 'exit' = 'stairs'
   ): THREE.Group {
     const group = new THREE.Group();
     group.name = 'DirectionalArrowDecal';
@@ -1491,17 +1493,27 @@ export class EnvironmentPropFactory {
     // Transparent background
     ctx.clearRect(0, 0, 256, 128);
 
-    // Grunge stencil spray background (faint dark spray halo for high contrast on concrete)
+    // Grunge stencil spray background
+    const isExit = colorType === 'exit';
     const haloGrad = ctx.createRadialGradient(128, 64, 10, 128, 64, 120);
-    haloGrad.addColorStop(0, 'rgba(15, 20, 25, 0.8)');
-    haloGrad.addColorStop(0.7, 'rgba(15, 20, 25, 0.4)');
-    haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    if (isExit) {
+      haloGrad.addColorStop(0, 'rgba(5, 35, 15, 0.88)');
+      haloGrad.addColorStop(0.7, 'rgba(5, 30, 15, 0.45)');
+      haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    } else {
+      haloGrad.addColorStop(0, 'rgba(15, 20, 25, 0.8)');
+      haloGrad.addColorStop(0.7, 'rgba(15, 20, 25, 0.4)');
+      haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    }
     ctx.fillStyle = haloGrad;
     ctx.fillRect(0, 0, 256, 128);
 
-    // Pale bright yellow-white phosphorescent chalk paint
-    ctx.fillStyle = '#fffae0';
-    ctx.strokeStyle = '#fffae0';
+    // Phosphorescent paint color (Stairs: pale warm chalk | Exit: vivid emergency emerald phosphor)
+    const arrowColor = isExit ? '#4ade80' : '#fffae0';
+    const textColor = isExit ? '#86efac' : '#fff4b8';
+
+    ctx.fillStyle = arrowColor;
+    ctx.strokeStyle = arrowColor;
     ctx.lineWidth = 11;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -1547,7 +1559,7 @@ export class EnvironmentPropFactory {
     ctx.font = 'bold 21px "Share Tech Mono", monospace, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#fff4b8';
+    ctx.fillStyle = textColor;
     if (dir === 'up') {
       ctx.fillText(label, 128, 112);
     } else {
@@ -1558,18 +1570,946 @@ export class EnvironmentPropFactory {
     tex.magFilter = THREE.NearestFilter;
     tex.minFilter = THREE.NearestFilter;
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
 
-    const mat = new THREE.MeshLambertMaterial({
+    const mat = new THREE.MeshBasicMaterial({
       map: tex,
       transparent: true,
-      alphaTest: 0.08,
+      alphaTest: 0.05,
       side: THREE.DoubleSide,
+      depthTest: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -4.0,
+      polygonOffsetUnits: -4.0,
     });
 
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), mat);
     mesh.position.y = 1.9; // Eye level
+    mesh.renderOrder = 50;
     group.add(mesh);
 
     return group;
+  }
+
+  // =========================================================================
+  // LEVEL 4 — INDONESIAN CEMETERY PROPS (Makam Khas Indonesia, Gapura, Gubuk Kuncen)
+  // =========================================================================
+
+  /**
+   * Traditional Indonesian Kijing Tombstone (Makam Semen Kijing Tradisional)
+   * Two-tiered concrete plinth with head and foot tombstones and plumeria petals.
+   */
+  public static createIndonesianGraveKijing(variant: 'stone' | 'mossy' | 'whitewash' = 'stone'): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'IndonesianGraveKijing';
+
+    const stoneTex = typeof document !== 'undefined'
+      ? TextureGenerator.createTombstoneTexture()
+      : undefined;
+
+    const stoneColor = variant === 'mossy' ? 0x4a5445 : (variant === 'whitewash' ? 0x9e9e9a : 0x55585d);
+    const graveMat = new THREE.MeshLambertMaterial({
+      color: stoneColor,
+      map: stoneTex,
+    });
+
+    const flowerMat = new THREE.MeshBasicMaterial({ color: 0xfffae0 });
+
+    // Lower plinth base
+    const baseGeo = new THREE.BoxGeometry(1.85, 0.28, 0.85);
+    const base = new THREE.Mesh(baseGeo, graveMat);
+    base.position.y = 0.14;
+    group.add(base);
+
+    // Upper stepped plinth
+    const stepGeo = new THREE.BoxGeometry(1.55, 0.18, 0.62);
+    const step = new THREE.Mesh(stepGeo, graveMat);
+    step.position.y = 0.37;
+    group.add(step);
+
+    // Head and Foot Tombstones (Nisan Kepala & Nisan Kaki)
+    for (const xOffset of [-0.62, 0.62]) {
+      // Cylindrical nisan body with dome top
+      const nisanGeo = new THREE.CylinderGeometry(0.08, 0.10, 0.48, 6);
+      const nisan = new THREE.Mesh(nisanGeo, graveMat);
+      nisan.position.set(xOffset, 0.70, 0);
+      nisan.rotation.z = (Math.random() - 0.5) * 0.08;
+      group.add(nisan);
+
+      const domeGeo = new THREE.SphereGeometry(0.09, 5, 5);
+      const dome = new THREE.Mesh(domeGeo, graveMat);
+      dome.position.set(xOffset, 0.94, 0);
+      group.add(dome);
+    }
+
+    // Scattered Kamboja petals on top of grave
+    for (let i = 0; i < 4; i++) {
+      const petal = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.08), flowerMat);
+      petal.position.set(
+        (Math.random() - 0.5) * 0.9,
+        0.47,
+        (Math.random() - 0.5) * 0.4
+      );
+      petal.rotation.x = -Math.PI / 2;
+      group.add(petal);
+    }
+
+    return group;
+  }
+
+  /**
+   * Traditional Earthen Mound Grave (Makam Gundukan Tanah Desa)
+   * Red dirt soil mound with simple wooden stakes (patok nisan kayu).
+   */
+  public static createIndonesianGraveEarthen(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'IndonesianGraveEarthen';
+
+    const soilMat = new THREE.MeshLambertMaterial({ color: 0x3d281a });
+    const woodMat = new THREE.MeshLambertMaterial({ color: 0x2e2216 });
+    const grassMat = new THREE.MeshLambertMaterial({ color: 0x364822 });
+
+    // Curved soil mound
+    const moundGeo = new THREE.CylinderGeometry(0.38, 0.48, 1.7, 6);
+    moundGeo.rotateZ(Math.PI / 2);
+    const mound = new THREE.Mesh(moundGeo, soilMat);
+    mound.position.set(0, 0.22, 0);
+    mound.scale.set(1.0, 0.65, 1.0);
+    group.add(mound);
+
+    // Weathered wooden grave stakes (patok kayu)
+    for (const xOffset of [-0.68, 0.68]) {
+      const stakeGeo = new THREE.BoxGeometry(0.09, 0.55, 0.04);
+      const stake = new THREE.Mesh(stakeGeo, woodMat);
+      stake.position.set(xOffset, 0.42, 0);
+      stake.rotation.z = (Math.random() - 0.5) * 0.16;
+      stake.rotation.y = (Math.random() - 0.5) * 0.2;
+      group.add(stake);
+    }
+
+    // Small tufts of grass on edge
+    for (let i = 0; i < 3; i++) {
+      const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.25, 4), grassMat);
+      tuft.position.set((Math.random() - 0.5) * 1.2, 0.25, (Math.random() - 0.5) * 0.5);
+      group.add(tuft);
+    }
+
+    return group;
+  }
+
+  /**
+   * Graveyard Caretaker Shack (Gubuk Kuncen Penjaga Makam)
+   * Wooden shack with palm-fiber thatch roof and porch.
+   */
+  public static createKuncenHut(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'KuncenHut';
+
+    const woodMat = new THREE.MeshLambertMaterial({ color: 0x3d2c1c });
+    const plankMat = new THREE.MeshLambertMaterial({ color: 0x4d3822 });
+    const thatchMat = new THREE.MeshLambertMaterial({ color: 0x281f14 });
+
+    // Main hut walls (3.2m wide, 2.6m deep, 2.4m tall)
+    const wallsGeo = new THREE.BoxGeometry(3.2, 2.4, 2.6);
+    const walls = new THREE.Mesh(wallsGeo, woodMat);
+    walls.position.y = 1.2;
+    group.add(walls);
+
+    // Front porch floor plinth
+    const porchGeo = new THREE.BoxGeometry(3.4, 0.15, 1.2);
+    const porch = new THREE.Mesh(porchGeo, plankMat);
+    porch.position.set(0, 0.08, 1.8);
+    group.add(porch);
+
+    // Front porch wooden support posts
+    for (const px of [-1.5, 1.5]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.4, 5), woodMat);
+      post.position.set(px, 1.2, 2.3);
+      group.add(post);
+    }
+
+    // Gabled Thatch Roof (Atap Ijuk Miring)
+    const roofGeo = new THREE.ConeGeometry(3.0, 1.4, 4);
+    roofGeo.rotateY(Math.PI / 4);
+    const roof = new THREE.Mesh(roofGeo, thatchMat);
+    roof.scale.set(1.4, 1.0, 1.35);
+    roof.position.set(0, 2.9, 0.3);
+    group.add(roof);
+
+    // Kuncen oil lantern hanging on porch
+    const lanternMat = new THREE.MeshBasicMaterial({ color: 0xffaa44 });
+    const lantern = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.22, 6), lanternMat);
+    lantern.position.set(0.8, 2.0, 2.2);
+    group.add(lantern);
+
+    const light = new THREE.PointLight(0xff9933, 1.0, 8.5);
+    light.position.set(0.8, 1.9, 2.2);
+    group.add(light);
+
+    return group;
+  }
+
+  /**
+   * Ancient Cemetery Iron Gate (Gerbang Besi Pintu Keluar Makam Tua)
+   * Two stone boundary pillars with rusty wrought iron gates.
+   */
+  public static createCemeteryIronGate(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'CemeteryIronGate';
+
+    const pillarMat = new THREE.MeshLambertMaterial({ color: 0x4a4742 });
+    const ironMat = new THREE.MeshLambertMaterial({ color: 0x222426 });
+
+    // Left and Right Stone Pillars
+    for (const px of [-1.55, 1.55]) {
+      const pillarGeo = new THREE.BoxGeometry(0.72, 3.4, 0.72);
+      const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+      pillar.position.set(px, 1.7, 0);
+      group.add(pillar);
+
+      // Pillar pyramid cap
+      const capGeo = new THREE.ConeGeometry(0.55, 0.45, 4);
+      capGeo.rotateY(Math.PI / 4);
+      const cap = new THREE.Mesh(capGeo, pillarMat);
+      cap.position.set(px, 3.6, 0);
+      group.add(cap);
+    }
+
+    // Rusty iron gate leaves (slightly ajar / open inviting escape)
+    // Left gate leaf
+    const gateGeo = new THREE.BoxGeometry(1.25, 2.6, 0.06);
+    const leftGate = new THREE.Mesh(gateGeo, ironMat);
+    leftGate.position.set(-0.65, 1.4, 0.2);
+    leftGate.rotation.y = 0.35; // slightly swung open
+    group.add(leftGate);
+
+    // Right gate leaf
+    const rightGate = new THREE.Mesh(gateGeo, ironMat);
+    rightGate.position.set(0.65, 1.4, -0.2);
+    rightGate.rotation.y = -0.4;
+    group.add(rightGate);
+
+    // Green escape beacon light on gate arch
+    const beaconLight = new THREE.PointLight(0x22c55e, 1.6, 14.0);
+    beaconLight.position.set(0, 3.2, 0);
+    group.add(beaconLight);
+
+    return group;
+  }
+
+  /**
+   * Graveyard Bamboo Torch / Lantern Post
+   */
+  public static createCemeteryLanternPost(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'CemeteryLanternPost';
+
+    const bambooMat = new THREE.MeshLambertMaterial({ color: 0x4a4428 });
+    const flameMat = new THREE.MeshBasicMaterial({ color: 0xff8822 });
+
+    // Bamboo stake in ground
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.1, 5), bambooMat);
+    pole.position.y = 1.05;
+    group.add(pole);
+
+    // Flame head
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 5), flameMat);
+    flame.position.y = 2.15;
+    group.add(flame);
+
+    // Warm eerie flickering light
+    const torchLight = new THREE.PointLight(0xff8822, 0.9, 7.5);
+    torchLight.position.y = 2.2;
+    group.add(torchLight);
+
+    return group;
+  }
+
+  // =========================================================================
+  // LEVEL 5 — ANCIENT CAVERN PROPS (Batu Purba, Stalagmit, Obor Gua, Perapian)
+  // =========================================================================
+
+  /**
+   * Stalagmite Stone Pillar Cluster (Pilar Bebatuan Stalagmit Gua)
+   */
+  public static createStalagmiteCluster(height: number = 2.4, baseRadius: number = 0.55): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'StalagmiteCluster';
+
+    const stoneTex = typeof document !== 'undefined'
+      ? TextureGenerator.createStalagmiteTexture()
+      : undefined;
+
+    const rockMat = new THREE.MeshLambertMaterial({
+      color: 0x4a463e,
+      map: stoneTex,
+    });
+
+    // Central main tapered stalagmite cone
+    const mainGeo = new THREE.ConeGeometry(baseRadius, height, 7);
+    const mainCone = new THREE.Mesh(mainGeo, rockMat);
+    mainCone.position.y = height / 2;
+    mainCone.rotation.y = Math.random() * Math.PI;
+    group.add(mainCone);
+
+    // 2-3 smaller secondary stalagmite shoots around base
+    const shootOffsets = [
+      { ox: baseRadius * 0.7, oz: 0.1, h: height * 0.55, r: baseRadius * 0.45 },
+      { ox: -baseRadius * 0.5, oz: baseRadius * 0.6, h: height * 0.42, r: baseRadius * 0.38 },
+      { ox: -baseRadius * 0.4, oz: -baseRadius * 0.5, h: height * 0.65, r: baseRadius * 0.5 },
+    ];
+
+    for (const s of shootOffsets) {
+      const sGeo = new THREE.ConeGeometry(s.r, s.h, 6);
+      const sMesh = new THREE.Mesh(sGeo, rockMat);
+      sMesh.position.set(s.ox, s.h / 2, s.oz);
+      sMesh.rotation.z = (Math.random() - 0.5) * 0.12;
+      group.add(sMesh);
+    }
+
+    return group;
+  }
+
+  /**
+   * Stalactite Ceiling Rock Cluster (Batu Menetes Menggantung dari Langit-Langit)
+   */
+  public static createStalactiteCluster(height: number = 1.8, radius: number = 0.45): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'StalactiteCluster';
+
+    const rockMat = new THREE.MeshLambertMaterial({
+      color: 0x3d3932,
+    });
+
+    // Inverted cone hanging down from ceiling
+    const coneGeo = new THREE.ConeGeometry(radius, height, 6);
+    coneGeo.rotateX(Math.PI); // Point downwards
+    const coneMesh = new THREE.Mesh(coneGeo, rockMat);
+    coneMesh.position.y = -height / 2;
+    group.add(coneMesh);
+
+    return group;
+  }
+
+  /**
+   * Ancient Cave Stone Torch Sconce (Obor Batu Dinding Gua Berkedip)
+   */
+  public static createCaveWallTorch(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'CaveWallTorch';
+
+    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x36332c });
+    const woodMat = new THREE.MeshLambertMaterial({ color: 0x221a12 });
+    const flameMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+
+    // Stone bracket mount
+    const bracketGeo = new THREE.BoxGeometry(0.22, 0.32, 0.28);
+    const bracket = new THREE.Mesh(bracketGeo, stoneMat);
+    group.add(bracket);
+
+    // Diagonal wood/stone torch branch
+    const branchGeo = new THREE.CylinderGeometry(0.04, 0.05, 0.65, 5);
+    const branch = new THREE.Mesh(branchGeo, woodMat);
+    branch.rotation.x = Math.PI / 4;
+    branch.position.set(0, 0.18, 0.22);
+    group.add(branch);
+
+    // Glowing flame head
+    const flameGeo = new THREE.ConeGeometry(0.09, 0.26, 6);
+    const flame = new THREE.Mesh(flameGeo, flameMat);
+    flame.position.set(0, 0.44, 0.42);
+    group.add(flame);
+
+    // Warm ambient point light
+    const fireLight = new THREE.PointLight(0xf59e0b, 1.6, 9.0, 1.4);
+    fireLight.position.set(0, 0.48, 0.46);
+    group.add(fireLight);
+
+    return group;
+  }
+
+  /**
+   * Explorer Campfire Site (Perapian Batu Penjelajah Luar Gua)
+   */
+  public static createExplorerCampfire(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'ExplorerCampfire';
+
+    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x484238 });
+    const ashMat = new THREE.MeshLambertMaterial({ color: 0x1f1d1a });
+    const woodMat = new THREE.MeshLambertMaterial({ color: 0x382212 });
+    const emberMat = new THREE.MeshBasicMaterial({ color: 0xd97706 });
+
+    // Inner ash bed
+    const ash = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.70, 0.08, 10), ashMat);
+    ash.position.y = 0.04;
+    group.add(ash);
+
+    // Circular ring of rough boundary rocks
+    const rockCount = 8;
+    for (let i = 0; i < rockCount; i++) {
+      const angle = (i / rockCount) * Math.PI * 2;
+      const rockGeo = new THREE.DodecahedronGeometry(0.18 + (i % 2) * 0.04);
+      const rockMesh = new THREE.Mesh(rockGeo, stoneMat);
+      rockMesh.position.set(Math.cos(angle) * 0.72, 0.14, Math.sin(angle) * 0.72);
+      group.add(rockMesh);
+    }
+
+    // Crossed burnt logs
+    const log1 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.85, 5), woodMat);
+    log1.rotation.set(0, Math.PI / 4, Math.PI / 2);
+    log1.position.y = 0.12;
+    group.add(log1);
+
+    const log2 = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.82, 5), woodMat);
+    log2.rotation.set(0, -Math.PI / 4, Math.PI / 2);
+    log2.position.y = 0.14;
+    group.add(log2);
+
+    // Glowing warm embers
+    const ember = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 6), emberMat);
+    ember.position.y = 0.16;
+    group.add(ember);
+
+    const emberLight = new THREE.PointLight(0xd97706, 1.2, 6.0);
+    emberLight.position.y = 0.28;
+    group.add(emberLight);
+
+    return group;
+  }
+
+  /**
+   * Cavern Exit Fissure Gate (Celah Batu Gua Kuno Keluar)
+   */
+  public static createCavernExitArch(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'CavernExitArch';
+
+    const stoneMat = new THREE.MeshLambertMaterial({ color: 0x3a362f });
+    const greenGlowMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.8 });
+
+    // Left stone monolith pillar
+    const leftPillar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 4.2, 0.9), stoneMat);
+    leftPillar.position.set(-1.4, 2.1, 0);
+    leftPillar.rotation.z = -0.04;
+    group.add(leftPillar);
+
+    // Right stone monolith pillar
+    const rightPillar = new THREE.Mesh(new THREE.BoxGeometry(0.7, 4.2, 0.9), stoneMat);
+    rightPillar.position.set(1.4, 2.1, 0);
+    rightPillar.rotation.z = 0.04;
+    group.add(rightPillar);
+
+    // Top lintel arch rock
+    const topLintel = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.85, 1.1), stoneMat);
+    topLintel.position.set(0, 4.2, 0);
+    group.add(topLintel);
+
+    // Luminous mystical green beacon portal inside opening
+    const portalMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 3.6), greenGlowMat);
+    portalMesh.position.set(0, 1.8, 0.05);
+    group.add(portalMesh);
+
+    // Green beacon point light
+    const exitLight = new THREE.PointLight(0x10b981, 2.2, 12.0);
+    exitLight.position.set(0, 2.2, 0.4);
+    group.add(exitLight);
+
+    return group;
+  }
+
+  // =========================================================================
+  // LEVEL 5 — UNDERGROUND MILITARY BUNKER PROPS
+  // =========================================================================
+
+  /**
+   * Military Outpost Sandbag Fortification (Barikade Karung Pasir Militer Luar)
+   */
+  public static createBunkerSandbags(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'BunkerSandbags';
+
+    const bagMat = new THREE.MeshLambertMaterial({ color: 0x8a7b58 });
+
+    // 3 layers of stacked sandbags
+    const bagGeo = new THREE.BoxGeometry(0.85, 0.24, 0.45);
+    for (let layer = 0; layer < 3; layer++) {
+      const count = 3 - (layer % 2);
+      const offsetX = (layer % 2) * 0.4;
+      for (let i = 0; i < count; i++) {
+        const bag = new THREE.Mesh(bagGeo, bagMat);
+        bag.position.set(-0.8 + offsetX + i * 0.85, layer * 0.22 + 0.12, 0);
+        bag.rotation.y = (Math.random() - 0.5) * 0.08;
+        group.add(bag);
+      }
+    }
+
+    return group;
+  }
+
+  /**
+   * Ammo Crates and Supply Barrels (Peti Amunisi & Drum Logam Militer)
+   */
+  public static createBunkerCrateStack(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'BunkerCrateStack';
+
+    const crateMat = new THREE.MeshLambertMaterial({ color: 0x3d4734 }); // Olive drab
+    const drumMat = new THREE.MeshLambertMaterial({ color: 0x27353f });
+
+    // Two crates on floor
+    const c1 = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.75, 0.9), crateMat);
+    c1.position.set(-0.55, 0.38, 0);
+    group.add(c1);
+
+    const c2 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.7, 0.85), crateMat);
+    c2.position.set(0.5, 0.35, 0.1);
+    group.add(c2);
+
+    // One crate stacked on top
+    const c3 = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.65, 0.8), crateMat);
+    c3.position.set(-0.45, 1.08, 0);
+    c3.rotation.y = 0.15;
+    group.add(c3);
+
+    // Steel fuel drum
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.95, 8), drumMat);
+    drum.position.set(1.1, 0.48, -0.2);
+    group.add(drum);
+
+    return group;
+  }
+
+  /**
+   * Heavy Blast Entrance Hatch (Pintu Baja Gerbang Masuk Bunker Luar)
+   */
+  public static createBunkerBlastEntrance(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'BunkerBlastEntrance';
+
+    const steelMat = new THREE.MeshLambertMaterial({ color: 0x2c3338 });
+    const hazardMat = new THREE.MeshLambertMaterial({ color: 0xd97706 });
+    const yellowLightMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+
+    // Reinforced steel bulkhead frame
+    const frameLeft = new THREE.Mesh(new THREE.BoxGeometry(0.65, 4.4, 0.8), steelMat);
+    frameLeft.position.set(-2.2, 2.2, 0);
+    group.add(frameLeft);
+
+    const frameRight = new THREE.Mesh(new THREE.BoxGeometry(0.65, 4.4, 0.8), steelMat);
+    frameRight.position.set(2.2, 2.2, 0);
+    group.add(frameRight);
+
+    const frameTop = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.8, 0.85), steelMat);
+    frameTop.position.set(0, 4.0, 0);
+    group.add(frameTop);
+
+    // Hazard striped header bar
+    const hazardBar = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.25, 0.9), hazardMat);
+    hazardBar.position.set(0, 3.48, 0);
+    group.add(hazardBar);
+
+    // Steel threshold plate across doorway seam
+    const thresholdPlate = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.06, 1.4), steelMat);
+    thresholdPlate.position.set(0, 0.03, 0);
+    thresholdPlate.receiveShadow = true;
+    group.add(thresholdPlate);
+
+    // Overhead industrial floodlight
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.3), yellowLightMat);
+    lamp.position.set(0, 3.9, 0.55);
+    group.add(lamp);
+
+    const floodlight = new THREE.PointLight(0xfbbf24, 2.0, 16.0);
+    floodlight.position.set(0, 3.8, 0.8);
+    group.add(floodlight);
+
+    return group;
+  }
+
+  /**
+   * Industrial Caged Bunker Warning Light (Lampu Peringatan Berkedip Koridor Bunker)
+   */
+  public static createBunkerCageLight(isRed: boolean = false): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'BunkerCageLight';
+
+    const colorHex = isRed ? 0xef4444 : 0xf59e0b;
+    const bulbMat = new THREE.MeshBasicMaterial({ color: colorHex });
+    const cageMat = new THREE.MeshLambertMaterial({ color: 0x1f2224 });
+
+    // Base bracket
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.35, 0.18), cageMat);
+    group.add(base);
+
+    // Glowing bulb
+    const bulb = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.28, 6), bulbMat);
+    bulb.position.set(0, 0, 0.16);
+    group.add(bulb);
+
+    // Wire guard cage
+    const wireGuard = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.32, 0.24), cageMat);
+    wireGuard.position.set(0, 0, 0.16);
+    group.add(wireGuard);
+
+    // Point Light
+    const light = new THREE.PointLight(colorHex, 1.8, 9.5, 1.3);
+    light.position.set(0, 0, 0.3);
+    group.add(light);
+
+    return group;
+  }
+
+  /**
+   * Emergency Vault Exit Door (Pintu Keluar Baja Darurat Bunker)
+   */
+  public static createBunkerExitVault(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'BunkerExitVault';
+
+    const steelMat = new THREE.MeshLambertMaterial({ color: 0x242b2e });
+    const greenLightMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+
+    // Vault portal frame
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(3.6, 4.2, 0.7), steelMat);
+    frame.position.y = 2.1;
+    group.add(frame);
+
+    // Emergency escape exit beacon sign
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.45, 0.1), greenLightMat);
+    sign.position.set(0, 3.8, 0.4);
+    group.add(sign);
+
+    // Wheel handle
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.05, 6, 12), steelMat);
+    wheel.position.set(0, 1.9, 0.4);
+    group.add(wheel);
+
+    // Green emergency illumination
+    const exitLight = new THREE.PointLight(0x10b981, 2.4, 12.0);
+    exitLight.position.set(0, 2.2, 0.8);
+    group.add(exitLight);
+
+    return group;
+  }
+
+  /**
+   * Level 3 Floor Trail Decal — Vivid Red Blood Stains & Splatters on Floor
+   * Distinct crimson blood marks guiding players directly towards Pocong's location on Floor 0.
+   */
+  public static createPocongTrailDecal(
+    type: 'dirt_footprints' | 'shroud_cloth' | 'grave_soil_cluster' | 'blood_drag' | 'blood_splatter' | 'blood_pool'
+  ): THREE.Mesh {
+    // Map legacy names to blood decals
+    let bloodType: 'blood_drag' | 'blood_splatter' | 'blood_pool' = 'blood_drag';
+    if (type === 'grave_soil_cluster' || type === 'blood_pool') {
+      bloodType = 'blood_pool';
+    } else if (type === 'shroud_cloth' || type === 'blood_splatter') {
+      bloodType = 'blood_splatter';
+    } else {
+      bloodType = 'blood_drag';
+    }
+
+    const size = bloodType === 'blood_pool' ? 2.6 : (bloodType === 'blood_drag' ? 1.6 : 1.4);
+    const geo = new THREE.PlaneGeometry(size, size);
+    // Bake horizontal ground orientation directly into geometry vertices
+    // so any mesh.rotation.y smoothly spins flat on the floor without tilting!
+    geo.rotateX(-Math.PI / 2);
+
+    if (typeof document === 'undefined') {
+      const dummy = new THREE.Mesh(geo, new THREE.MeshBasicMaterial());
+      dummy.position.y = 0.025;
+      return dummy;
+    }
+
+    const canvasSize = bloodType === 'blood_pool' ? 512 : 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.clearRect(0, 0, canvasSize, canvasSize);
+
+    if (bloodType === 'blood_drag') {
+      const s = canvasSize / 128;
+
+      // Bloody foot drag and splatters pointing UP (towards forward direction)
+      const drawBloodFootprint = (cx: number, cy: number, w: number, h: number, rot: number) => {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(rot);
+
+        // Core thick blood stain
+        const grad = ctx.createRadialGradient(0, 0, 1 * s, 0, 0, Math.max(w, h));
+        grad.addColorStop(0, 'rgba(115, 0, 0, 0.98)');
+        grad.addColorStop(0.35, 'rgba(180, 10, 10, 0.95)');
+        grad.addColorStop(0.8, 'rgba(140, 5, 5, 0.85)');
+        grad.addColorStop(1, 'rgba(95, 0, 0, 0)');
+        ctx.fillStyle = grad;
+
+        ctx.beginPath();
+        ctx.ellipse(0, 0, w, h, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Dark coagulated center clots
+        ctx.fillStyle = 'rgba(50, 0, 0, 0.95)';
+        for (let i = 0; i < 4; i++) {
+          const rx = (Math.random() - 0.5) * w * 0.8;
+          const ry = (Math.random() - 0.5) * h * 0.8;
+          ctx.beginPath();
+          ctx.arc(rx, ry, 1.2 * s + Math.random() * 2 * s, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      };
+
+      // Drag smears behind footprint
+      const dragGrad = ctx.createLinearGradient(64 * s, 115 * s, 64 * s, 65 * s);
+      dragGrad.addColorStop(0, 'rgba(140, 5, 5, 0.72)');
+      dragGrad.addColorStop(0.6, 'rgba(175, 12, 12, 0.45)');
+      dragGrad.addColorStop(1, 'rgba(90, 0, 0, 0)');
+      ctx.fillStyle = dragGrad;
+      ctx.fillRect(44 * s, 65 * s, 40 * s, 45 * s);
+
+      // Two bloody drag / foot impressions
+      drawBloodFootprint(52 * s, 56 * s, 11 * s, 24 * s, -0.06);
+      drawBloodFootprint(76 * s, 56 * s, 11 * s, 24 * s, 0.06);
+
+      // Splatter droplets sprayed forward (in the direction of travel)
+      ctx.fillStyle = 'rgba(195, 15, 15, 0.94)';
+      for (let i = 0; i < 22; i++) {
+        const x = 32 * s + Math.random() * 64 * s;
+        const y = 8 * s + Math.random() * 45 * s;
+        const r = 1 * s + Math.random() * 2.5 * s;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (bloodType === 'blood_splatter') {
+      const s = canvasSize / 128;
+      ctx.save();
+      ctx.translate(64 * s, 64 * s);
+
+      // Central irregular pool of crimson blood
+      ctx.beginPath();
+      const points = 10;
+      for (let i = 0; i < points; i++) {
+        const angle = (i / points) * Math.PI * 2;
+        const dist = (20 + (Math.sin(i * 3.7) * 8 + Math.cos(i * 2.1) * 6)) * s;
+        const px = Math.cos(angle) * dist;
+        const py = Math.sin(angle) * dist;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+
+      const poolGrad = ctx.createRadialGradient(0, 0, 2 * s, 0, 0, 32 * s);
+      poolGrad.addColorStop(0, 'rgba(110, 0, 0, 0.98)');
+      poolGrad.addColorStop(0.5, 'rgba(175, 15, 15, 0.95)');
+      poolGrad.addColorStop(0.85, 'rgba(140, 5, 5, 0.85)');
+      poolGrad.addColorStop(1, 'rgba(80, 0, 0, 0)');
+      ctx.fillStyle = poolGrad;
+      ctx.fill();
+
+      // Splatter arms / tendrils projecting outwards
+      ctx.strokeStyle = 'rgba(180, 15, 15, 0.94)';
+      ctx.lineWidth = 3 * s;
+      ctx.lineCap = 'round';
+      const armAngles = [0.3, 0.9, 1.8, 2.7, 3.6, 4.4, 5.3];
+      for (const ang of armAngles) {
+        ctx.beginPath();
+        const startR = 15 * s;
+        const endR = (35 + Math.random() * 20) * s;
+        ctx.moveTo(Math.cos(ang) * startR, Math.sin(ang) * startR);
+        ctx.lineTo(Math.cos(ang) * endR, Math.sin(ang) * endR);
+        ctx.stroke();
+
+        // Droplet at end of arm
+        ctx.beginPath();
+        ctx.arc(
+          Math.cos(ang) * (endR + 4 * s),
+          Math.sin(ang) * (endR + 4 * s),
+          (1.5 + Math.random() * 2) * s,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+      }
+
+      // Small scattered satellite blood droplets
+      ctx.fillStyle = 'rgba(190, 20, 20, 0.92)';
+      for (let i = 0; i < 28; i++) {
+        const rad = (25 + Math.random() * 32) * s;
+        const ang = Math.random() * Math.PI * 2;
+        const bx = Math.cos(ang) * rad;
+        const by = Math.sin(ang) * rad;
+        const br = (0.8 + Math.random() * 2.2) * s;
+        ctx.beginPath();
+        ctx.arc(bx, by, br, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    } else {
+      // 'blood_pool' - Massive pool of dark red blood at Pocong's resting spot
+      const s = canvasSize / 256;
+      ctx.save();
+      ctx.translate(128 * s, 128 * s);
+
+      // Deep dark coagulated core
+      const baseGrad = ctx.createRadialGradient(0, 0, 15 * s, 0, 0, 110 * s);
+      baseGrad.addColorStop(0, 'rgba(65, 0, 0, 0.98)');
+      baseGrad.addColorStop(0.35, 'rgba(115, 0, 0, 0.96)');
+      baseGrad.addColorStop(0.7, 'rgba(175, 12, 12, 0.9)');
+      baseGrad.addColorStop(0.9, 'rgba(140, 5, 5, 0.65)');
+      baseGrad.addColorStop(1, 'rgba(70, 0, 0, 0)');
+      ctx.fillStyle = baseGrad;
+
+      // Organic pool shape with varying radii
+      ctx.beginPath();
+      const numPoints = 24;
+      for (let i = 0; i < numPoints; i++) {
+        const angle = (i / numPoints) * Math.PI * 2;
+        const r = (75 + Math.sin(i * 2.3) * 16 + Math.cos(i * 3.8) * 12 + Math.sin(i * 5.1) * 8) * s;
+        const px = Math.cos(angle) * r;
+        const py = Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // Blood smears / finger-drag marks reaching outwards
+      ctx.strokeStyle = 'rgba(150, 10, 10, 0.88)';
+      ctx.lineWidth = 5 * s;
+      ctx.lineCap = 'round';
+      for (let i = 0; i < 5; i++) {
+        const ang = 0.5 + i * 1.25;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ang) * 60 * s, Math.sin(ang) * 60 * s);
+        ctx.quadraticCurveTo(
+          Math.cos(ang + 0.2) * 85 * s,
+          Math.sin(ang + 0.2) * 85 * s,
+          Math.cos(ang - 0.1) * 115 * s,
+          Math.sin(ang - 0.1) * 115 * s
+        );
+        ctx.stroke();
+      }
+
+      // Dense perimeter blood splatters and drops
+      ctx.fillStyle = 'rgba(195, 18, 18, 0.94)';
+      for (let i = 0; i < 60; i++) {
+        const rad = (65 + Math.random() * 55) * s;
+        const ang = Math.random() * Math.PI * 2;
+        const x = Math.cos(ang) * rad;
+        const y = Math.sin(ang) * rad;
+        const cr = (1.2 + Math.random() * 3.8) * s;
+        ctx.beginPath();
+        ctx.arc(x, y, cr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -3.0,
+      polygonOffsetUnits: -3.0,
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = `PocongTrail_${bloodType}`;
+    mesh.position.y = 0.025;
+    mesh.renderOrder = 25;
+    return mesh;
+  }
+
+  /**
+   * Floor Emergency Exit Decal — Vivid Green Phosphor Arrow on the Floor
+   * Specifically guides players right at the entrance corridor leading to the Exit Door.
+   */
+  public static createFloorExitArrowDecal(label: string = 'EXIT ➔'): THREE.Mesh {
+    const geo = new THREE.PlaneGeometry(1.8, 1.8);
+    geo.rotateX(-Math.PI / 2);
+
+    if (typeof document === 'undefined') {
+      const dummy = new THREE.Mesh(geo, new THREE.MeshBasicMaterial());
+      dummy.position.y = 0.025;
+      return dummy;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.clearRect(0, 0, 256, 256);
+
+    // Stencil grunge backdrop
+    const halo = ctx.createRadialGradient(128, 128, 10, 128, 128, 120);
+    halo.addColorStop(0, 'rgba(5, 40, 20, 0.90)');
+    halo.addColorStop(0.7, 'rgba(5, 30, 15, 0.45)');
+    halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Vivid emerald phosphor arrow pointing UP (towards forward direction)
+    const arrowColor = '#4ade80';
+    ctx.fillStyle = arrowColor;
+    ctx.strokeStyle = arrowColor;
+    ctx.lineWidth = 14;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Arrow stem
+    ctx.beginPath();
+    ctx.moveTo(128, 185);
+    ctx.lineTo(128, 65);
+    ctx.stroke();
+
+    // Arrow head
+    ctx.beginPath();
+    ctx.moveTo(65, 120);
+    ctx.lineTo(128, 50);
+    ctx.lineTo(191, 120);
+    ctx.stroke();
+
+    // Neon text label below arrow
+    ctx.font = 'bold 26px "Share Tech Mono", monospace, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#86efac';
+    ctx.fillText(label, 128, 218);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -3.0,
+      polygonOffsetUnits: -3.0,
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = 'FloorExitArrowDecal';
+    mesh.position.y = 0.025;
+    mesh.renderOrder = 25;
+    return mesh;
   }
 }
