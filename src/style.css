@@ -2161,6 +2161,111 @@ html, body {
   100% { opacity: 0.1; }
 }
 
+/* ==========================================================================
+   FIRST LAUNCH LANGUAGE MODAL (Retro PS1 Style)
+   ========================================================================== */
+.language-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 10, 0.94);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.language-modal-backdrop.hidden {
+  display: none !important;
+}
+
+.language-modal-card {
+  max-width: 460px;
+  width: 95%;
+  background: radial-gradient(circle at center, #1b222c 0%, #0d1117 100%);
+  border: 2px solid #3d4a5c;
+  box-shadow: 0 0 35px rgba(0, 0, 0, 0.9), 0 0 15px rgba(50, 70, 95, 0.3);
+  padding: 28px 24px;
+  gap: 16px;
+  text-align: center;
+}
+
+.language-modal-title {
+  font-family: var(--font-title);
+  font-size: 36px;
+  color: #fff;
+  letter-spacing: 2px;
+  margin: 0;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+.language-modal-desc {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.language-modal-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.lang-card-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #121720;
+  border: 1px solid #2f3b4d;
+  color: #cbd5e1;
+  padding: 14px 18px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.18s ease;
+  font-family: var(--font-mono);
+  position: relative;
+}
+
+.lang-card-btn:hover {
+  background: #182230;
+  border-color: #4b5d78;
+  transform: translateY(-1px);
+}
+
+.lang-card-btn.active {
+  background: radial-gradient(circle at center, #163328 0%, #0d211a 100%);
+  border: 2px solid #10b981;
+  color: #fff;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+}
+
+.lang-card-btn .lang-flag {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.lang-card-btn .lang-name {
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.lang-card-btn .lang-sub {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.lang-card-btn.active .lang-sub {
+  color: #6ee7b7;
+}
+
 @keyframes jumpscarePulse {
   0% { transform: scale(1.0); opacity: 0.85; }
   100% { transform: scale(1.03); opacity: 1.0; }
@@ -2169,4 +2274,109 @@ html, body {
 @keyframes jumpscareFlash {
   0% { opacity: 0.85; }
   100% { opacity: 0.1; }
+}
+
+/* ==========================================================================
+   FIRST LAUNCH LANGUAGE MODAL (Retro PS1 Style)
+   ========================================================================== */
+.language-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 10, 0.94);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+}
+
+.language-modal-backdrop.hidden {
+  display: none !important;
+}
+
+.language-modal-card {
+  max-width: 460px;
+  width: 95%;
+  background: radial-gradient(circle at center, #1b222c 0%, #0d1117 100%);
+  border: 2px solid #3d4a5c;
+  box-shadow: 0 0 35px rgba(0, 0, 0, 0.9), 0 0 15px rgba(50, 70, 95, 0.3);
+  padding: 28px 24px;
+  gap: 16px;
+  text-align: center;
+}
+
+.language-modal-title {
+  font-family: var(--font-title);
+  font-size: 36px;
+  color: #fff;
+  letter-spacing: 2px;
+  margin: 0;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+.language-modal-desc {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.language-modal-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.lang-card-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #121720;
+  border: 1px solid #2f3b4d;
+  color: #cbd5e1;
+  padding: 14px 18px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.18s ease;
+  font-family: var(--font-mono);
+  position: relative;
+}
+
+.lang-card-btn:hover {
+  background: #182230;
+  border-color: #4b5d78;
+  transform: translateY(-1px);
+}
+
+.lang-card-btn.active {
+  background: radial-gradient(circle at center, #163328 0%, #0d211a 100%);
+  border: 2px solid #10b981;
+  color: #fff;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+}
+
+.lang-card-btn .lang-flag {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.lang-card-btn .lang-name {
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.lang-card-btn .lang-sub {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.lang-card-btn.active .lang-sub {
+  color: #6ee7b7;
 }

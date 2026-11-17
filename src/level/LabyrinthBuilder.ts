@@ -478,12 +478,12 @@ export class LabyrinthBuilder {
     const grid = level.grid.map((row) => [...row]);
     if (level.ramps && level.ramps.length > 0) {
       for (const r of level.ramps) {
-        const minGx = Math.min(r.startCell.x, r.endCell.x) - 1;
-        const maxGx = Math.max(r.startCell.x, r.endCell.x) + 1;
-        const minGz = Math.min(r.startCell.z, r.endCell.z) - 1;
-        const maxGz = Math.max(r.startCell.z, r.endCell.z) + 1;
-        for (let gz = Math.max(1, minGz); gz <= Math.min(gridHeight - 2, maxGz); gz++) {
-          for (let gx = Math.max(1, minGx); gx <= Math.min(gridWidth - 2, maxGx); gx++) {
+        const minGx = Math.min(r.startCell.x, r.endCell.x);
+        const maxGx = Math.max(r.startCell.x, r.endCell.x);
+        const minGz = Math.min(r.startCell.z, r.endCell.z);
+        const maxGz = Math.max(r.startCell.z, r.endCell.z);
+        for (let gz = minGz; gz <= maxGz; gz++) {
+          for (let gx = minGx; gx <= maxGx; gx++) {
             grid[gz][gx] = 0;
           }
         }
@@ -1115,7 +1115,8 @@ export class LabyrinthBuilder {
           rampWidth,
           height,
           length,
-          level.theme
+          level.theme,
+          wallTexture
         );
         const midX = (startWx + endWx) / 2;
         const midZ = (startWz + endWz) / 2;
@@ -1124,13 +1125,14 @@ export class LabyrinthBuilder {
         stairMesh.rotation.y = angle;
         rootGroup.add(stairMesh);
 
-        // Safety Parapets around the 3 closed sides of the upper-floor stairwell opening
-        // Note: Parapets terminate cleanly at the stair exit (endWx / endWz) so the upper-floor landing and hallways are 100% open
+        // Safety Parapets around the closed sides of the upper-floor stairwell opening
+        // Note: Parapets are only placed along open edges (e.g. open atriums). Where adjacent grid cells are solid walls,
+        // full-height walls already bound the corridor seamlessly.
         const upperY = ramp.toFloor * floorHeight;
         const railingThick = 0.22;
 
         if (Math.abs(deltaX) >= Math.abs(deltaZ)) {
-          // Stairs run horizontally along X: parapets on North & South sides, plus back end at startWx
+          // Stairs run horizontally along X
           const sideMinX = Math.min(startWx, endWx);
           const sideMaxX = Math.max(startWx, endWx);
           const sideMinZ = midZ - rampWidth / 2;
@@ -1138,49 +1140,70 @@ export class LabyrinthBuilder {
           const sideLength = sideMaxX - sideMinX;
           const sideMidX = (sideMinX + sideMaxX) / 2;
 
-          const bNorth = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
-          bNorth.position.set(sideMidX, upperY, sideMinZ);
-          bNorth.rotation.y = Math.PI / 2;
-          rootGroup.add(bNorth);
-          railingBoxes.push({
-            minX: sideMinX,
-            maxX: sideMaxX,
-            minZ: sideMinZ - railingThick,
-            maxZ: sideMinZ + railingThick,
-            minY: upperY,
-            maxY: upperY + 1.2,
-            label: 'parapet_north',
-          });
+          const stepX = Math.sign(deltaX);
+          const backGx = ramp.startCell.x - stepX;
+          const backGz = ramp.startCell.z;
+          const hasBackWall = backGx >= 0 && backGx < gridWidth && grid[backGz][backGx] === 1;
 
-          const bSouth = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
-          bSouth.position.set(sideMidX, upperY, sideMaxZ);
-          bSouth.rotation.y = Math.PI / 2;
-          rootGroup.add(bSouth);
-          railingBoxes.push({
-            minX: sideMinX,
-            maxX: sideMaxX,
-            minZ: sideMaxZ - railingThick,
-            maxZ: sideMaxZ + railingThick,
-            minY: upperY,
-            maxY: upperY + 1.2,
-            label: 'parapet_south',
-          });
+          const minGx = Math.min(ramp.startCell.x, ramp.endCell.x);
+          const maxGx = Math.max(ramp.startCell.x, ramp.endCell.x);
 
-          // Back parapet above the foot of the stairs (at startWx)
-          const bBack = EnvironmentPropFactory.createWallStairwellParapet(rampWidth, 1.05, level.theme);
-          bBack.position.set(startWx, upperY, midZ);
-          rootGroup.add(bBack);
-          railingBoxes.push({
-            minX: startWx - railingThick,
-            maxX: startWx + railingThick,
-            minZ: sideMinZ,
-            maxZ: sideMaxZ,
-            minY: upperY,
-            maxY: upperY + 1.2,
-            label: 'parapet_back',
-          });
+          const northGz = ramp.startCell.z - 1;
+          const hasNorthWall = northGz >= 0 && northGz < gridHeight &&
+            Array.from({ length: maxGx - minGx + 1 }, (_, i) => minGx + i).every((gx) => grid[northGz][gx] === 1);
+
+          const southGz = ramp.startCell.z + 1;
+          const hasSouthWall = southGz >= 0 && southGz < gridHeight &&
+            Array.from({ length: maxGx - minGx + 1 }, (_, i) => minGx + i).every((gx) => grid[southGz][gx] === 1);
+
+          if (!hasNorthWall) {
+            const bNorth = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
+            bNorth.position.set(sideMidX, upperY, sideMinZ);
+            bNorth.rotation.y = Math.PI / 2;
+            rootGroup.add(bNorth);
+            railingBoxes.push({
+              minX: sideMinX,
+              maxX: sideMaxX,
+              minZ: sideMinZ - railingThick,
+              maxZ: sideMinZ + railingThick,
+              minY: upperY,
+              maxY: upperY + 1.2,
+              label: 'parapet_north',
+            });
+          }
+
+          if (!hasSouthWall) {
+            const bSouth = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
+            bSouth.position.set(sideMidX, upperY, sideMaxZ);
+            bSouth.rotation.y = Math.PI / 2;
+            rootGroup.add(bSouth);
+            railingBoxes.push({
+              minX: sideMinX,
+              maxX: sideMaxX,
+              minZ: sideMaxZ - railingThick,
+              maxZ: sideMaxZ + railingThick,
+              minY: upperY,
+              maxY: upperY + 1.2,
+              label: 'parapet_south',
+            });
+          }
+
+          if (!hasBackWall && level.theme === 'school') {
+            const bBack = EnvironmentPropFactory.createWallStairwellParapet(rampWidth, 1.05, level.theme);
+            bBack.position.set(startWx, upperY, midZ);
+            rootGroup.add(bBack);
+            railingBoxes.push({
+              minX: startWx - railingThick,
+              maxX: startWx + railingThick,
+              minZ: sideMinZ,
+              maxZ: sideMaxZ,
+              minY: upperY,
+              maxY: upperY + 1.2,
+              label: 'parapet_back',
+            });
+          }
         } else {
-          // Stairs run vertically along Z: parapets on West & East sides, plus back end at startWz
+          // Stairs run vertically along Z
           const sideMinX = midX - rampWidth / 2;
           const sideMaxX = midX + rampWidth / 2;
           const sideMinZ = Math.min(startWz, endWz);
@@ -1188,45 +1211,91 @@ export class LabyrinthBuilder {
           const sideLength = sideMaxZ - sideMinZ;
           const sideMidZ = (sideMinZ + sideMaxZ) / 2;
 
-          const bWest = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
-          bWest.position.set(sideMinX, upperY, sideMidZ);
-          rootGroup.add(bWest);
-          railingBoxes.push({
-            minX: sideMinX - railingThick,
-            maxX: sideMinX + railingThick,
-            minZ: sideMinZ,
-            maxZ: sideMaxZ,
-            minY: upperY,
-            maxY: upperY + 1.2,
-            label: 'parapet_west',
-          });
+          const stepZ = Math.sign(deltaZ);
+          const backGz = ramp.startCell.z - stepZ;
+          const backGx = ramp.startCell.x;
+          const hasBackWall = backGz >= 0 && backGz < gridHeight && grid[backGz][backGx] === 1;
 
-          const bEast = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
-          bEast.position.set(sideMaxX, upperY, sideMidZ);
-          rootGroup.add(bEast);
-          railingBoxes.push({
-            minX: sideMaxX - railingThick,
-            maxX: sideMaxX + railingThick,
-            minZ: sideMinZ,
-            maxZ: sideMaxZ,
-            minY: upperY,
-            maxY: upperY + 1.2,
-            label: 'parapet_east',
-          });
+          const minGz = Math.min(ramp.startCell.z, ramp.endCell.z);
+          const maxGz = Math.max(ramp.startCell.z, ramp.endCell.z);
 
-          // Back parapet above the foot of the stairs (at startWz)
-          const bBack = EnvironmentPropFactory.createWallStairwellParapet(rampWidth, 1.05, level.theme);
-          bBack.position.set(midX, upperY, startWz);
-          bBack.rotation.y = Math.PI / 2;
-          rootGroup.add(bBack);
+          const westGx = ramp.startCell.x - 1;
+          const hasWestWall = westGx >= 0 && westGx < gridWidth &&
+            Array.from({ length: maxGz - minGz + 1 }, (_, i) => minGz + i).every((gz) => grid[gz][westGx] === 1);
+
+          const eastGx = ramp.startCell.x + 1;
+          const hasEastWall = eastGx >= 0 && eastGx < gridWidth &&
+            Array.from({ length: maxGz - minGz + 1 }, (_, i) => minGz + i).every((gz) => grid[gz][eastGx] === 1);
+
+          if (!hasWestWall) {
+            const bWest = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
+            bWest.position.set(sideMinX, upperY, sideMidZ);
+            rootGroup.add(bWest);
+            railingBoxes.push({
+              minX: sideMinX - railingThick,
+              maxX: sideMinX + railingThick,
+              minZ: sideMinZ,
+              maxZ: sideMaxZ,
+              minY: upperY,
+              maxY: upperY + 1.2,
+              label: 'parapet_west',
+            });
+          }
+
+          if (!hasEastWall) {
+            const bEast = EnvironmentPropFactory.createWallStairwellParapet(sideLength, 1.05, level.theme);
+            bEast.position.set(sideMaxX, upperY, sideMidZ);
+            rootGroup.add(bEast);
+            railingBoxes.push({
+              minX: sideMaxX - railingThick,
+              maxX: sideMaxX + railingThick,
+              minZ: sideMinZ,
+              maxZ: sideMaxZ,
+              minY: upperY,
+              maxY: upperY + 1.2,
+              label: 'parapet_east',
+            });
+          }
+
+          if (!hasBackWall && level.theme === 'school') {
+            const bBack = EnvironmentPropFactory.createWallStairwellParapet(rampWidth, 1.05, level.theme);
+            bBack.position.set(midX, upperY, startWz);
+            bBack.rotation.y = Math.PI / 2;
+            rootGroup.add(bBack);
+            railingBoxes.push({
+              minX: sideMinX,
+              maxX: sideMaxX,
+              minZ: startWz - railingThick,
+              maxZ: startWz + railingThick,
+              minY: upperY,
+              maxY: upperY + 1.2,
+              label: 'parapet_back',
+            });
+          }
+        }
+
+        // Solid back wall collider at the high end of the stairs (Floor 0, from startY to startY + height - 0.2)
+        // Completely impenetrable for players approaching the back of the stairs on Floor 0, while keeping upper floor landing 100% open
+        const backWallThick = 0.25;
+        if (Math.abs(deltaX) >= Math.abs(deltaZ)) {
           railingBoxes.push({
-            minX: sideMinX,
-            maxX: sideMaxX,
-            minZ: startWz - railingThick,
-            maxZ: startWz + railingThick,
-            minY: upperY,
-            maxY: upperY + 1.2,
-            label: 'parapet_back',
+            minX: endWx - backWallThick,
+            maxX: endWx + backWallThick,
+            minZ: midZ - rampWidth / 2,
+            maxZ: midZ + rampWidth / 2,
+            minY: startY,
+            maxY: startY + height - 0.2,
+            label: 'stair_back_wall',
+          });
+        } else {
+          railingBoxes.push({
+            minX: midX - rampWidth / 2,
+            maxX: midX + rampWidth / 2,
+            minZ: endWz - backWallThick,
+            maxZ: endWz + backWallThick,
+            minY: startY,
+            maxY: startY + height - 0.2,
+            label: 'stair_back_wall',
           });
         }
 
@@ -1447,6 +1516,7 @@ export class LabyrinthBuilder {
     selectedSpawns?: SelectedSpawns
   ): void {
     if (level.theme === 'labyrinth' || level.id === 3) {
+      this.spawnLabyrinthLevelProps(level, halfWidth, halfHeight, cellSize, rootGroup);
       return;
     }
     if (level.theme === 'school') {
@@ -1600,6 +1670,72 @@ export class LabyrinthBuilder {
         }
       }
     }
+  }
+
+  // Dedicated Labyrinth (Level 3) Props: Guide Arrows pointing to stairs
+  private static spawnLabyrinthLevelProps(
+    level: LevelDefinition,
+    halfWidth: number,
+    halfHeight: number,
+    cellSize: number,
+    rootGroup: THREE.Group
+  ): void {
+    if (level.id !== 3) return;
+
+    const addArrow = (
+      wallGx: number,
+      wallGz: number,
+      face: 'north' | 'south' | 'east' | 'west',
+      dir: 'right' | 'left' | 'up',
+      label: string,
+      floor: number = 0
+    ) => {
+      const decal = EnvironmentPropFactory.createDirectionalArrowDecal(dir, label);
+      const wy = floor * (level.floorHeight || 3.8);
+
+      let wx = (wallGx + 0.5) * cellSize - halfWidth;
+      let wz = (wallGz + 0.5) * cellSize - halfHeight;
+      let rotY = 0;
+
+      if (face === 'west') {
+        wx = wallGx * cellSize - halfWidth - 0.02;
+        rotY = -Math.PI / 2;
+      } else if (face === 'east') {
+        wx = (wallGx + 1) * cellSize - halfWidth + 0.02;
+        rotY = Math.PI / 2;
+      } else if (face === 'north') {
+        wz = wallGz * cellSize - halfHeight - 0.02;
+        rotY = Math.PI;
+      } else if (face === 'south') {
+        wz = (wallGz + 1) * cellSize - halfHeight + 0.02;
+        rotY = 0;
+      }
+
+      decal.position.set(wx, wy, wz);
+      decal.rotation.y = rotY;
+      rootGroup.add(decal);
+    };
+
+    // 1. Near spawn: Wall at (4, 1), West face (in front of player coming east from (1, 1) -> (3, 1))
+    addArrow(4, 1, 'west', 'right', 'TANGGA / STAIRS ➔', 0);
+
+    // 2. Turn at (7, 3): Wall at (8, 3), West face (in front of player coming east along row 3)
+    addArrow(8, 3, 'west', 'right', 'TANGGA / STAIRS ➔', 0);
+
+    // 3. Turn at (7, 7): Wall at (7, 8), North face (in front of player coming south)
+    addArrow(7, 8, 'north', 'right', 'TANGGA / STAIRS ➔', 0);
+
+    // 4. Turn at (5, 9): Wall at (5, 10), North face (in front of player coming south)
+    addArrow(5, 10, 'north', 'left', '⬅ TANGGA / STAIRS', 0);
+
+    // 5. Turn at (7, 9): Wall at (8, 9), West face (in front of player coming east)
+    addArrow(8, 9, 'west', 'right', 'TANGGA / STAIRS ➔', 0);
+
+    // 6. Major intersection at (7, 13): Wall at (7, 14), North face (in front of player coming south)
+    addArrow(7, 14, 'north', 'left', '⬅ TANGGA / STAIRS ⬅', 0);
+
+    // 7. Base of the stairs at (17, 13): Wall at (17, 14), North face (facing the stairs at (17, 12))
+    addArrow(17, 14, 'north', 'up', '⬆ LANTAI 2 / 2ND FLOOR', 0);
   }
 
   // Dedicated School Props Population across Floor 0 and Floor 1
@@ -1823,7 +1959,22 @@ export class LabyrinthBuilder {
     rootGroup: THREE.Group
   ): void {
     const lightCoords =
-      level.gridWidth <= 15 || level.id === 3
+      (level.theme === 'labyrinth' || level.id === 3)
+        ? [
+            { x: 3, z: 3 },
+            { x: 9, z: 3 },
+            { x: 17, z: 3 },
+            { x: 3, z: 9 },
+            { x: 11, z: 7 },
+            { x: 17, z: 9 },
+            { x: 17, z: 13 },
+            { x: 3, z: 15 },
+            { x: 11, z: 15 },
+            { x: 17, z: 17 },
+            { x: 7, z: 15 },
+            { x: 13, z: 19 },
+          ]
+        : level.gridWidth <= 15
         ? [
             { x: 1, z: 5 },
             { x: 5, z: 5 },
@@ -1859,10 +2010,14 @@ export class LabyrinthBuilder {
       const wz = (c.z + 0.5) * cellSize - halfHeight;
 
       if (level.theme === 'labyrinth' || level.id === 3) {
-        // Pure ceiling light without physical prop to preserve 100% clean classic labyrinth corridors
-        const pureLight = new THREE.PointLight(lightHex, 2.2, 12, 1.2);
-        pureLight.position.set(wx, wallHeight * 0.85, wz);
-        rootGroup.add(pureLight);
+        // Pure ceiling light without physical prop to preserve 100% clean classic labyrinth corridors across both floors
+        const fCount = level.floorCount || 1;
+        const fHeight = level.floorHeight || 3.8;
+        for (let f = 0; f < fCount; f++) {
+          const pureLight = new THREE.PointLight(lightHex, 2.0, 11, 1.2);
+          pureLight.position.set(wx, f * fHeight + wallHeight * 0.85, wz);
+          rootGroup.add(pureLight);
+        }
       } else {
         const lightGroup = EnvironmentPropFactory.createHangingCageLight(lightHex);
         lightGroup.position.set(wx, 0, wz);

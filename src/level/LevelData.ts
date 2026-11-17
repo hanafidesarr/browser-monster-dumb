@@ -57,7 +57,7 @@ export interface LevelDefinition {
   grid: number[][]; // 1 = Wall/Boundary, 0 = Open corridor
   playerSpawn: { x: number; z: number; rotationY: number };
   monsterSpawn: { x: number; z: number; rotationY: number };
-  exitDoor: { x: number; z: number; normal: { x: number; z: number } };
+  exitDoor: { x: number; z: number; normal: { x: number; z: number }; floor?: number };
   weaponPickups?: WeaponPickupLocation[];
   interactiveSwitches?: InteractiveSwitchLocation[]; // Special objective for Level 9
   exitLockedInitially?: boolean; // Level 9 requires switches before exit opens
@@ -114,23 +114,29 @@ const LEVEL_2_GRID = create21x21Grid((g) => {
   }
 });
 
-// 3. LEVEL 3: THE LABYRINTH (Authentic dense multi-branch concrete labyrinth: 23 forks, loops, and dead-end traps)
+// 3. LEVEL 3: THE LABYRINTH (Authentic dense multi-branch 2-floor concrete labyrinth with tricky dead-ends)
 const LEVEL_3_GRID: number[][] = [
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-  [1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1], // (1,1): Player Spawn, facing +Z (South)
-  [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-  [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1], // (1,5): Weapon Pickup (Chair)
-  [1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1], // (7,7): Monster Pocong
-  [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-  [1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1],
-  [1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
-  [1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1],
-  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1], // (13,13): Exit Door
-  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1],
+  [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1],
+  [1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
+  [1, 0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1],
+  [1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+  [1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1],
+  [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1],
+  [1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+  [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1],
+  [1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+  [1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+  [1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1],
+  [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
 ];
 
 // 4. LEVEL 4: THE HOSPITAL (Wards, corridors, nurse station, patient beds)
@@ -335,30 +341,32 @@ export const ALL_LEVELS: LevelDefinition[] = [
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
   },
 
-  // LEVEL 3: THE LABYRINTH (1 FLOOR - PURE CONCRETE LABYRINTH)
+  // LEVEL 3: THE LABYRINTH (2 FLOORS - MULTI-LEVEL CONCRETE LABYRINTH)
   {
     id: 3,
     title: 'THE LABYRINTH',
-    subtitle: 'SECTOR 03 — CONCRETE UNDERGROUND',
-    description: 'Labirin beton bawah tanah dengan banyak percabangan, rute memutar, dan lorong buntu jebakan. Temukan kursi dan serang Pocong!',
+    subtitle: 'SECTOR 03 — CONCRETE UNDERGROUND (2 FLOORS)',
+    description: 'Labirin beton bertingkat 2 lantai dengan tangga, banyak percabangan membingungkan, dan lorong buntu jebakan. Pintu exit tersembunyi di lantai 2!',
     difficultyRating: 3,
     theme: 'labyrinth',
-    gridWidth: 15,
-    gridHeight: 15,
-    cellSize: 3.2,
+    gridWidth: 21,
+    gridHeight: 21,
+    cellSize: 3.4,
     wallHeight: 3.8,
     grid: LEVEL_3_GRID,
-    playerSpawn: { x: 1, z: 1, rotationY: 0 },
-    monsterSpawn: { x: 7, z: 7, rotationY: Math.PI / 2 },
-    exitDoor: { x: 13, z: 13, normal: { x: 0, z: -1 } },
-    floorCount: 1,
-    floorHeight: 0,
+    playerSpawn: { x: 1, z: 1, rotationY: Math.PI / 2 },
+    monsterSpawn: { x: 11, z: 7, rotationY: 0 },
+    exitDoor: { x: 7, z: 15, normal: { x: 0, z: -1 }, floor: 1 },
+    floorCount: 2,
+    floorHeight: 3.8,
     monsterCount: 1,
     monsterType: 'pocong',
-    ramps: [],
+    ramps: [
+      { fromFloor: 0, toFloor: 1, startCell: { x: 17, z: 12 }, endCell: { x: 17, z: 10 }, isStair: true },
+    ],
     bridges: [],
     weaponPickups: [
-      { weaponId: 'chair', x: 1, z: 5 },
+      { weaponId: 'chair', x: 3, z: 5 },
     ],
     monsterConfig: {
       detectionFovDeg: 90,

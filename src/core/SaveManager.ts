@@ -4,6 +4,8 @@ export interface SaveData {
   completedLevels: Record<number, { time: number; date: string }>;
   unlockedWeapons: string[];
   selectedWeapon: string;
+  language?: 'id' | 'en';
+  hasChosenLanguage?: boolean;
   settings: {
     masterVolume: number;
     sfxVolume: number;
@@ -12,6 +14,7 @@ export interface SaveData {
     mouseSensitivity: number;
     touchSensitivity: number;
     graphicsQuality: 'low' | 'med' | 'high';
+    language?: 'id' | 'en';
   };
 }
 
@@ -23,6 +26,8 @@ const DEFAULT_SAVE: SaveData = {
   completedLevels: {},
   unlockedWeapons: ['baseball_bat'],
   selectedWeapon: 'baseball_bat',
+  language: 'id',
+  hasChosenLanguage: false,
   settings: {
     masterVolume: 80,
     sfxVolume: 90,
@@ -31,6 +36,7 @@ const DEFAULT_SAVE: SaveData = {
     mouseSensitivity: 5,
     touchSensitivity: 8,
     graphicsQuality: 'med',
+    language: 'id',
   },
 };
 
@@ -213,5 +219,27 @@ export class SaveManager {
       this.data.selectedWeapon = effectiveId;
       this.save();
     }
+  }
+
+  public getLanguage(): 'id' | 'en' {
+    return this.data.settings?.language || this.data.language || 'id';
+  }
+
+  public setLanguage(lang: 'id' | 'en'): void {
+    if (!this.data.settings) {
+      this.data.settings = { ...DEFAULT_SAVE.settings };
+    }
+    this.data.settings.language = lang;
+    this.data.language = lang;
+    this.save();
+  }
+
+  public hasChosenLanguage(): boolean {
+    return !!this.data.hasChosenLanguage;
+  }
+
+  public setChosenLanguage(chosen: boolean = true): void {
+    this.data.hasChosenLanguage = chosen;
+    this.save();
   }
 }

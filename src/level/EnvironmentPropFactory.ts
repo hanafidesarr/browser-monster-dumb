@@ -617,7 +617,8 @@ export class EnvironmentPropFactory {
     width: number,
     height: number,
     length: number,
-    theme: string = 'concrete'
+    theme: string = 'concrete',
+    wallTexture?: THREE.Texture
   ): THREE.Group {
     const stair = new THREE.Group();
     stair.name = 'WallStaircase';
@@ -634,6 +635,12 @@ export class EnvironmentPropFactory {
         nosingColor = 0x1f2522;
         wallColor = 0x647067;
         baseColor = 0x38413b;
+        break;
+      case 'labyrinth':
+        stepColor = 0x50545a;
+        nosingColor = 0x222428;
+        wallColor = 0x626870;
+        baseColor = 0x3e4248;
         break;
       case 'hospital':
         stepColor = 0x5e6870;
@@ -681,7 +688,9 @@ export class EnvironmentPropFactory {
 
     const stepMat = new THREE.MeshLambertMaterial({ color: stepColor });
     const nosingMat = new THREE.MeshLambertMaterial({ color: nosingColor });
-    const wallMat = new THREE.MeshLambertMaterial({ color: wallColor });
+    const wallMat = wallTexture
+      ? new THREE.MeshLambertMaterial({ map: wallTexture })
+      : new THREE.MeshLambertMaterial({ color: wallColor });
 
     const wallThick = 0.22;
     const parapetHeight = 0.95;
@@ -737,6 +746,17 @@ export class EnvironmentPropFactory {
     rightWall.castShadow = true;
     stair.add(rightWall);
 
+    // 3. Full-width, full-height vertical rear wall covering the back of the stairs
+    // Textured with the level's themed wall texture so looking at the back of the staircase looks identical to a normal concrete wall
+    const backWallThickness = 0.08;
+    const backWallGeo = new THREE.BoxGeometry(width, height, backWallThickness);
+    const backWallMesh = new THREE.Mesh(backWallGeo, wallMat);
+    backWallMesh.name = 'StaircaseRearWall';
+    backWallMesh.position.set(0, height / 2, length / 2 + 0.01);
+    backWallMesh.receiveShadow = true;
+    backWallMesh.castShadow = true;
+    stair.add(backWallMesh);
+
     return stair;
   }
 
@@ -757,6 +777,11 @@ export class EnvironmentPropFactory {
         wallColor = 0x647067;
         copingColor = 0x2e3530;
         baseColor = 0x38413b;
+        break;
+      case 'labyrinth':
+        wallColor = 0x626870;
+        copingColor = 0x2e3238;
+        baseColor = 0x3e4248;
         break;
       case 'hospital':
         wallColor = 0x76828a;
@@ -1442,5 +1467,109 @@ export class EnvironmentPropFactory {
 
   public static createStairwellBalustrade(length: number, height: number = 1.05): THREE.Group {
     return EnvironmentPropFactory.createWallStairwellParapet(length, height, 'concrete');
+  }
+
+  public static createDirectionalArrowDecal(
+    dir: 'right' | 'left' | 'up',
+    label: string = 'TANGGA / STAIRS'
+  ): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'DirectionalArrowDecal';
+
+    if (typeof document === 'undefined') {
+      const dummy = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), new THREE.MeshBasicMaterial());
+      dummy.position.y = 1.9;
+      group.add(dummy);
+      return group;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+
+    // Transparent background
+    ctx.clearRect(0, 0, 256, 128);
+
+    // Grunge stencil spray background (faint dark spray halo for high contrast on concrete)
+    const haloGrad = ctx.createRadialGradient(128, 64, 10, 128, 64, 120);
+    haloGrad.addColorStop(0, 'rgba(15, 20, 25, 0.8)');
+    haloGrad.addColorStop(0.7, 'rgba(15, 20, 25, 0.4)');
+    haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = haloGrad;
+    ctx.fillRect(0, 0, 256, 128);
+
+    // Pale bright yellow-white phosphorescent chalk paint
+    ctx.fillStyle = '#fffae0';
+    ctx.strokeStyle = '#fffae0';
+    ctx.lineWidth = 11;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Draw arrow
+    if (dir === 'right') {
+      ctx.beginPath();
+      ctx.moveTo(35, 54);
+      ctx.lineTo(205, 54);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(155, 24);
+      ctx.lineTo(215, 54);
+      ctx.lineTo(155, 84);
+      ctx.stroke();
+    } else if (dir === 'left') {
+      ctx.beginPath();
+      ctx.moveTo(221, 54);
+      ctx.lineTo(51, 54);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(101, 24);
+      ctx.lineTo(41, 54);
+      ctx.lineTo(101, 84);
+      ctx.stroke();
+    } else {
+      // UP
+      ctx.beginPath();
+      ctx.moveTo(128, 92);
+      ctx.lineTo(128, 26);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(85, 58);
+      ctx.lineTo(128, 20);
+      ctx.lineTo(171, 58);
+      ctx.stroke();
+    }
+
+    // Label text
+    ctx.font = 'bold 21px "Share Tech Mono", monospace, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff4b8';
+    if (dir === 'up') {
+      ctx.fillText(label, 128, 112);
+    } else {
+      ctx.fillText(label, 128, 104);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.colorSpace = THREE.SRGBColorSpace;
+
+    const mat = new THREE.MeshLambertMaterial({
+      map: tex,
+      transparent: true,
+      alphaTest: 0.08,
+      side: THREE.DoubleSide,
+    });
+
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), mat);
+    mesh.position.y = 1.9; // Eye level
+    group.add(mesh);
+
+    return group;
   }
 }

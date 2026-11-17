@@ -28,20 +28,20 @@
       <div class="menu-backdrop"></div>
       <div class="menu-content">
         <div class="title-container">
-          <h1 class="glitch-title" data-text="MONSTER DUMB">MONSTER DUMB</h1>
-          <p class="subtitle">SURVIVAL HORROR // ESCAPE PROTOCOL</p>
-          <div class="ps1-badge">PSX RETRO 3D</div>
+          <h1 class="glitch-title" data-text="MONSTER DUMB" data-i18n="menu.title">MONSTER DUMB</h1>
+          <p class="subtitle" data-i18n="menu.subtitle">SURVIVAL HORROR // ESCAPE PROTOCOL</p>
+          <div class="ps1-badge" data-i18n="menu.badge">PSX RETRO 3D</div>
         </div>
         
         <div class="menu-buttons">
-          <button id="btn-menu-play" class="retro-btn primary-btn">PLAY</button>
-          <button id="btn-menu-levels" class="retro-btn">LEVEL SELECT</button>
-          <button id="btn-menu-settings" class="retro-btn">SETTINGS</button>
+          <button id="btn-menu-play" class="retro-btn primary-btn" data-i18n="menu.play">PLAY</button>
+          <button id="btn-menu-levels" class="retro-btn" data-i18n="menu.levelSelect">LEVEL SELECT</button>
+          <button id="btn-menu-settings" class="retro-btn" data-i18n="menu.settings">SETTINGS</button>
         </div>
 
         <div class="menu-footer">
-          <span>&copy; 2026 MONSTER DUMB — PS1 SURVIVAL HORROR</span>
-          <span class="warning-text">HEADPHONES RECOMMENDED</span>
+          <span data-i18n="menu.copyright">&copy; 2026 MONSTER DUMB — PS1 SURVIVAL HORROR</span>
+          <span class="warning-text" data-i18n="menu.headphones">HEADPHONES RECOMMENDED</span>
         </div>
       </div>
     </div>
@@ -49,8 +49,8 @@
     <!-- LEVEL SELECT -->
     <div id="screen-level-select" class="ui-screen">
       <div class="screen-header">
-        <h2>LEVEL SELECTION</h2>
-        <button id="btn-levels-back" class="retro-btn small-btn">BACK</button>
+        <h2 id="header-level-select" data-i18n="levelSelect.title">LEVEL SELECTION</h2>
+        <button id="btn-levels-back" class="retro-btn small-btn" data-i18n="levelSelect.back">BACK</button>
       </div>
       <div class="levels-grid" id="levels-container">
         <!-- 10 Level Cards populated dynamically -->
@@ -60,58 +60,70 @@
     <!-- SETTINGS -->
     <div id="screen-settings" class="ui-screen">
       <div class="screen-header">
-        <h2>SYSTEM SETTINGS</h2>
-        <button id="btn-settings-back" class="retro-btn small-btn">BACK</button>
+        <h2 data-i18n="settings.title">SYSTEM SETTINGS</h2>
+        <button id="btn-settings-back" class="retro-btn small-btn" data-i18n="settings.back">BACK</button>
       </div>
       <div class="settings-content">
+        <!-- LANGUAGE SETTINGS GROUP -->
         <div class="settings-group">
-          <h3>AUDIO</h3>
+          <h3 data-i18n="settings.languageGroup">LANGUAGE / BAHASA</h3>
           <div class="setting-row">
-            <label for="setting-master-vol">Master Volume</label>
+            <label data-i18n="settings.languageLabel">Language Selection</label>
+            <div class="segmented-control">
+              <button id="btn-lang-id" class="segment-btn">Bahasa Indonesia</button>
+              <button id="btn-lang-en" class="segment-btn">English</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <h3 data-i18n="settings.audio">AUDIO</h3>
+          <div class="setting-row">
+            <label for="setting-master-vol" data-i18n="settings.masterVol">Master Volume</label>
             <input type="range" id="setting-master-vol" min="0" max="100" value="80" />
             <span id="label-master-vol">80%</span>
           </div>
           <div class="setting-row">
-            <label for="setting-sfx-vol">Sound Effects</label>
+            <label for="setting-sfx-vol" data-i18n="settings.sfxVol">Sound Effects</label>
             <input type="range" id="setting-sfx-vol" min="0" max="100" value="90" />
             <span id="label-sfx-vol">90%</span>
           </div>
           <div class="setting-row">
-            <label for="setting-music-vol">Atmospheric Music</label>
+            <label for="setting-music-vol" data-i18n="settings.musicVol">Atmospheric Music</label>
             <input type="range" id="setting-music-vol" min="0" max="100" value="70" />
             <span id="label-music-vol">70%</span>
           </div>
         </div>
 
         <div class="settings-group">
-          <h3>CONTROLS</h3>
+          <h3 data-i18n="settings.controls">CONTROLS</h3>
           <div class="setting-row">
-            <label>Mobile Control Mode</label>
+            <label data-i18n="settings.controlMode">Mobile Control Mode</label>
             <div class="segmented-control">
-              <button id="btn-mode-simple" class="segment-btn active">Simple Joystick</button>
-              <button id="btn-mode-fps" class="segment-btn">Advanced FPS</button>
+              <button id="btn-mode-simple" class="segment-btn active" data-i18n="settings.modeSimple">Simple Joystick</button>
+              <button id="btn-mode-fps" class="segment-btn" data-i18n="settings.modeFps">Advanced FPS</button>
             </div>
           </div>
           <div class="setting-row">
-            <label for="setting-mouse-sens">Mouse Sensitivity</label>
+            <label for="setting-mouse-sens" data-i18n="settings.mouseSens">Mouse Sensitivity</label>
             <input type="range" id="setting-mouse-sens" min="1" max="10" value="4" />
             <span id="label-mouse-sens">4</span>
           </div>
           <div class="setting-row">
-            <label for="setting-touch-sens">Touch Sensitivity</label>
+            <label for="setting-touch-sens" data-i18n="settings.touchSens">Touch Sensitivity</label>
             <input type="range" id="setting-touch-sens" min="1" max="10" value="5" />
             <span id="label-touch-sens">5</span>
           </div>
         </div>
 
         <div class="settings-group">
-          <h3>GRAPHICS</h3>
+          <h3 data-i18n="settings.graphics">GRAPHICS</h3>
           <div class="setting-row">
-            <label>PS1 Visual Quality</label>
+            <label data-i18n="settings.ps1Quality">PS1 Visual Quality</label>
             <div class="segmented-control">
-              <button id="btn-gfx-low" class="segment-btn">Low (PS1 240p)</button>
-              <button id="btn-gfx-med" class="segment-btn active">Med (PS1 480p)</button>
-              <button id="btn-gfx-high" class="segment-btn">High (Sharp)</button>
+              <button id="btn-gfx-low" class="segment-btn" data-i18n="settings.qualityLow">Low (PS1 240p)</button>
+              <button id="btn-gfx-med" class="segment-btn active" data-i18n="settings.qualityMed">Med (PS1 480p)</button>
+              <button id="btn-gfx-high" class="segment-btn" data-i18n="settings.qualityHigh">High (Sharp)</button>
             </div>
           </div>
         </div>
@@ -132,8 +144,8 @@
         <!-- Weapon Selection Arsenal -->
         <div class="overview-weapon-section">
           <div class="weapon-section-header">
-            <div class="weapon-section-title">&#9876; PILIH SENJATA KOMEDI</div>
-            <div class="weapon-section-subtitle">Pilih senjata untuk menyerang hantu</div>
+            <div class="weapon-section-title" data-i18n="overview.weaponTitle">&#9876; PILIH SENJATA KOMEDI</div>
+            <div class="weapon-section-subtitle" id="overview-weapon-subtitle" data-i18n="overview.weaponSubtitle">Pilih senjata untuk menyerang hantu</div>
           </div>
           <div id="overview-weapon-list" class="overview-weapon-grid">
             <!-- Populated dynamically by UIManager -->
@@ -142,8 +154,8 @@
 
         <!-- Action Buttons -->
         <div class="overview-actions">
-          <button id="btn-start-level" class="retro-btn action-btn pulse-glow">START LEVEL</button>
-          <button id="btn-overview-back" class="retro-btn small-btn">MAIN MENU</button>
+          <button id="btn-start-level" class="retro-btn action-btn pulse-glow" data-i18n="overview.startLevel">START LEVEL</button>
+          <button id="btn-overview-back" class="retro-btn small-btn" data-i18n="overview.mainMenu">MAIN MENU</button>
         </div>
       </div>
     </div>
@@ -168,8 +180,8 @@
       <div id="hud-pickup-prompt" class="pickup-prompt-banner hidden">
         <div class="pickup-icon">&#127873;</div>
         <div class="pickup-info">
-          <div class="pickup-title" id="hud-pickup-title">TEMUKAN SENJATA</div>
-          <div class="pickup-hint">[E / KLIK DISINI] AMBIL SENJATA</div>
+          <div class="pickup-title" id="hud-pickup-title" data-i18n="hud.pickupWeapon">TEMUKAN SENJATA</div>
+          <div class="pickup-hint" data-i18n="hud.pickupHint">[E / KLIK DISINI] AMBIL SENJATA</div>
         </div>
       </div>
 
@@ -177,36 +189,36 @@
       <div id="hud-weapon-toast" class="weapon-toast hidden">
         <div class="toast-icon">&#10024;</div>
         <div class="toast-body">
-          <div class="toast-title" id="toast-weapon-name">SENJATA BARU DITEMUKAN!</div>
-          <div class="toast-desc" id="toast-weapon-desc">Ditambahkan ke koleksi senjatamu.</div>
+          <div class="toast-title" id="toast-weapon-name" data-i18n="hud.newWeaponFound">SENJATA BARU DITEMUKAN!</div>
+          <div class="toast-desc" id="toast-weapon-desc" data-i18n="hud.newWeaponSaved">Ditambahkan ke koleksi senjatamu.</div>
         </div>
       </div>
 
       <!-- Stealth Detection Warning Indicator -->
       <div id="detection-meter-container" class="hidden">
-        <div class="meter-label">ALERT</div>
+        <div class="meter-label" data-i18n="hud.alert">ALERT</div>
         <div class="meter-bar"><div id="detection-meter-fill"></div></div>
       </div>
 
       <!-- Desktop & Center Attack Banner Prompt (Appears prominently when behind monster) -->
       <div id="desktop-attack-prompt" class="attack-prompt-banner hidden">
         <div class="prompt-icon">&#9876;</div>
-        <div class="prompt-title">PUKUL POCONG!</div>
-        <div class="prompt-key">[SPASI / KLIK KIRI / ENTER]</div>
+        <div class="prompt-title" id="desktop-attack-prompt-title">PUKUL POCONG!</div>
+        <div class="prompt-key" data-i18n="hud.strikeKey">[SPASI / KLIK KIRI / ENTER]</div>
       </div>
 
       <!-- Contextual Attack Button (Compatibility Wrapper) -->
       <div id="contextual-attack-wrapper" class="hidden">
         <button id="btn-contextual-attack" class="attack-button">
           <span class="attack-icon">&#9876;</span>
-          <span class="attack-text">PUKUL POCONG</span>
-          <span class="attack-key-hint">[KLIK KIRI / SPASI]</span>
+          <span class="attack-text" id="contextual-attack-text">PUKUL POCONG</span>
+          <span class="attack-key-hint" data-i18n="hud.strikeBtnHint">[KLIK KIRI / SPASI]</span>
         </button>
       </div>
 
       <!-- Desktop Control Reminder Hints (fades out after 5s) -->
-      <div id="desktop-controls-hint" class="controls-hint">
-        WASD: Jalan | Shift: Lari | Mouse: Lihat Sekitar | Spasi / Klik Kiri: Ayunkan Tongkat Baseball
+      <div id="desktop-controls-hint" class="controls-hint" data-i18n="hud.desktopControlsHint">
+        WASD: Jalan | Shift: Lari | Mouse: Lihat Sekitar | Spasi / Klik Kiri: Serang
       </div>
 
       <!-- Mobile Touch Controls Container -->
@@ -228,7 +240,7 @@
         <!-- Mobile Sprint Button (Replaces Attack Button at Bottom-Right during Chase) -->
         <button id="btn-touch-sprint" class="touch-sprint-btn" type="button" style="display: none;">
           <span class="touch-sprint-icon">&#9889;</span>
-          <span class="touch-sprint-label">SPRINT</span>
+          <span class="touch-sprint-label" data-i18n="hud.sprint">SPRINT</span>
         </button>
 
         <!-- Right Touch Look Area -->
@@ -237,7 +249,7 @@
         <!-- Permanent Mobile Attack Button (Right Thumb) -->
         <button id="btn-mobile-attack" class="touch-attack-btn" type="button">
           <span class="touch-attack-icon">&#9876;</span>
-          <span class="touch-attack-label">PUKUL</span>
+          <span class="touch-attack-label" data-i18n="hud.mobileAttack">PUKUL</span>
         </button>
       </div>
     </div>
@@ -245,12 +257,12 @@
     <!-- PAUSE MENU -->
     <div id="screen-pause" class="ui-screen">
       <div class="modal-card">
-        <h2>GAME PAUSED</h2>
+        <h2 data-i18n="pause.title">GAME PAUSED</h2>
         <div class="modal-buttons">
-          <button id="btn-pause-resume" class="retro-btn primary-btn">RESUME</button>
-          <button id="btn-pause-restart" class="retro-btn">RESTART LEVEL</button>
-          <button id="btn-pause-settings" class="retro-btn">SETTINGS</button>
-          <button id="btn-pause-menu" class="retro-btn">MAIN MENU</button>
+          <button id="btn-pause-resume" class="retro-btn primary-btn" data-i18n="pause.resume">RESUME</button>
+          <button id="btn-pause-restart" class="retro-btn" data-i18n="pause.restart">RESTART LEVEL</button>
+          <button id="btn-pause-settings" class="retro-btn" data-i18n="pause.settings">SETTINGS</button>
+          <button id="btn-pause-menu" class="retro-btn" data-i18n="pause.menu">MAIN MENU</button>
         </div>
       </div>
     </div>
@@ -258,11 +270,11 @@
     <!-- GAME OVER SCREEN -->
     <div id="screen-game-over" class="ui-screen">
       <div class="modal-card horror-card">
-        <h2 class="game-over-title">YOU WERE CAUGHT</h2>
-        <p id="game-over-reason">The monster detected your presence.</p>
+        <h2 class="game-over-title" data-i18n="gameOver.title">YOU WERE CAUGHT</h2>
+        <p id="game-over-reason" data-i18n="gameOver.reasonGeneric">The monster detected your presence.</p>
         <div class="modal-buttons">
-          <button id="btn-game-over-retry" class="retro-btn primary-btn pulse-glow">RETRY LEVEL</button>
-          <button id="btn-game-over-menu" class="retro-btn">MAIN MENU</button>
+          <button id="btn-game-over-retry" class="retro-btn primary-btn pulse-glow" data-i18n="gameOver.retry">RETRY LEVEL</button>
+          <button id="btn-game-over-menu" class="retro-btn" data-i18n="gameOver.menu">MAIN MENU</button>
         </div>
       </div>
     </div>
@@ -270,25 +282,25 @@
     <!-- LEVEL COMPLETE SCREEN -->
     <div id="screen-level-complete" class="ui-screen">
       <div class="modal-card success-card">
-        <h2 class="complete-title">ESCAPED SAFELY!</h2>
+        <h2 class="complete-title" data-i18n="complete.title">ESCAPED SAFELY!</h2>
         <div class="level-stats">
           <div class="stat-row">
-            <span>LEVEL:</span>
+            <span data-i18n="complete.levelLabel">LEVEL:</span>
             <span id="complete-level-name">THE LABYRINTH</span>
           </div>
           <div class="stat-row">
-            <span>ESCAPE TIME:</span>
+            <span data-i18n="complete.timeLabel">ESCAPE TIME:</span>
             <span id="complete-time">00:45.2</span>
           </div>
           <div class="stat-row">
-            <span>STATUS:</span>
-            <span class="status-success">COMPLETED</span>
+            <span data-i18n="complete.statusLabel">STATUS:</span>
+            <span class="status-success" data-i18n="complete.status">COMPLETED</span>
           </div>
         </div>
         <div class="modal-buttons">
-          <button id="btn-complete-next" class="retro-btn primary-btn">NEXT LEVEL</button>
-          <button id="btn-complete-retry" class="retro-btn">REPLAY</button>
-          <button id="btn-complete-menu" class="retro-btn">MAIN MENU</button>
+          <button id="btn-complete-next" class="retro-btn primary-btn" data-i18n="complete.next">NEXT LEVEL</button>
+          <button id="btn-complete-retry" class="retro-btn" data-i18n="complete.replay">REPLAY</button>
+          <button id="btn-complete-menu" class="retro-btn" data-i18n="complete.menu">MAIN MENU</button>
         </div>
       </div>
     </div>
@@ -299,16 +311,42 @@
         <span class="phone-screen">&#128241;</span>
         <span class="phone-arrow">&#8635;</span>
       </div>
-      <h2 class="rotate-title">PUTAR KE POSISI LANDSCAPE</h2>
-      <p class="rotate-desc">Untuk pengalaman layar penuh tanpa tab browser dan kontrol yang nyaman, putar HP Anda ke posisi mendatar (landscape).</p>
-      <button id="btn-enter-fullscreen-landscape" class="retro-btn primary-btn pulse-glow">MASUK FULL SCREEN & LANDSCAPE</button>
-      <button id="btn-dismiss-landscape" class="retro-btn small-btn">LANJUTKAN SAJA</button>
+      <h2 class="rotate-title" data-i18n="landscape.title">PUTAR KE POSISI LANDSCAPE</h2>
+      <p class="rotate-desc" data-i18n="landscape.desc">Untuk pengalaman layar penuh tanpa tab browser dan kontrol yang nyaman, putar HP Anda ke posisi mendatar (landscape).</p>
+      <button id="btn-enter-fullscreen-landscape" class="retro-btn primary-btn pulse-glow" data-i18n="landscape.fullscreen">MASUK FULL SCREEN & LANDSCAPE</button>
+      <button id="btn-dismiss-landscape" class="retro-btn small-btn" data-i18n="landscape.dismiss">LANJUTKAN SAJA</button>
     </div>
 
     <!-- CAPTURE JUMPSCARE OVERLAY -->
     <div id="jumpscare-overlay" class="jumpscare-overlay hidden">
       <div class="jumpscare-vignette"></div>
       <div class="jumpscare-flash"></div>
+    </div>
+
+    <!-- FIRST-TIME LANGUAGE SELECTION MODAL -->
+    <div id="modal-language-select" class="language-modal-backdrop hidden">
+      <div class="modal-card language-modal-card">
+        <div class="ps1-badge" style="margin: 0 auto 6px auto;">LANGUAGE SELECTION // PILIH BAHASA</div>
+        <h2 class="language-modal-title">SELECT LANGUAGE</h2>
+        <p class="language-modal-desc">Silakan pilih bahasa yang diinginkan untuk pengalaman bermain:</p>
+        
+        <div class="language-modal-grid">
+          <button id="btn-modal-lang-id" class="lang-card-btn active" type="button">
+            <span class="lang-flag">🇮🇩</span>
+            <span class="lang-name">BAHASA INDONESIA</span>
+            <span class="lang-sub">Terjemahan Lengkap Indonesia</span>
+          </button>
+          <button id="btn-modal-lang-en" class="lang-card-btn" type="button">
+            <span class="lang-flag">🇬🇧</span>
+            <span class="lang-name">ENGLISH</span>
+            <span class="lang-sub">Full English Localization</span>
+          </button>
+        </div>
+
+        <button id="btn-modal-lang-confirm" class="retro-btn primary-btn pulse-glow" type="button">
+          MULAI // START
+        </button>
+      </div>
     </div>
 
   </div>

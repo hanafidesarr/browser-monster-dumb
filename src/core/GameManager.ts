@@ -61,6 +61,7 @@ export class GameManager {
   private jumpscareTimer: number = 0;
   private jumpscareDuration: number = 1.25;
   private jumpscareReason: string = 'Pocong berhasil menangkapmu!';
+  private jumpscareReasonEn: string = 'The Pocong caught you!';
   private activeCatchingMonster: MonsterController | null = null;
   private jumpscareInitialCamPos: THREE.Vector3 = new THREE.Vector3();
 
@@ -305,12 +306,19 @@ export class GameManager {
 
     m.onPlayerDetected = () => {
       if (this.state === 'STEALTH') {
-        this.triggerGameOver(`${monsterName} mendeteksi keberadaanmu!`);
+        this.triggerGameOver(
+          `${monsterName} mendeteksi keberadaanmu!`,
+          `The ${monsterName} detected your presence!`
+        );
       }
     };
 
     m.onPlayerCaught = () => {
-      this.handlePlayerCaught(m, `${monsterName} berhasil menangkapmu!`);
+      this.handlePlayerCaught(
+        m,
+        `${monsterName} berhasil menangkapmu!`,
+        `The ${monsterName} caught you!`
+      );
     };
 
     m.onChaseStarted = () => {
@@ -318,7 +326,10 @@ export class GameManager {
         this.state = 'CHASE';
         ui.switchToChaseControls();
         const actionVerb = m.monsterType === 'kunti' ? 'MERANGKAK' : 'MELONCAT';
-        ui.setStatusText(`${monsterName.toUpperCase()} ${actionVerb} MENGEJAR! CEPAT LARI KE PINTU KELUAR!`);
+        ui.setStatusText(
+          `${monsterName.toUpperCase()} ${actionVerb} MENGEJAR! CEPAT LARI KE PINTU KELUAR!`,
+          `${monsterName.toUpperCase()} IS CHASING YOU! SPRINT TO THE EXIT DOOR!`
+        );
       }
     };
   }
@@ -546,19 +557,37 @@ export class GameManager {
     const weaponName = weaponDef ? weaponDef.name.toUpperCase() : 'SENJATA';
     if (this.currentLevelDef.exitLockedInitially) {
       if (isGrenade) {
-        UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
+        UIManager.getInstance().setStatusText(
+          `LEMPAR GRANAT KE ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`,
+          `THROW GRENADE AT ${monsterName} & ACTIVATE ALL TERMINALS TO REVEAL THE EXIT DOOR!`
+        );
       } else if (isMachineGun) {
-        UIManager.getInstance().setStatusText(`TEMBAK ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
+        UIManager.getInstance().setStatusText(
+          `TEMBAK ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`,
+          `SHOOT ${monsterName} & ACTIVATE ALL TERMINALS TO REVEAL THE EXIT DOOR!`
+        );
       } else {
-        UIManager.getInstance().setStatusText(`PUKUL ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`);
+        UIManager.getInstance().setStatusText(
+          `PUKUL ${monsterName} & AKTIFKAN SEMUA TERMINAL UNTUK MEMUNCULKAN PINTU EXIT!`,
+          `STRIKE ${monsterName} & ACTIVATE ALL TERMINALS TO REVEAL THE EXIT DOOR!`
+        );
       }
     } else {
       if (isGrenade) {
-        UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ARAH ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERKENA LEDAKAN.`);
+        UIManager.getInstance().setStatusText(
+          `LEMPAR GRANAT KE ARAH ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERKENA LEDAKAN.`,
+          `THROW GRENADE AT ${monsterName}! THE EXIT DOOR WILL APPEAR AFTER IMPACT.`
+        );
       } else if (isMachineGun) {
-        UIManager.getInstance().setStatusText(`CARI & TEMBAK ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH TERTEMBAK.`);
+        UIManager.getInstance().setStatusText(
+          `CARI & TEMBAK ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH TERTEMBAK.`,
+          `FIND & SHOOT ${monsterName} WITH ${weaponName}! THE EXIT DOOR WILL APPEAR AFTER IMPACT.`
+        );
       } else {
-        UIManager.getInstance().setStatusText(`CARI & PUKUL ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`);
+        UIManager.getInstance().setStatusText(
+          `CARI & PUKUL ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`,
+          `FIND & STRIKE ${monsterName} WITH ${weaponName}! THE EXIT DOOR WILL APPEAR AFTER IMPACT.`
+        );
       }
     }
   }
@@ -646,9 +675,15 @@ export class GameManager {
       this.triggerScreenShake(0.4);
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
       if (this.currentLevelDef.exitLockedInitially) {
-        UIManager.getInstance().setStatusText(`${monsterName} TERSTUN! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`);
+        UIManager.getInstance().setStatusText(
+          `${monsterName} TERSTUN! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`,
+          `${monsterName} IS STUNNED! ACTIVATE ALL TERMINALS TO UNLOCK THE EXIT DOOR!`
+        );
       } else {
-        UIManager.getInstance().setStatusText(`${monsterName} TERSTUN & PINTU EXIT TELAH MUNCUL! CEPAT LARI MENUJU PINTU EXIT!`);
+        UIManager.getInstance().setStatusText(
+          `${monsterName} TERSTUN & PINTU EXIT TELAH MUNCUL! CEPAT LARI MENUJU PINTU EXIT!`,
+          `${monsterName} IS STUNNED & EXIT DOOR HAS APPEARED! SPRINT TO THE EXIT!`
+        );
       }
       return;
     }
@@ -658,10 +693,16 @@ export class GameManager {
     if (swung) {
       const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
       const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
-      UIManager.getInstance().setStatusText(`DEKATI ${monsterName} DAN PUKUL TUBUHNYA!`);
+      UIManager.getInstance().setStatusText(
+        `DEKATI ${monsterName} DAN PUKUL TUBUHNYA!`,
+        `APPROACH ${monsterName} AND STRIKE IT!`
+      );
       setTimeout(() => {
         if (this.state === 'STEALTH') {
-          UIManager.getInstance().setStatusText(`CARI & PUKUL ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`);
+          UIManager.getInstance().setStatusText(
+            `CARI & PUKUL ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`,
+            `FIND & STRIKE ${monsterName}! THE EXIT DOOR WILL APPEAR AFTER IMPACT.`
+          );
         }
       }, 1800);
     }
@@ -762,9 +803,15 @@ export class GameManager {
 
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
       if (this.currentLevelDef.exitLockedInitially) {
-        UIManager.getInstance().setStatusText(`${monsterName} TERKENA TEMBAKAN! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`);
+        UIManager.getInstance().setStatusText(
+          `${monsterName} TERKENA TEMBAKAN! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`,
+          `${monsterName} WAS SHOT! ACTIVATE ALL TERMINALS TO UNLOCK THE EXIT DOOR!`
+        );
       } else {
-        UIManager.getInstance().setStatusText(`${monsterName} TERKENA TEMBAKAN & PINTU EXIT TELAH MUNCUL! CEPAT LARI MENUJU PINTU EXIT!`);
+        UIManager.getInstance().setStatusText(
+          `${monsterName} TERKENA TEMBAKAN & PINTU EXIT TELAH MUNCUL! CEPAT LARI MENUJU PINTU EXIT!`,
+          `${monsterName} WAS SHOT & THE EXIT DOOR HAS APPEARED! SPRINT TO THE EXIT!`
+        );
       }
     } else {
       // Missed shot or beyond range: Screen shake & notify player
@@ -773,14 +820,23 @@ export class GameManager {
       const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
 
       if (isAimingBeyondRange) {
-        UIManager.getInstance().setStatusText(`TERLALU JAUH! DEKATI ${monsterName} HINGGA JARAK TEMBAK (MAKSIMAL 22 METER)!`);
+        UIManager.getInstance().setStatusText(
+          `TERLALU JAUH! DEKATI ${monsterName} HINGGA JARAK TEMBAK (MAKSIMAL 22 METER)!`,
+          `TOO FAR! GET CLOSER TO ${monsterName} INTO FIRING RANGE (MAX 22 METERS)!`
+        );
       } else {
-        UIManager.getInstance().setStatusText(`TEMBAKAN MELESET! ARAHKAN KE ${monsterName} DAN TEMBAK LAGI!`);
+        UIManager.getInstance().setStatusText(
+          `TEMBAKAN MELESET! ARAHKAN KE ${monsterName} DAN TEMBAK LAGI!`,
+          `MISSED SHOT! AIM AT ${monsterName} AND SHOOT AGAIN!`
+        );
       }
 
       setTimeout(() => {
         if (this.state === 'STEALTH') {
-          UIManager.getInstance().setStatusText(`TEMBAK ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERTEMBAK.`);
+          UIManager.getInstance().setStatusText(
+            `TEMBAK ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERTEMBAK.`,
+            `SHOOT ${monsterName}! THE EXIT DOOR WILL APPEAR AFTER IMPACT.`
+          );
         }
       }, 2000);
     }
@@ -834,9 +890,15 @@ export class GameManager {
 
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
       if (this.currentLevelDef.exitLockedInitially) {
-        UIManager.getInstance().setStatusText(`${monsterName} TERKENA LEDAKAN GRANAT! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`);
+        UIManager.getInstance().setStatusText(
+          `${monsterName} TERKENA LEDAKAN GRANAT! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`,
+          `${monsterName} WAS HIT BY GRENADE! ACTIVATE ALL TERMINALS TO UNLOCK THE EXIT DOOR!`
+        );
       } else {
-        UIManager.getInstance().setStatusText(`${monsterName} TERKENA LEDAKAN GRANAT & PINTU EXIT TELAH MUNCUL! CEPAT LARI MENUJU PINTU EXIT!`);
+        UIManager.getInstance().setStatusText(
+          `${monsterName} TERKENA LEDAKAN GRANAT & PINTU EXIT TELAH MUNCUL! CEPAT LARI MENUJU PINTU EXIT!`,
+          `${monsterName} WAS HIT BY GRENADE & THE EXIT DOOR HAS APPEARED! SPRINT TO THE EXIT!`
+        );
       }
     } else {
       // RULE: When grenade misses, it remains on the player's screen and player can throw again!
@@ -846,10 +908,16 @@ export class GameManager {
 
       const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
       const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
-      UIManager.getInstance().setStatusText(`LEMPARAN MELESET! ARAHKAN KE DEKAT ${monsterName} DAN LEMPAR LAGI!`);
+      UIManager.getInstance().setStatusText(
+        `LEMPARAN MELESET! ARAHKAN KE DEKAT ${monsterName} DAN LEMPAR LAGI!`,
+        `GRENADE MISSED! THROW NEAR ${monsterName} AND TRY AGAIN!`
+      );
       setTimeout(() => {
         if (this.state === 'STEALTH') {
-          UIManager.getInstance().setStatusText(`LEMPAR GRANAT KE ARAH ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERKENA LEDAKAN.`);
+          UIManager.getInstance().setStatusText(
+            `LEMPAR GRANAT KE ARAH ${monsterName}! PINTU EXIT AKAN MUNCUL SETELAH TERKENA LEDAKAN.`,
+            `THROW GRENADE AT ${monsterName}! THE EXIT DOOR WILL APPEAR AFTER IMPACT.`
+          );
         }
       }, 2400);
     }
@@ -860,25 +928,27 @@ export class GameManager {
   }
 
   // Handle monster catching player (Face Jumpscare presentation directly in front of player)
-  private handlePlayerCaught(m?: MonsterController, reason: string = 'Monster berhasil menangkapmu!'): void {
+  private handlePlayerCaught(m?: MonsterController, reason: string = 'Monster berhasil menangkapmu!', enReason?: string): void {
     if (this.state === 'GAME_OVER' || this.state === 'JUMPSCARE' || this.isJumpscareActive) return;
 
     const monsterName = (this.currentLevelDef?.id === 2 || m?.monsterType === 'kunti') ? 'Kuntilanak' : 'Pocong';
     const effectiveReason = reason.includes('Pocong') || reason.includes('Monster')
       ? `${monsterName} berhasil menangkapmu!`
       : reason;
+    const effectiveEnReason = enReason || `The ${monsterName} caught you!`;
 
     // Trigger face jumpscare directly in front of player for all monsters
-    this.triggerCaptureJumpscare(m, effectiveReason);
+    this.triggerCaptureJumpscare(m, effectiveReason, effectiveEnReason);
   }
 
   // Capture Jumpscare Presentation: Monster face positioned directly in front of player
-  private triggerCaptureJumpscare(m?: MonsterController, reason: string = 'Monster berhasil menangkapmu!'): void {
+  private triggerCaptureJumpscare(m?: MonsterController, reason: string = 'Monster berhasil menangkapmu!', enReason?: string): void {
     if (this.state === 'GAME_OVER' || this.state === 'JUMPSCARE' || this.isJumpscareActive) return;
     this.isJumpscareActive = true;
     this.state = 'JUMPSCARE';
     this.jumpscareTimer = 0;
     this.jumpscareReason = reason;
+    this.jumpscareReasonEn = enReason || 'The monster caught you!';
     this.isTimerRunning = false;
 
     // 1. Disable normal player controls & exit pointer lock
@@ -946,7 +1016,7 @@ export class GameManager {
   }
 
   // Trigger Game Over
-  private triggerGameOver(reason: string): void {
+  private triggerGameOver(reason: string, enReason?: string): void {
     if (this.state === 'GAME_OVER') return;
     this.state = 'GAME_OVER';
     this.isTimerRunning = false;
@@ -959,7 +1029,7 @@ export class GameManager {
       }
     } catch (_) {}
 
-    UIManager.getInstance().showGameOver(reason);
+    UIManager.getInstance().showGameOver(reason, enReason);
   }
 
   // Escape Reached: Level Complete!
@@ -1070,7 +1140,7 @@ export class GameManager {
         this.isJumpscareActive = false;
         UIManager.getInstance().hideJumpscareOverlay();
         this.fpController.weapon.group.visible = true;
-        this.triggerGameOver(this.jumpscareReason);
+        this.triggerGameOver(this.jumpscareReason, this.jumpscareReasonEn);
       }
 
       this.renderer.render(this.scene, this.activeCamera);
@@ -1203,7 +1273,10 @@ export class GameManager {
           this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)
         ) {
           if (this.currentLevelDef.exitLockedInitially && !this.isExitUnlocked) {
-            UIManager.getInstance().setStatusText('PINTU EXIT MASIH TERKUNCI! AKTIFKAN SEMUA TERMINAL!');
+            UIManager.getInstance().setStatusText(
+              'PINTU EXIT MASIH TERKUNCI! AKTIFKAN SEMUA TERMINAL!',
+              'EXIT DOOR IS LOCKED! ACTIVATE ALL TERMINALS!'
+            );
           } else {
             this.triggerLevelComplete();
           }
@@ -1385,10 +1458,16 @@ export class GameManager {
           doorPointLight.color.setHex(0x22c55e);
         }
       }
-      UIManager.getInstance().setStatusText('SEMUA TERMINAL AKTIF! PINTU EXIT TERBUKA! LARI KE KELUAR!');
+      UIManager.getInstance().setStatusText(
+        'SEMUA TERMINAL AKTIF! PINTU EXIT TERBUKA! LARI KE KELUAR!',
+        'ALL TERMINALS ACTIVE! EXIT DOOR UNLOCKED! SPRINT TO THE EXIT!'
+      );
     } else {
       const remaining = allSwitches.filter((s) => !s.activated).length;
-      UIManager.getInstance().setStatusText(`${sw.name} DIAKTIFKAN! TERSISA ${remaining} TERMINAL LAGI!`);
+      UIManager.getInstance().setStatusText(
+        `${sw.name} DIAKTIFKAN! TERSISA ${remaining} TERMINAL LAGI!`,
+        `${sw.name} ACTIVATED! ${remaining} TERMINALS REMAINING!`
+      );
     }
   }
 
@@ -1421,8 +1500,11 @@ export class GameManager {
     if (wasNewlyUnlocked) {
       AudioManager.getInstance().playPickupWeapon();
       const def = WEAPON_MAP[pickup.weaponId];
-      UIManager.getInstance().showWeaponDiscoveryToast(def.nameId, def.description);
-      UIManager.getInstance().setStatusText(`SENJATA DIPAKAI: ${def.nameId.toUpperCase()}!`);
+      UIManager.getInstance().showWeaponDiscoveryToast(def.id, def.description);
+      UIManager.getInstance().setStatusText(
+        `SENJATA DIPAKAI: ${def.nameId.toUpperCase()}!`,
+        `WEAPON EQUIPPED: ${def.name.toUpperCase()}!`
+      );
     }
   }
 

@@ -90,29 +90,30 @@ export class SpawnManager {
       ],
     }],
 
-    // LEVEL 3: The Labyrinth (1 Pocong, 1 floor)
+    // LEVEL 3: The Labyrinth (1 Pocong, 2 floors)
     [3, {
       monsterCount: 1,
       minPlayerMonsterDist: 9.0,
-      minPlayerExitDist: 12.0,
+      minPlayerExitDist: 15.0,
       minMonsterMonsterDist: 6.0,
-      minMonsterExitDist: 15.0,
+      minMonsterExitDist: 14.0,
       playerCandidates: [
-        { x: 1, z: 1, floor: 0, rotationY: 0 },
-        { x: 3, z: 1, floor: 0, rotationY: 0 },
+        { x: 1, z: 1, floor: 0, rotationY: Math.PI / 2 },
+        { x: 3, z: 1, floor: 0, rotationY: Math.PI },
         { x: 1, z: 3, floor: 0, rotationY: 0 },
-        { x: 5, z: 1, floor: 0, rotationY: 0 },
+        { x: 5, z: 3, floor: 0, rotationY: Math.PI / 2 },
       ],
       monsterCandidates: [
-        { x: 7, z: 7, floor: 0, rotationY: 0 },
-        { x: 9, z: 7, floor: 0, rotationY: Math.PI / 2 },
-        { x: 7, z: 9, floor: 0, rotationY: Math.PI },
-        { x: 5, z: 7, floor: 0, rotationY: -Math.PI / 2 },
+        { x: 11, z: 7, floor: 0, rotationY: 0 },
+        { x: 9, z: 9, floor: 0, rotationY: Math.PI / 2 },
+        { x: 13, z: 13, floor: 0, rotationY: Math.PI },
+        { x: 15, z: 9, floor: 0, rotationY: -Math.PI / 2 },
       ],
       exitCandidates: [
-        { x: 13, z: 13, floor: 0, rotationY: 0 },
-        { x: 11, z: 13, floor: 0, rotationY: -Math.PI / 2 },
-        { x: 13, z: 11, floor: 0, rotationY: 0 },
+        { x: 7, z: 15, floor: 1, rotationY: 0 },
+        { x: 5, z: 19, floor: 1, rotationY: -Math.PI / 2 },
+        { x: 3, z: 11, floor: 1, rotationY: 0 },
+        { x: 13, z: 19, floor: 1, rotationY: Math.PI },
       ],
     }],
 
@@ -489,12 +490,16 @@ export class SpawnManager {
       floor: 0,
     };
 
+    const defaultExitFloor = (level.exitDoor as any).floor !== undefined
+      ? (level.exitDoor as any).floor
+      : (level.floorCount && level.floorCount > 1 ? 1 : 0);
+
     const defaultExit: EntityWorldSpawn = {
       x: (level.exitDoor.x + 0.5) * cellSize - halfW,
-      y: 0,
+      y: defaultExitFloor * fh,
       z: (level.exitDoor.z + 0.5) * cellSize - halfH,
       rotationY: 0,
-      floor: 0,
+      floor: defaultExitFloor,
     };
 
     const defaultMonsters: EntityWorldSpawn[] = [];

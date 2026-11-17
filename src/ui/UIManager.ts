@@ -3,6 +3,7 @@ import { SettingsManager } from '../core/SettingsManager.ts';
 import { AudioManager } from '../core/AudioManager.ts';
 import { ALL_LEVELS, LevelDefinition } from '../level/LevelData.ts';
 import { ALL_WEAPONS, WeaponId, WEAPON_MAP } from '../weapon/WeaponData.ts';
+import { LocalizationManager, Language } from '../core/LocalizationManager.ts';
 
 export class UIManager {
   private static instance: UIManager;
@@ -16,6 +17,20 @@ export class UIManager {
   private screenPause = document.getElementById('screen-pause')!;
   private screenGameOver = document.getElementById('screen-game-over')!;
   private screenLevelComplete = document.getElementById('screen-level-complete')!;
+
+  // Language Modal & Switcher Elements
+  private modalLanguageSelect = document.getElementById('modal-language-select');
+  private btnModalLangId = document.getElementById('btn-modal-lang-id');
+  private btnModalLangEn = document.getElementById('btn-modal-lang-en');
+  private btnModalLangConfirm = document.getElementById('btn-modal-lang-confirm');
+  private btnLangId = document.getElementById('btn-lang-id');
+  private btnLangEn = document.getElementById('btn-lang-en');
+  private selectedModalLang: Language = 'id';
+  private currentOverviewLevel: LevelDefinition | null = null;
+  private currentStatusId: string = '';
+  private currentStatusEn: string = '';
+  private currentGameOverReasonId: string = '';
+  private currentGameOverReasonEn: string = '';
 
   // HUD Elements
   private hudStatusText = document.getElementById('hud-status-text')!;
@@ -65,10 +80,16 @@ export class UIManager {
   public onWeaponSelected: ((weaponId: WeaponId) => void) | null = null;
 
   private constructor() {
+    this.setupLanguageModalBindings();
     this.setupMenuNavigation();
     this.setupSettingsBindings();
     this.populateLevelsList();
     this.applyMobileControlLayout();
+
+    LocalizationManager.getInstance().onLanguageChanged(() => {
+      this.updateLanguageUI();
+    });
+    this.updateLanguageUI();
   }
 
   public static getInstance(): UIManager {
@@ -108,6 +129,70 @@ export class UIManager {
   public showMainMenu(): void {
     this.hideAllScreens();
     this.screenMainMenu.classList.add('active');
+    if (!SaveManager.getInstance().hasChosenLanguage()) {
+      this.showLanguageModal();
+    }
+  }
+
+  public showLanguageModal(): void {
+    if (this.modalLanguageSelect) {
+      this.selectedModalLang = LocalizationManager.getInstance().getLanguage();
+      this.updateModalLangButtons();
+      this.modalLanguageSelect.classList.remove('hidden');
+    }
+  }
+
+  public hideLanguageModal(): void {
+    if (this.modalLanguageSelect) {
+      this.modalLanguageSelect.classList.add('hidden');
+    }
+  }
+
+  private setupLanguageModalBindings(): void {
+    const audio = AudioManager.getInstance();
+    this.btnModalLangId?.addEventListener('click', () => {
+      audio.playUiClick();
+      this.selectedModalLang = 'id';
+      this.updateModalLangButtons();
+    });
+
+    this.btnModalLangEn?.addEventListener('click', () => {
+      audio.playUiClick();
+      this.selectedModalLang = 'en';
+      this.updateModalLangButtons();
+    });
+
+    this.btnModalLangConfirm?.addEventListener('click', () => {
+      audio.playUiClick();
+      LocalizationManager.getInstance().setLanguage(this.selectedModalLang);
+      SaveManager.getInstance().setChosenLanguage(true);
+      this.hideLanguageModal();
+    });
+  }
+
+  private updateModalLangButtons(): void {
+    this.btnModalLangId?.classList.toggle('active', this.selectedModalLang === 'id');
+    this.btnModalLangEn?.classList.toggle('active', this.selectedModalLang === 'en');
+  }
+
+  public updateLanguageUI(): void {
+    LocalizationManager.getInstance().translateDOM();
+    const curLang = LocalizationManager.getInstance().getLanguage();
+    this.btnLangId?.classList.toggle('active', curLang === 'id');
+    this.btnLangEn?.classList.toggle('active', curLang === 'en');
+    this.populateLevelsList();
+
+    // Update active HUD status text if present
+    if (this.currentStatusId) {
+      this.setStatusText(this.currentStatusId, this.currentStatusEn);
+    }
+    if (this.currentGameOverReasonId && this.screenGameOver.classList.contains('active')) {
+      this.showGameOver(this.currentGameOverReasonId, this.currentGameOverReasonEn);
+    }
+
+    if (this.currentOverviewLevel) {
+      this.showOverview(this.currentOverviewLevel);
+    }
   }
 
   public showLevelSelect(): void {
@@ -127,13 +212,16 @@ export class UIManager {
   }
 
   public showOverview(level: LevelDefinition): void {
+    this.currentOverviewLevel = level;
     this.hideAllScreens();
-    this.overviewLevelTitle.textContent = `LEVEL ${level.id} — ${level.title}`;
+    const loc = LocalizationManager.getInstance();
+    const lvlInfo = loc.getLevelInfo(level.id);
+    this.overviewLevelTitle.textContent = `LEVEL ${level.id} — ${lvlInfo.title}`;
     const missionDesc = document.getElementById('overview-mission-desc');
     if (missionDesc) {
       const isKunti = level.monsterType === 'kunti' || level.id === 2;
-      const monsterName = isKunti ? 'Kuntilanak' : 'Pocong';
-      missionDesc.innerHTML = `🎯 <strong>MISI:</strong> Cari & serang <strong>${monsterName}</strong> di dalam labirin, lalu segera lari ke pintu keluar sebelum tertangkap!`;
+      const monsterName = isKunti ? loc.t('monster.kunti') : loc.t('monster.pocong');
+      missionDesc.innerHTML = loc.t('overview.mission', monsterName);
     }
     this.populateWeaponSelection();
     this.screenOverview.classList.add('active');
@@ -146,14 +234,16 @@ export class UIManager {
 
     const save = SaveManager.getInstance();
     const audio = AudioManager.getInstance();
+    const loc = LocalizationManager.getInstance();
+    const lang = loc.getLanguage();
     const selectedWeaponId = save.getSelectedWeapon();
 
-    const weaponSubtitle = document.querySelector('.weapon-section-subtitle');
+    const weaponSubtitle = document.getElementById('overview-weapon-subtitle');
     if (weaponSubtitle) {
       if (save.isDevModeEnabled()) {
-        weaponSubtitle.innerHTML = 'Pilih benda konyol untuk membangunkan Pocong <span style="color:#10b981; font-weight:bold; margin-left:6px;">[TEST MODE ACTIVE]</span>';
+        weaponSubtitle.innerHTML = loc.t('overview.weaponSubtitleTest');
       } else {
-        weaponSubtitle.textContent = 'Pilih benda konyol untuk membangunkan Pocong';
+        weaponSubtitle.textContent = loc.t('overview.weaponSubtitle');
       }
     }
 
@@ -174,18 +264,23 @@ export class UIManager {
     ALL_WEAPONS.forEach((w) => {
       const isUnlocked = save.isWeaponUnlocked(w.id);
       const isSelected = selectedWeaponId === w.id;
+      const wInfo = loc.getWeaponInfo(w.id);
 
       const card = document.createElement('div');
       card.className = `weapon-card ${isUnlocked ? 'unlocked' : 'locked'} ${isSelected ? 'selected' : ''}`;
 
+      const badgeText = isSelected
+        ? loc.t('overview.selected')
+        : (isUnlocked ? (lang === 'id' ? 'TERSEDIA' : 'AVAILABLE') : (lang === 'id' ? 'TERKUNCI' : 'LOCKED'));
+
       card.innerHTML = `
         <div class="weapon-card-top">
-          <span class="weapon-badge">${isSelected ? 'DIPAKAI' : (isUnlocked ? 'TERSEDIA' : 'TERKUNCI')}</span>
+          <span class="weapon-badge">${badgeText}</span>
           <span>${isUnlocked ? (isSelected ? '&#10004;' : '') : '&#128274;'}</span>
         </div>
         <div class="weapon-card-icon">${weaponIcons[w.id] || '&#9876;'}</div>
-        <div class="weapon-card-name">${w.nameId}</div>
-        <div class="weapon-card-desc">${isUnlocked ? w.description : 'Temukan di dalam level'}</div>
+        <div class="weapon-card-name">${wInfo.name}</div>
+        <div class="weapon-card-desc">${isUnlocked ? wInfo.description : loc.t('overview.lockedWeapon')}</div>
       `;
 
       if (isUnlocked) {
@@ -207,7 +302,12 @@ export class UIManager {
   public showPickupPrompt(weaponName: string, onPickup: () => void, screenPos?: { x: number; y: number }): void {
     if (!this.hudPickupPrompt || !this.hudPickupTitle) return;
     this.currentPickupAction = onPickup;
-    this.hudPickupTitle.textContent = `TEMUKAN: ${weaponName.toUpperCase()}`;
+
+    const loc = LocalizationManager.getInstance();
+    const wInfo = loc.getWeaponInfo(weaponName);
+    const displayName = wInfo.name || weaponName;
+
+    this.hudPickupTitle.textContent = loc.t('hud.pickupTitle', displayName);
     this.hudPickupPrompt.classList.remove('hidden');
 
     if (screenPos) {
@@ -251,8 +351,14 @@ export class UIManager {
     if (this.toastTimeout) {
       clearTimeout(this.toastTimeout);
     }
-    this.toastWeaponName.textContent = `SENJATA BARU: ${weaponName.toUpperCase()}!`;
-    this.toastWeaponDesc.textContent = `${description} Sekarang tersimpan di koleksi senjatamu.`;
+
+    const loc = LocalizationManager.getInstance();
+    const wInfo = loc.getWeaponInfo(weaponName);
+    const displayName = wInfo.name || weaponName;
+    const descText = wInfo.description || description;
+
+    this.toastWeaponName.textContent = loc.t('hud.toastWeaponName', displayName);
+    this.toastWeaponDesc.textContent = loc.t('hud.toastWeaponDesc', descText);
     this.hudWeaponToast.classList.remove('hidden');
 
     this.toastTimeout = setTimeout(() => {
@@ -263,11 +369,14 @@ export class UIManager {
   public showGameplayHUD(actionVerb: string = 'PUKUL'): void {
     this.hideAllScreens();
     this.hudGameplay.classList.add('active');
+    const loc = LocalizationManager.getInstance();
     if (this.btnMobileAttack) {
       this.btnMobileAttack.style.display = 'flex';
       this.btnMobileAttack.classList.remove('can-strike');
       const label = this.btnMobileAttack.querySelector('.touch-attack-label');
-      if (label) label.textContent = actionVerb;
+      if (label) {
+        label.textContent = loc.getLanguage() === 'en' ? 'STRIKE' : actionVerb;
+      }
     }
     if (this.btnSprint) {
       this.btnSprint.style.display = 'none';
@@ -311,16 +420,20 @@ export class UIManager {
     this.hudGameplay.classList.add('active');
   }
 
-  public showGameOver(reason: string): void {
+  public showGameOver(reason: string, enReason?: string): void {
+    this.currentGameOverReasonId = reason;
+    this.currentGameOverReasonEn = enReason || '';
     this.hideAllScreens();
     this.screenGameOver.classList.add('active');
-    this.gameOverReason.textContent = reason;
+    const loc = LocalizationManager.getInstance();
+    this.gameOverReason.textContent = (loc.getLanguage() === 'en' && enReason) ? enReason : reason;
   }
 
   public showLevelComplete(level: LevelDefinition, timeSeconds: number, hasNextLevel: boolean): void {
     this.hideAllScreens();
     this.screenLevelComplete.classList.add('active');
-    this.completeLevelName.textContent = level.title;
+    const loc = LocalizationManager.getInstance();
+    this.completeLevelName.textContent = loc.getLevelInfo(level.id).title;
 
     const mins = Math.floor(timeSeconds / 60);
     const secs = (timeSeconds % 60).toFixed(1);
@@ -333,8 +446,11 @@ export class UIManager {
     }
   }
 
-  public setStatusText(text: string): void {
-    this.hudStatusText.textContent = text;
+  public setStatusText(text: string, enText?: string): void {
+    this.currentStatusId = text;
+    this.currentStatusEn = enText || '';
+    const loc = LocalizationManager.getInstance();
+    this.hudStatusText.textContent = (loc.getLanguage() === 'en' && enText) ? enText : text;
   }
 
   public setAttackPromptVisible(visible: boolean, monsterName: string = 'POCONG', actionVerb: string = 'PUKUL'): void {
@@ -728,6 +844,26 @@ export class UIManager {
     btnGfxLow.addEventListener('click', () => { audio.playUiClick(); setGfxActive('low'); });
     btnGfxMed.addEventListener('click', () => { audio.playUiClick(); setGfxActive('med'); });
     btnGfxHigh.addEventListener('click', () => { audio.playUiClick(); setGfxActive('high'); });
+
+    // Language Selection in Settings
+    const updateLangSettingButtons = () => {
+      const cur = LocalizationManager.getInstance().getLanguage();
+      this.btnLangId?.classList.toggle('active', cur === 'id');
+      this.btnLangEn?.classList.toggle('active', cur === 'en');
+    };
+    updateLangSettingButtons();
+
+    this.btnLangId?.addEventListener('click', () => {
+      audio.playUiClick();
+      LocalizationManager.getInstance().setLanguage('id');
+      updateLangSettingButtons();
+    });
+
+    this.btnLangEn?.addEventListener('click', () => {
+      audio.playUiClick();
+      LocalizationManager.getInstance().setLanguage('en');
+      updateLangSettingButtons();
+    });
   }
 
   // Populate the 10 levels dynamically in Level Selection
@@ -735,13 +871,15 @@ export class UIManager {
     this.levelsContainer.innerHTML = '';
     const save = SaveManager.getInstance();
     const audio = AudioManager.getInstance();
+    const loc = LocalizationManager.getInstance();
+    const lang = loc.getLanguage();
 
-    const headerTitle = document.querySelector('#screen-level-select .screen-header h2');
+    const headerTitle = document.getElementById('header-level-select');
     if (headerTitle) {
       if (save.isDevModeEnabled()) {
-        headerTitle.innerHTML = 'LEVEL SELECTION <span style="background:#10b981; color:#fff; font-size:11px; padding:3px 8px; border-radius:4px; margin-left:8px; vertical-align:middle; letter-spacing:1px; font-weight:normal;">TEST MODE UNLOCKED</span>';
+        headerTitle.innerHTML = `${loc.t('levelSelect.title')} <span style="background:#10b981; color:#fff; font-size:11px; padding:3px 8px; border-radius:4px; margin-left:8px; vertical-align:middle; letter-spacing:1px; font-weight:normal;">${loc.t('levelSelect.testMode')}</span>`;
       } else {
-        headerTitle.textContent = 'LEVEL SELECTION';
+        headerTitle.textContent = loc.t('levelSelect.title');
       }
     }
 
@@ -749,26 +887,36 @@ export class UIManager {
       const isUnlocked = save.isLevelUnlocked(level.id);
       const isCompleted = save.isLevelCompleted(level.id);
       const monsterType = level.monsterType || (level.id === 2 ? 'kunti' : 'pocong');
-      const monsterName = monsterType === 'kunti' ? 'Kuntilanak' : 'Pocong';
+      const monsterName = monsterType === 'kunti' ? loc.t('monster.kunti') : loc.t('monster.pocong');
       const monsterCount = level.monsterCount || 1;
+      const lvlInfo = loc.getLevelInfo(level.id);
+      const floorLabel = lang === 'id' ? 'Lantai' : (level.floorCount && level.floorCount > 1 ? 'Floors' : 'Floor');
 
       const card = document.createElement('div');
       card.className = `level-card ${isUnlocked ? 'unlocked' : 'locked'}`;
 
+      const statusText = isCompleted
+        ? loc.t('levelSelect.completed')
+        : (isUnlocked ? (lang === 'id' ? 'TERSEDIA' : 'AVAILABLE') : loc.t('levelSelect.locked'));
+
+      const actionText = isCompleted
+        ? '&#9733; 100%'
+        : (isUnlocked ? (lang === 'id' ? '&#9658; MAIN' : '&#9658; PLAY') : '&#128274;');
+
       card.innerHTML = `
         <div class="level-number">LEVEL ${level.id.toString().padStart(2, '0')}</div>
-        <div class="level-name">${level.title}</div>
+        <div class="level-name">${lvlInfo.title}</div>
         <div class="level-meta-row">
           <span class="level-monster-badge" title="${monsterCount} ${monsterName}">
             <span class="monster-icon">&#128123;</span>
             <span class="monster-count-text">${monsterCount} ${monsterName}</span>
           </span>
-          <span class="level-floor-badge">&#127970; ${level.floorCount || 1} Lantai</span>
+          <span class="level-floor-badge">&#127970; ${level.floorCount || 1} ${floorLabel}</span>
         </div>
         <div class="level-status-row">
-          <span>${isCompleted ? 'COMPLETED' : (isUnlocked ? 'AVAILABLE' : 'LOCKED')}</span>
+          <span>${statusText}</span>
           <span class="${isCompleted ? 'badge-completed' : (isUnlocked ? 'badge-unlocked' : 'badge-locked')}">
-            ${isCompleted ? '&#9733; 100%' : (isUnlocked ? '&#9658; PLAY' : '&#128274;')}
+            ${actionText}
           </span>
         </div>
       `;
