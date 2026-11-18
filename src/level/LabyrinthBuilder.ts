@@ -1798,7 +1798,7 @@ export class LabyrinthBuilder {
     const s1EndWz = (7 + 0.5) * cellSize - halfHeight;
     const s1Len = Math.hypot(s1EndWx - s1StartWx, s1EndWz - s1StartWz);
     const s1Stair = EnvironmentPropFactory.createWallStaircase(cellSize * 0.85, floorHeight, s1Len, 'concrete');
-    s1Stair.position.set(s1StartWx, 0, s1StartWz);
+    s1Stair.position.set(s1StartWx, 0, (s1StartWz + s1EndWz) / 2);
     s1Stair.rotation.y = Math.PI; // Heading north
     rootGroup.add(s1Stair);
     blockingList.push(s1Stair);
@@ -1836,7 +1836,7 @@ export class LabyrinthBuilder {
     const s2EndWz = (10 + 0.5) * cellSize - halfHeight;
     const s2Len = Math.hypot(s2EndWx - s2StartWx, s2EndWz - s2StartWz);
     const s2Stair = EnvironmentPropFactory.createWallStaircase(cellSize * 0.85, floorHeight, s2Len, 'concrete');
-    s2Stair.position.set(s2StartWx, floorHeight, s2StartWz);
+    s2Stair.position.set(s2StartWx, floorHeight, (s2StartWz + s2EndWz) / 2);
     s2Stair.rotation.y = 0; // Heading south
     rootGroup.add(s2Stair);
     blockingList.push(s2Stair);
@@ -1903,6 +1903,22 @@ export class LabyrinthBuilder {
       }
     }
 
+    // Ensure Floor 2 Rooftop Perimeter Parapet is completely continuous (no open drop gaps)
+    for (let gz = 4; gz <= 20; gz++) {
+      for (let gx = 14; gx <= 22; gx++) {
+        const isEdge = gx === 14 || gx === 22 || gz === 4 || gz === 20;
+        if (isEdge && !(gx === 21 && gz >= 7 && gz <= 10)) {
+          if (updatedGrid[gz][gx] !== 1) {
+            const wx = (gx + 0.5) * cellSize - halfWidth;
+            const wz = (gz + 0.5) * cellSize - halfHeight;
+            const w2Geo = new THREE.BoxGeometry(cellSize, 1.4, cellSize);
+            w2Geo.translate(wx, floorHeight * 2 + 0.7, wz);
+            floor2WallGeos.push(w2Geo);
+          }
+        }
+      }
+    }
+
     if (floor0WallGeos.length > 0) {
       const merged0 = this.mergeBufferGeometries(floor0WallGeos);
       const mesh0 = new THREE.Mesh(merged0, concreteWallMat);
@@ -1941,7 +1957,7 @@ export class LabyrinthBuilder {
       { gx: 5, gz: 6, y: 0 },
       { gx: 8, gz: 18, y: 0 },
       { gx: 16, gz: 6, y: floorHeight },
-      { gx: 19, gz: 18, y: floorHeight * 2 },
+      { gx: 16, gz: 18, y: floorHeight * 2 },
     ];
     for (const rc of rebarCoords) {
       const rb = EnvironmentPropFactory.createRebarStack();
@@ -2023,13 +2039,42 @@ export class LabyrinthBuilder {
 
     // Stencils on Floor 2 (Lantai 3 Rooftop Deck):
     addConstructionStencil(21, 11, 'south', 'right', 'PINTU EVAKUASI / EXIT VAULT ➔', 2, 'exit', 'EMERGENCY EVACUATION');
-    addConstructionStencil(22, 17, 'north', 'up', '★ PINTU EVAKUASI PROYEK ★', 2, 'exit', 'CONSTRUCTION EXIT VAULT');
+    addConstructionStencil(22, 10, 'west', 'right', 'PINTU EXIT ➔', 2, 'exit', 'EXIT DOOR (SOUTH)');
+    addConstructionStencil(22, 14, 'west', 'right', 'PINTU EXIT ➔', 2, 'exit', 'EMERGENCY EVACUATION');
+    addConstructionStencil(22, 18, 'west', 'up', '★ PINTU EXIT / EXIT VAULT ★', 2, 'exit', 'EMERGENCY EVACUATION');
+    addConstructionStencil(20, 20, 'north', 'up', '★ PINTU KELUAR / EXIT ★', 2, 'exit', 'EVACUATION PORTAL');
+
+    // Phosphor Green Floor Arrows on Floor 2 Rooftop directly pointing to Exit Door at (20, 18)
+    const floorArrowF2_1 = EnvironmentPropFactory.createFloorExitArrowDecal('PINTU EXIT ➔');
+    floorArrowF2_1.position.set((21 + 0.5) * cellSize - halfWidth, floorHeight * 2 + 0.03, (11 + 0.5) * cellSize - halfHeight);
+    floorArrowF2_1.rotation.y = Math.PI; // Point south towards exit
+    rootGroup.add(floorArrowF2_1);
+
+    const floorArrowF2_2 = EnvironmentPropFactory.createFloorExitArrowDecal('PINTU EXIT ➔');
+    floorArrowF2_2.position.set((20 + 0.5) * cellSize - halfWidth, floorHeight * 2 + 0.03, (14 + 0.5) * cellSize - halfHeight);
+    floorArrowF2_2.rotation.y = Math.PI; // Point south towards exit
+    rootGroup.add(floorArrowF2_2);
+
+    const floorArrowF2_3 = EnvironmentPropFactory.createFloorExitArrowDecal('★ EXIT VAULT ★');
+    floorArrowF2_3.position.set((20 + 0.5) * cellSize - halfWidth, floorHeight * 2 + 0.03, (16.5 + 0.5) * cellSize - halfHeight);
+    floorArrowF2_3.rotation.y = Math.PI; // Point south directly into exit door
+    rootGroup.add(floorArrowF2_3);
 
     // 12. Emergency Exit Vault Door on Floor 2 (Rooftop Deck at exitWx, exitWy, exitWz)
     const exitVaultGroup = new THREE.Group();
     exitVaultGroup.name = 'ConstructionExitVaultGroup';
     const exitVault = EnvironmentPropFactory.createBunkerExitVault();
     exitVaultGroup.add(exitVault);
+
+    // Green emergency beacon light and overhead illuminated exit sign
+    const exitBeaconLight = new THREE.PointLight(0x22c55e, 3.8, 18.0);
+    exitBeaconLight.position.set(0, 3.6, 0.6);
+    exitVaultGroup.add(exitBeaconLight);
+
+    const exitSignMesh = EnvironmentPropFactory.createDirectionalArrowDecal('up', '★ EXIT VAULT ★', 'exit', 'PINTU KELUAR');
+    exitSignMesh.position.set(0, 3.2, 0.65);
+    exitVaultGroup.add(exitSignMesh);
+
     exitVaultGroup.position.set(exitWx, exitWy, exitWz);
     exitVaultGroup.rotation.y = selectedSpawns.exit.rotationY || 0;
     rootGroup.add(exitVaultGroup);
@@ -2062,6 +2107,36 @@ export class LabyrinthBuilder {
     rootGroup.add(markers.exitMarker);
 
     // 15. Collision Config
+    const boxColliders: BoxCollider[] = [
+      {
+        minX: -bridgeSpan / 2,
+        maxX: bridgeSpan / 2,
+        minZ: 1.6,
+        maxZ: 2.2,
+        minY: floorHeight,
+        maxY: floorHeight + 2.4,
+        label: 'skybridge_rail_north',
+      },
+      {
+        minX: -bridgeSpan / 2,
+        maxX: bridgeSpan / 2,
+        minZ: -2.2,
+        maxZ: -1.6,
+        minY: floorHeight,
+        maxY: floorHeight + 2.4,
+        label: 'skybridge_rail_south',
+      },
+      {
+        minX: 14 * cellSize - halfWidth - 0.4,
+        maxX: 14 * cellSize - halfWidth + 0.4,
+        minZ: 4 * cellSize - halfHeight,
+        maxZ: 20 * cellSize - halfHeight,
+        minY: floorHeight * 2,
+        maxY: floorHeight * 2 + 2.0,
+        label: 'rooftop_parapet_west',
+      },
+    ];
+
     const collisionConfig: LevelCollisionConfig = {
       levelId: 6,
       environmentId: 'construction_site',
@@ -2080,9 +2155,12 @@ export class LabyrinthBuilder {
         minY: t.minY,
         maxY: t.maxY,
       })),
+      boxColliders,
+      hasStairs: true,
       ramps: worldRamps,
       bridges: worldBridges,
       stairOpenings,
+      fallZones: [],
     };
 
     const overviewMapGroup = LabyrinthBuilder.createOverviewColliderMap(

@@ -520,6 +520,31 @@ export class FirstPersonController {
           break;
         }
       }
+
+      // In Level 6 (Construction Site), upper floors (Floor 1 & 2) only exist inside Tower A, Tower B, or Skybridge.
+      // If player is outside building slabs (e.g. over open courtyard air), gravity pulls them down!
+      if (this.collisionConfig?.environmentId === 'construction_site') {
+        const halfW = (this.levelDef.gridWidth * this.levelDef.cellSize) / 2;
+        const halfH = (this.levelDef.gridHeight * this.levelDef.cellSize) / 2;
+        const cs = this.levelDef.cellSize;
+
+        const inTowerA = this.position.x >= 2 * cs - halfW && this.position.x <= 10 * cs - halfW &&
+                         this.position.z >= 4 * cs - halfH && this.position.z <= 20 * cs - halfH;
+        const inTowerB = this.position.x >= 14 * cs - halfW && this.position.x <= 22 * cs - halfW &&
+                         this.position.z >= 4 * cs - halfH && this.position.z <= 20 * cs - halfH;
+        const onBridge = this.position.x >= -8.0 && this.position.x <= 8.0 &&
+                         this.position.z >= -2.4 && this.position.z <= 2.4;
+
+        if (nominalFloor === 2) {
+          if (!inTowerB) {
+            effectiveFloor = inTowerA || onBridge ? 1 : 0;
+          }
+        } else if (nominalFloor === 1) {
+          if (!inTowerA && !inTowerB && !onBridge) {
+            effectiveFloor = 0;
+          }
+        }
+      }
     }
 
     const nominalGroundY = effectiveFloor * (this.floorHeight || 3.8);

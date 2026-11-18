@@ -189,16 +189,16 @@ const LEVEL_6_GRID: number[][] = Array.from({ length: 25 }, (_, z) =>
 
     // Tower A (West Building, x: 2..10, z: 4..20)
     if ((z === 4 || z === 20) && x >= 2 && x <= 10 && x !== 6) return 1;
-    if (x === 2 && z >= 4 && z <= 20 && z !== 12) return 1;
-    if (x === 10 && z >= 4 && z <= 20 && z !== 12 && z !== 13) return 1;
+    if (x === 2 && z >= 4 && z <= 20) return 1;
+    if (x === 10 && z >= 4 && z <= 20 && z !== 12) return 1;
 
     // Tower A Internal Structural Columns
     if ((x === 5 || x === 8) && (z === 8 || z === 16)) return 1;
 
     // Tower B (East Building, x: 14..22, z: 4..20)
     if ((z === 4 || z === 20) && x >= 14 && x <= 22 && x !== 18) return 1;
-    if (x === 14 && z >= 4 && z <= 20 && z !== 12 && z !== 13) return 1;
-    if (x === 22 && z >= 4 && z <= 20 && z !== 12) return 1;
+    if (x === 14 && z >= 4 && z <= 20 && z !== 12) return 1;
+    if (x === 22 && z >= 4 && z <= 20) return 1;
 
     // Tower B Internal Structural Columns
     if ((x === 16 || x === 19) && (z === 8 || z === 16)) return 1;
