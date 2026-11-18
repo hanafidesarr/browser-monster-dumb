@@ -42,6 +42,8 @@ export class UIManager {
   private joystickCenter = document.getElementById('joystick-container-center')!;
   private joystickLeft = document.getElementById('joystick-container-left')!;
   private btnSprint = document.getElementById('btn-touch-sprint')!;
+  private hudMiniAlert = document.getElementById('hud-mini-alert');
+  private warningTimeout: any = null;
 
   // Overview Elements
   private overviewLevelTitle = document.getElementById('overview-level-title')!;
@@ -263,8 +265,10 @@ export class UIManager {
       chair: '&#129681;',
       broom: '&#129529;',
       spatula: '&#127860;',
-      toy_hammer: '&#128296;',
-      electric_fan: '&#127744;',
+      rasengan: '&#127744;',
+      kamehameha: '&#9889;',
+      toy_hammer: '&#127744;',
+      electric_fan: '&#9889;',
     };
 
     ALL_WEAPONS.forEach((w) => {
@@ -459,33 +463,110 @@ export class UIManager {
     this.hudStatusText.textContent = (loc.getLanguage() === 'en' && enText) ? enText : text;
   }
 
-  public setAttackPromptVisible(visible: boolean, monsterName: string = 'POCONG', actionVerb: string = 'PUKUL'): void {
+  public setAttackPromptVisible(
+    visible: boolean,
+    monsterName: string = 'POCONG',
+    actionVerb: string = 'PUKUL',
+    customTitleId?: string,
+    customTitleEn?: string
+  ): void {
     const isThrow = actionVerb === 'LEMPAR';
     const isShoot = actionVerb === 'TEMBAK';
-    const btnText = isThrow ? 'LEMPAR!' : (isShoot ? 'TEMBAK!' : 'PUKUL!');
-    const btnTextIdle = isThrow ? 'LEMPAR' : (isShoot ? 'TEMBAK' : 'PUKUL');
+    const isRasengan = actionVerb === 'RASENGAN';
+    const isKamehameha = actionVerb === 'KAMEHAMEHA';
+    const btnText = isThrow ? 'LEMPAR!' : (isShoot ? 'TEMBAK!' : (isRasengan ? 'RASENGAN!' : (isKamehameha ? 'KAMEHAMEHA!' : 'PUKUL!')));
+    const btnTextIdle = isThrow ? 'LEMPAR' : (isShoot ? 'TEMBAK' : (isRasengan ? 'RASENGAN' : (isKamehameha ? 'KAMEHAMEHA' : 'PUKUL')));
 
-    // 1. Alert banner on screen is completely removed per user request (desktopAttackPrompt remains permanently hidden)
+    const loc = LocalizationManager.getInstance();
+    const isEn = loc.getLanguage() === 'en';
+
+    // 1. Center Screen Attack Prompt Banner
     if (this.desktopAttackPrompt) {
-      this.desktopAttackPrompt.classList.add('hidden');
+      if (visible) {
+        const titleEl = document.getElementById('desktop-attack-prompt-title');
+        const keyEl = this.desktopAttackPrompt.querySelector('.prompt-key') as HTMLElement;
+        const iconEl = this.desktopAttackPrompt.querySelector('.prompt-icon') as HTMLElement;
+
+        if (titleEl) {
+          titleEl.textContent = isEn
+            ? (customTitleEn || 'ATTACK NOW!')
+            : (customTitleId || 'SERANG SEKARANG!');
+        }
+        if (keyEl) {
+          keyEl.textContent = isEn ? '[SPACE / LEFT CLICK / ENTER]' : '[SPASI / KLIK KIRI / ENTER]';
+        }
+        if (iconEl) {
+          iconEl.innerHTML = '&#9876;';
+        }
+        this.desktopAttackPrompt.classList.remove('hidden', 'warning-prompt');
+      } else if (!this.warningTimeout) {
+        this.desktopAttackPrompt.classList.add('hidden');
+        this.desktopAttackPrompt.classList.remove('warning-prompt');
+      }
     }
 
-    // 2. Duplicate proximity alert wrapper remains permanently hidden
+    // 2. Duplicate proximity alert wrapper remains hidden
     if (this.contextualAttackWrapper) {
       this.contextualAttackWrapper.classList.add('hidden');
     }
 
-    // 3. Mobile touch attack button restored to original behavior: activates can-strike when player is in striking range!
+    // 3. Mobile touch attack button
     if (this.btnMobileAttack) {
       const label = this.btnMobileAttack.querySelector('.touch-attack-label');
       if (visible) {
         this.btnMobileAttack.classList.add('can-strike');
-        if (label) label.textContent = btnText;
+        if (label) label.textContent = isEn ? 'ATTACK!' : 'SERANG!';
       } else {
         this.btnMobileAttack.classList.remove('can-strike');
         if (label) label.textContent = btnTextIdle;
       }
     }
+  }
+
+  // Set mobile attack touch button state (ready vs idle) without triggering screen prompt banners
+  public setMobileAttackReady(ready: boolean): void {
+    if (this.btnMobileAttack) {
+      const loc = LocalizationManager.getInstance();
+      const isEn = loc.getLanguage() === 'en';
+      const label = this.btnMobileAttack.querySelector('.touch-attack-label');
+      if (ready) {
+        this.btnMobileAttack.classList.add('can-strike');
+        if (label) label.textContent = isEn ? 'ATTACK!' : 'SERANG!';
+      } else {
+        this.btnMobileAttack.classList.remove('can-strike');
+        const currentWeaponId = SaveManager.getInstance().getSelectedWeapon();
+        const isThrow = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
+        const isShoot = currentWeaponId === 'machine_gun' || currentWeaponId === 'slipper';
+        const isRasengan = currentWeaponId === 'rasengan' || currentWeaponId === 'toy_hammer';
+        const isKamehameha = currentWeaponId === 'kamehameha' || currentWeaponId === 'electric_fan';
+        const btnTextIdle = isThrow ? 'LEMPAR' : (isShoot ? 'TEMBAK' : (isRasengan ? 'RASENGAN' : (isKamehameha ? 'KAMEHAMEHA' : 'PUKUL')));
+        if (label) label.textContent = btnTextIdle;
+      }
+    }
+  }
+
+  // Temporary Warning notification when weapon is used outside monster area (small sentence only, no large banner)
+  public showTemporaryWarning(textId: string, textEn: string, durationMs: number = 1500): void {
+    const loc = LocalizationManager.getInstance();
+    const isEn = loc.getLanguage() === 'en';
+    const message = isEn ? textEn : textId;
+
+    if (this.hudMiniAlert) {
+      this.hudMiniAlert.textContent = message;
+      this.hudMiniAlert.classList.remove('hidden');
+    }
+
+    this.setStatusText(textId, textEn);
+
+    if (this.warningTimeout) {
+      clearTimeout(this.warningTimeout);
+    }
+    this.warningTimeout = setTimeout(() => {
+      if (this.hudMiniAlert) {
+        this.hudMiniAlert.classList.add('hidden');
+      }
+      this.warningTimeout = null;
+    }, durationMs);
   }
 
   public setDetectionMeter(percent: number): void {

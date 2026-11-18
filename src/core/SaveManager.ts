@@ -21,10 +21,10 @@ export interface SaveData {
 const STORAGE_KEY = 'monster_dumb_save_v1';
 
 const DEFAULT_SAVE: SaveData = {
-  unlockedLevel: 1,
+  unlockedLevel: 6,
   currentLevel: 1,
   completedLevels: {},
-  unlockedWeapons: ['baseball_bat'],
+  unlockedWeapons: ['baseball_bat', 'rasengan', 'kamehameha'],
   selectedWeapon: 'baseball_bat',
   language: 'id',
   hasChosenLanguage: false,
@@ -88,9 +88,18 @@ export class SaveManager {
           ? Math.min(Math.max(1, parsed.currentLevel), 10)
           : (parsed.unlockedLevel || 1);
 
+        const unlockedLevel = Math.max(6, parsed.unlockedLevel || 1);
+        const unlockedWeapons = parsed.unlockedWeapons && Array.isArray(parsed.unlockedWeapons)
+          ? parsed.unlockedWeapons
+          : ['baseball_bat'];
+        if (!unlockedWeapons.includes('rasengan')) unlockedWeapons.push('rasengan');
+        if (!unlockedWeapons.includes('kamehameha')) unlockedWeapons.push('kamehameha');
+
         return {
           ...DEFAULT_SAVE,
           ...parsed,
+          unlockedLevel,
+          unlockedWeapons,
           currentLevel,
           settings,
         };
@@ -180,6 +189,7 @@ export class SaveManager {
 
   public isLevelUnlocked(levelNumber: number): boolean {
     if (this.isDevModeEnabled()) return true;
+    if (levelNumber <= 6) return true;
     return levelNumber <= this.data.unlockedLevel;
   }
 

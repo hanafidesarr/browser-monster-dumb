@@ -520,6 +520,189 @@ export class WeaponModelFactory {
     return group;
   }
 
+  // 10. Rasengan (Spiraling Cyan Chakra Energy Sphere)
+  private static createRasenganModel(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'RasenganMesh';
+
+    const skinMat = new THREE.MeshLambertMaterial({ color: 0xdeb887, roughness: 0.6 });
+    const sleeveMat = new THREE.MeshLambertMaterial({ color: 0x1e293b, roughness: 0.5 });
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const auraMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.75,
+      wireframe: false,
+    });
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x06b6d4,
+      transparent: true,
+      opacity: 0.85,
+    });
+
+    // Forearm & sleeve
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 0.28, 8), sleeveMat);
+    arm.position.set(0, -0.22, 0.04);
+    arm.rotation.x = 0.25;
+    group.add(arm);
+
+    // Hand palm
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.035, 0.12), skinMat);
+    palm.position.set(0, -0.06, 0);
+    palm.rotation.x = -0.15;
+    group.add(palm);
+
+    // Cupped fingers around the sphere
+    for (let i = -2; i <= 2; i++) {
+      if (i === 0) continue;
+      const finger = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.014, 0.07, 6), skinMat);
+      finger.position.set(i * 0.024, -0.04 + Math.abs(i) * 0.008, 0.07);
+      finger.rotation.x = 0.55;
+      group.add(finger);
+    }
+
+    // Swirling Energy Group
+    const energyGroup = new THREE.Group();
+    energyGroup.name = 'RasenganEnergyGroup';
+    energyGroup.position.set(0, 0.08, 0.04);
+
+    // 1. Intense White Core
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.085, 16, 16), coreMat);
+    core.name = 'RasenganCore';
+    energyGroup.add(core);
+
+    // 2. Cyan Outer Plasma Sphere
+    const plasma = new THREE.Mesh(new THREE.SphereGeometry(0.125, 14, 14), auraMat);
+    plasma.name = 'RasenganPlasma';
+    energyGroup.add(plasma);
+
+    // 3. Fast Swirling Chakra Rings
+    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.145, 0.014, 6, 20), ringMat);
+    ring1.rotation.set(0.6, 0.8, 0);
+    energyGroup.add(ring1);
+
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.155, 0.012, 6, 20), ringMat);
+    ring2.rotation.set(-0.8, 0.4, 0.5);
+    energyGroup.add(ring2);
+
+    const ring3 = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.015, 6, 20), ringMat);
+    ring3.rotation.set(0.2, -0.9, 0.7);
+    energyGroup.add(ring3);
+
+    // 4. Vibrant Dynamic Cyan Point Light
+    const light = new THREE.PointLight(0x06b6d4, 2.4, 7.0, 1.2);
+    light.name = 'RasenganPointLight';
+    energyGroup.add(light);
+
+    // 5. Orbiting Chakra Particles (Lightweight low-poly sparks)
+    const particleGroup = new THREE.Group();
+    particleGroup.name = 'RasenganParticles';
+    const sparkGeo = new THREE.SphereGeometry(0.009, 4, 4);
+    const sparkMat = new THREE.MeshBasicMaterial({
+      color: 0xbae6fd,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const sparkCount = 12;
+    for (let p = 0; p < sparkCount; p++) {
+      const spark = new THREE.Mesh(sparkGeo, sparkMat);
+      const angle = (p / sparkCount) * Math.PI * 2;
+      const elevation = (p % 3 - 1) * 0.055;
+      const radius = 0.145 + (p % 2) * 0.015;
+      spark.position.set(radius * Math.cos(angle), elevation, radius * Math.sin(angle));
+      particleGroup.add(spark);
+    }
+    energyGroup.add(particleGroup);
+
+    group.add(energyGroup);
+    return group;
+  }
+
+  // 11. Kamehameha (Cupped Hands & Brilliant Gathering Ki Sphere)
+  private static createKamehamehaModel(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'KamehamehaMesh';
+
+    const skinMat = new THREE.MeshLambertMaterial({ color: 0xdeb887, roughness: 0.6 });
+    const wristbandMat = new THREE.MeshLambertMaterial({ color: 0x1d4ed8, roughness: 0.4 });
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const kiMat = new THREE.MeshBasicMaterial({
+      color: 0x60a5fa,
+      transparent: true,
+      opacity: 0.8,
+    });
+    const sparkMat = new THREE.MeshBasicMaterial({
+      color: 0x93c5fd,
+      transparent: true,
+      opacity: 0.9,
+    });
+
+    // Left Arm & Hand
+    const leftArm = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.22, 8), skinMat);
+    leftArm.position.set(-0.14, -0.16, 0.04);
+    leftArm.rotation.set(0.2, 0.4, -0.4);
+    group.add(leftArm);
+
+    const leftWristband = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.052, 0.06, 8), wristbandMat);
+    leftWristband.position.set(-0.10, -0.11, 0.03);
+    leftWristband.rotation.set(0.2, 0.4, -0.4);
+    group.add(leftWristband);
+
+    const leftHand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.035, 0.1), skinMat);
+    leftHand.position.set(-0.06, -0.06, 0.02);
+    leftHand.rotation.set(-0.1, 0.5, -0.3);
+    group.add(leftHand);
+
+    // Right Arm & Hand
+    const rightArm = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.22, 8), skinMat);
+    rightArm.position.set(0.14, -0.16, 0.04);
+    rightArm.rotation.set(0.2, -0.4, 0.4);
+    group.add(rightArm);
+
+    const rightWristband = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.052, 0.06, 8), wristbandMat);
+    rightWristband.position.set(0.10, -0.11, 0.03);
+    rightWristband.rotation.set(0.2, -0.4, 0.4);
+    group.add(rightWristband);
+
+    const rightHand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.035, 0.1), skinMat);
+    rightHand.position.set(0.06, -0.06, 0.02);
+    rightHand.rotation.set(-0.1, -0.5, 0.3);
+    group.add(rightHand);
+
+    // Gathering Ki Sphere between palms (Hidden initially in idle; only appears during attack)
+    const kiGroup = new THREE.Group();
+    kiGroup.name = 'KamehamehaKiGroup';
+    kiGroup.position.set(0, 0.04, 0.05);
+    kiGroup.visible = false;
+
+    // Brilliant White Core
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.095, 16, 16), coreMat);
+    core.name = 'KamehamehaCore';
+    kiGroup.add(core);
+
+    // Blue Pulsating Ki Aura
+    const aura = new THREE.Mesh(new THREE.SphereGeometry(0.145, 14, 14), kiMat);
+    aura.name = 'KamehamehaAura';
+    kiGroup.add(aura);
+
+    // Crackling Energy Rings
+    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.165, 0.015, 6, 20), sparkMat);
+    ring1.rotation.set(0.4, 0.9, 0);
+    kiGroup.add(ring1);
+
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.175, 0.012, 6, 20), sparkMat);
+    ring2.rotation.set(-0.7, 0.3, 0.6);
+    kiGroup.add(ring2);
+
+    // Glowing Ki Light
+    const light = new THREE.PointLight(0x60a5fa, 2.6, 8.0, 1.2);
+    light.name = 'KamehamehaPointLight';
+    kiGroup.add(light);
+
+    group.add(kiGroup);
+    return group;
+  }
+
   // Factory entry for First-Person Viewmodel Model
   public static createViewmodel(weaponId: WeaponId): THREE.Group {
     let mesh: THREE.Group;
@@ -547,11 +730,13 @@ export class WeaponModelFactory {
       case 'spatula':
         mesh = this.createSpatulaModel();
         break;
+      case 'rasengan':
       case 'toy_hammer':
-        mesh = this.createToyHammerModel();
+        mesh = this.createRasenganModel();
         break;
+      case 'kamehameha':
       case 'electric_fan':
-        mesh = this.createElectricFanModel();
+        mesh = this.createKamehamehaModel();
         break;
       default:
         mesh = this.createBatModel();

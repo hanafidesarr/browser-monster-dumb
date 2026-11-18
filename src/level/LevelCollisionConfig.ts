@@ -7,6 +7,7 @@ export type EnvironmentId =
   | 'the_hospital'
   | 'sacred_cemetery'
   | 'military_bunker'
+  | 'construction_site'
   | 'ancient_cavern'
   | 'the_sewer'
   | 'the_factory'

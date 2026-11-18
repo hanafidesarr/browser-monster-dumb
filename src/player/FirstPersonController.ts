@@ -310,7 +310,7 @@ export class FirstPersonController {
   }
 
   // Circle vs Wall / Tree Cylinders Collision Test
-  private collidesWithWalls(wx: number, wz: number): boolean {
+  public collidesWithWalls(wx: number, wz: number): boolean {
     if (!this.levelDef) return false;
 
     // 1. Monster Obstacle (Prevents player from walking through sitting Pocong)

@@ -59,6 +59,7 @@ export interface LevelBuildResult {
   weaponPickups: WorldWeaponPickup[];
   interactiveSwitches?: WorldInteractiveSwitch[];
   bunkerRedLights?: THREE.PointLight[];
+  movingCrane?: { jib: THREE.Group; hook: THREE.Group };
   floorCount: number;
   floorHeight: number;
   ramps: WorldRamp[];
@@ -82,6 +83,11 @@ export class LabyrinthBuilder {
     // LEVEL 5: Military Underground Bunker (Outdoor Outpost & Expansive Concrete Bunker)
     if (level.theme === 'bunker' || level.id === 5) {
       return this.buildBunkerLevel(level, spawns);
+    }
+
+    // LEVEL 6: High-Rise Construction Site (Twin Towers, Moving Tower Crane, Skybridge)
+    if (level.theme === 'construction' || level.id === 6) {
+      return this.buildConstructionSiteLevel(level, spawns);
     }
 
     // For Levels 2, 3, 6 to 10: Build distinct themed 3D environments
@@ -1577,6 +1583,554 @@ export class LabyrinthBuilder {
       floorHeight: 4.8,
       ramps: worldRamps,
       bridges: [],
+      stairOpenings,
+      blockingMeshes: blockingList,
+    };
+  }
+
+  // =========================================================================
+  // LEVEL 6: HIGH-RISE CONSTRUCTION SITE (Twin Towers, Moving Tower Crane, Skybridge)
+  // =========================================================================
+  private static buildConstructionSiteLevel(
+    level: LevelDefinition,
+    spawns?: SelectedSpawns
+  ): LevelBuildResult {
+    const rootGroup = new THREE.Group();
+    rootGroup.name = 'ConstructionSiteRootGroup';
+
+    const gridWidth = level.gridWidth;
+    const gridHeight = level.gridHeight;
+    const cellSize = level.cellSize;
+    const floorHeight = level.floorHeight || 4.8;
+    const floorCount = 3;
+    const totalLevelHeight = floorCount * floorHeight; // 14.4m
+    const halfWidth = (gridWidth * cellSize) / 2; // 50m
+    const halfHeight = (gridHeight * cellSize) / 2; // 50m
+
+    const updatedGrid = level.grid.map((row) => [...row]);
+    const obstacleColliders: Array<{ x: number; z: number; radius: number; label?: string }> = [];
+    const blockingList: THREE.Object3D[] = [];
+    const worldRamps: WorldRamp[] = [];
+    const worldBridges: WorldBridge[] = [];
+    const stairOpenings: StairwellOpening[] = [];
+
+    // Selected or Default Spawns for Level 6
+    const selectedSpawns: SelectedSpawns = spawns || {
+      player: {
+        x: level.playerSpawn.x,
+        z: level.playerSpawn.z,
+        rotationY: level.playerSpawn.rotationY || 0,
+      },
+      monsters: [
+        { x: 12, z: 18, rotationY: 0, floor: 0 }, // Genderwo (Ground Yard)
+        { x: 10, z: 12, rotationY: Math.PI / 2, floor: 1 }, // Pocong (Floor 1 Skybridge)
+        { x: 18, z: 14, rotationY: 0, floor: 2 }, // Kuntilanak (Floor 2 Rooftop)
+      ],
+      exit: {
+        x: level.exitDoor.x,
+        z: level.exitDoor.z,
+        rotationY: 0,
+        floor: 2,
+      },
+    };
+
+    const pSpawnWx = (selectedSpawns.player.x + 0.5) * cellSize - halfWidth;
+    const pSpawnWz = (selectedSpawns.player.z + 0.5) * cellSize - halfHeight;
+    const pSpawnWy = 0;
+
+    const monsterSpawns = selectedSpawns.monsters.map((m) => {
+      const fl = m.floor || 0;
+      return {
+        x: (m.x + 0.5) * cellSize - halfWidth,
+        y: fl * floorHeight,
+        z: (m.z + 0.5) * cellSize - halfHeight,
+        rotationY: m.rotationY || 0,
+        floor: fl,
+      };
+    });
+    const mSpawnWx = monsterSpawns[0].x;
+    const mSpawnWy = monsterSpawns[0].y;
+    const mSpawnWz = monsterSpawns[0].z;
+
+    const exitFloor = selectedSpawns.exit.floor !== undefined ? selectedSpawns.exit.floor : 2;
+    const exitWx = (selectedSpawns.exit.x + 0.5) * cellSize - halfWidth;
+    const exitWz = (selectedSpawns.exit.z + 0.5) * cellSize - halfHeight;
+    const exitWy = exitFloor * floorHeight;
+
+    // 1. Textures & Materials
+    const concreteWallTex = TextureGenerator.createConstructionWallTexture();
+    const concreteFloorTex = TextureGenerator.createConstructionFloorTexture();
+    const groundFloorTex = TextureGenerator.createConstructionGroundTexture();
+
+    const concreteWallMat = new THREE.MeshLambertMaterial({ map: concreteWallTex });
+    const groundMat = new THREE.MeshLambertMaterial({ map: groundFloorTex });
+    const floorMat = new THREE.MeshLambertMaterial({ map: concreteFloorTex });
+    const steelMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
+    const rebarMat = new THREE.MeshLambertMaterial({ color: 0x4a3b32 });
+
+    // 2. Atmospheric Lighting
+    const moonLight = new THREE.DirectionalLight(0xd0e0f0, 1.9);
+    moonLight.position.set(halfWidth * 0.7, 45, -halfHeight * 0.8);
+    moonLight.target.position.set(0, 0, 0);
+    rootGroup.add(moonLight);
+    rootGroup.add(moonLight.target);
+
+    const ambientLight = new THREE.AmbientLight(0x28323a, 2.2);
+    rootGroup.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0x94a3b8, 0x1e293b, 0.95);
+    rootGroup.add(hemiLight);
+
+    // 3. Ground Floor Slab (Level Base, y = 0)
+    const groundGeo = new THREE.PlaneGeometry(gridWidth * cellSize + 16, gridHeight * cellSize + 16);
+    groundGeo.rotateX(-Math.PI / 2);
+    const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+    groundMesh.position.set(0, 0, 0);
+    rootGroup.add(groundMesh);
+
+    // 4. Moving Tower Crane (Erected at Yard Center: gx=12, gz=12, wx=0, wz=0)
+    const crane = EnvironmentPropFactory.createTowerCrane(24.0, 26.0);
+    crane.root.position.set(0, 0, 0);
+    rootGroup.add(crane.root);
+    // Crane base collision only active on ground yard (y = 0 to 4.5m); leaves the 4.8m skybridge completely unblocked
+    obstacleColliders.push({ x: 0, z: 0, radius: 1.8, label: 'crane_base', minY: 0, maxY: 4.5 });
+
+    // 5. Floor 1 Slabs (y = 4.8m: Tower A & Tower B with central courtyard open to sky)
+    // Tower A Floor 1 Slab (x: 2..10, z: 4..20) with stairwell opening at x: 2..4, z: 7..11
+    const towerA_MainEast = new THREE.Mesh(
+      new THREE.BoxGeometry(6 * cellSize, 0.28, 16 * cellSize).translate(
+        (7 + 0.0) * cellSize - halfWidth,
+        floorHeight,
+        (12 + 0.0) * cellSize - halfHeight
+      ),
+      floorMat
+    );
+    const towerA_NorthWest = new THREE.Mesh(
+      new THREE.BoxGeometry(2 * cellSize, 0.28, 3 * cellSize).translate(
+        (3 + 0.0) * cellSize - halfWidth,
+        floorHeight,
+        (5.5 + 0.0) * cellSize - halfHeight
+      ),
+      floorMat
+    );
+    const towerA_SouthWest = new THREE.Mesh(
+      new THREE.BoxGeometry(2 * cellSize, 0.28, 9 * cellSize).translate(
+        (3 + 0.0) * cellSize - halfWidth,
+        floorHeight,
+        (15.5 + 0.0) * cellSize - halfHeight
+      ),
+      floorMat
+    );
+    rootGroup.add(towerA_MainEast, towerA_NorthWest, towerA_SouthWest);
+    blockingList.push(towerA_MainEast, towerA_NorthWest, towerA_SouthWest);
+
+    // Tower B Floor 1 Solid Slab (x: 14..22, z: 4..20)
+    const towerBWidth = 8 * cellSize;
+    const towerBLength = 16 * cellSize;
+    const towerBFloor1Geo = new THREE.BoxGeometry(towerBWidth, 0.28, towerBLength);
+    towerBFloor1Geo.translate(
+      (18 + 0.0) * cellSize - halfWidth,
+      floorHeight,
+      (12 + 0.0) * cellSize - halfHeight
+    );
+    const towerBFloor1 = new THREE.Mesh(towerBFloor1Geo, floorMat);
+    rootGroup.add(towerBFloor1);
+    blockingList.push(towerBFloor1);
+
+    // 6. Floor 2 Slab (y = 9.6m: Tower B Rooftop Deck) with stairwell opening at x: 20..22, z: 7..11
+    const towerB_MainWest = new THREE.Mesh(
+      new THREE.BoxGeometry(6 * cellSize, 0.28, 16 * cellSize).translate(
+        (17 + 0.0) * cellSize - halfWidth,
+        floorHeight * 2,
+        (12 + 0.0) * cellSize - halfHeight
+      ),
+      floorMat
+    );
+    const towerB_NorthEast = new THREE.Mesh(
+      new THREE.BoxGeometry(2 * cellSize, 0.28, 3 * cellSize).translate(
+        (21 + 0.0) * cellSize - halfWidth,
+        floorHeight * 2,
+        (5.5 + 0.0) * cellSize - halfHeight
+      ),
+      floorMat
+    );
+    const towerB_SouthEast = new THREE.Mesh(
+      new THREE.BoxGeometry(2 * cellSize, 0.28, 9 * cellSize).translate(
+        (21 + 0.0) * cellSize - halfWidth,
+        floorHeight * 2,
+        (15.5 + 0.0) * cellSize - halfHeight
+      ),
+      floorMat
+    );
+    rootGroup.add(towerB_MainWest, towerB_NorthEast, towerB_SouthEast);
+    blockingList.push(towerB_MainWest, towerB_NorthEast, towerB_SouthEast);
+
+    // 7. Skybridge Truss Catwalk (Connecting Tower A to Tower B across central courtyard at y = 4.8m)
+    // Spans from x=10 to x=14 at z=12 (length = 4 * cellSize = 16m)
+    const bridgeSpan = 4 * cellSize;
+    const skybridge = EnvironmentPropFactory.createSkybridgeTruss(3.4, bridgeSpan);
+    skybridge.rotation.y = Math.PI / 2; // Span horizontally east-west
+    skybridge.position.set(0, floorHeight, 0); // Center at (0, 4.8, 0)
+    rootGroup.add(skybridge);
+    blockingList.push(skybridge);
+
+    const bridgeBox = new THREE.Box3(
+      new THREE.Vector3(-bridgeSpan / 2 - 2.0, floorHeight - 0.5, -2.2),
+      new THREE.Vector3(bridgeSpan / 2 + 2.0, floorHeight + 2.6, 2.2)
+    );
+    worldBridges.push({
+      id: 'l6_skybridge',
+      floor: 1,
+      type: 'stable',
+      startWorld: { x: (10 + 0.5) * cellSize - halfWidth, y: floorHeight, z: 0 },
+      endWorld: { x: (14 + 0.5) * cellSize - halfWidth, y: floorHeight, z: 0 },
+      height: floorHeight,
+      width: 3.4,
+      length: bridgeSpan,
+      box: bridgeBox,
+    });
+
+    // 8. Staircases
+    // Staircase 1: Floor 0 to Floor 1 inside Tower A (startCell: 3, 10 -> endCell: 3, 7)
+    const s1StartWx = (3 + 0.5) * cellSize - halfWidth;
+    const s1StartWz = (10 + 0.5) * cellSize - halfHeight;
+    const s1EndWx = (3 + 0.5) * cellSize - halfWidth;
+    const s1EndWz = (7 + 0.5) * cellSize - halfHeight;
+    const s1Len = Math.hypot(s1EndWx - s1StartWx, s1EndWz - s1StartWz);
+    const s1Stair = EnvironmentPropFactory.createWallStaircase(cellSize * 0.85, floorHeight, s1Len, 'concrete');
+    s1Stair.position.set(s1StartWx, 0, s1StartWz);
+    s1Stair.rotation.y = Math.PI; // Heading north
+    rootGroup.add(s1Stair);
+    blockingList.push(s1Stair);
+
+    const s1Box = new THREE.Box3(
+      new THREE.Vector3(s1StartWx - cellSize * 0.6, 0, s1EndWz - 0.6),
+      new THREE.Vector3(s1StartWx + cellSize * 0.6, floorHeight + 2.0, s1StartWz + 0.6)
+    );
+    worldRamps.push({
+      fromFloor: 0,
+      toFloor: 1,
+      startWorld: { x: s1StartWx, y: 0, z: s1StartWz },
+      endWorld: { x: s1EndWx, y: floorHeight, z: s1EndWz },
+      width: cellSize * 0.85,
+      length: s1Len,
+      box: s1Box,
+      dirX: 0,
+      dirZ: -1,
+      normX: 1,
+      normZ: 0,
+    });
+    stairOpenings.push({
+      floor: 1,
+      box: s1Box,
+      minGx: 2,
+      maxGx: 4,
+      minGz: 7,
+      maxGz: 11,
+    });
+
+    // Staircase 2: Floor 1 to Floor 2 inside Tower B (startCell: 21, 7 -> endCell: 21, 10)
+    const s2StartWx = (21 + 0.5) * cellSize - halfWidth;
+    const s2StartWz = (7 + 0.5) * cellSize - halfHeight;
+    const s2EndWx = (21 + 0.5) * cellSize - halfWidth;
+    const s2EndWz = (10 + 0.5) * cellSize - halfHeight;
+    const s2Len = Math.hypot(s2EndWx - s2StartWx, s2EndWz - s2StartWz);
+    const s2Stair = EnvironmentPropFactory.createWallStaircase(cellSize * 0.85, floorHeight, s2Len, 'concrete');
+    s2Stair.position.set(s2StartWx, floorHeight, s2StartWz);
+    s2Stair.rotation.y = 0; // Heading south
+    rootGroup.add(s2Stair);
+    blockingList.push(s2Stair);
+
+    const s2Box = new THREE.Box3(
+      new THREE.Vector3(s2StartWx - cellSize * 0.6, floorHeight, s2StartWz - 0.6),
+      new THREE.Vector3(s2StartWx + cellSize * 0.6, floorHeight * 2 + 2.0, s2EndWz + 0.6)
+    );
+    worldRamps.push({
+      fromFloor: 1,
+      toFloor: 2,
+      startWorld: { x: s2StartWx, y: floorHeight, z: s2StartWz },
+      endWorld: { x: s2EndWx, y: floorHeight * 2, z: s2EndWz },
+      width: cellSize * 0.85,
+      length: s2Len,
+      box: s2Box,
+      dirX: 0,
+      dirZ: 1,
+      normX: -1,
+      normZ: 0,
+    });
+    stairOpenings.push({
+      floor: 2,
+      box: s2Box,
+      minGx: 20,
+      maxGx: 22,
+      minGz: 7,
+      maxGz: 11,
+    });
+
+    // 9. Concrete Structural Walls & Columns
+    const floor0WallGeos: THREE.BufferGeometry[] = [];
+    const floor1WallGeos: THREE.BufferGeometry[] = [];
+    const floor2WallGeos: THREE.BufferGeometry[] = [];
+
+    for (let gz = 0; gz < gridHeight; gz++) {
+      for (let gx = 0; gx < gridWidth; gx++) {
+        if (updatedGrid[gz][gx] === 1) {
+          const wx = (gx + 0.5) * cellSize - halfWidth;
+          const wz = (gz + 0.5) * cellSize - halfHeight;
+
+          // Floor 0 Wall
+          const w0Geo = new THREE.BoxGeometry(cellSize, floorHeight, cellSize);
+          w0Geo.translate(wx, floorHeight / 2, wz);
+          floor0WallGeos.push(w0Geo);
+
+          // Floor 1 Wall (Only in Tower A and Tower B sectors)
+          const inTower = (gx >= 2 && gx <= 10) || (gx >= 14 && gx <= 22);
+          if (inTower && !(gx === 3 && gz >= 7 && gz <= 10)) {
+            const w1Geo = new THREE.BoxGeometry(cellSize, floorHeight, cellSize);
+            w1Geo.translate(wx, floorHeight * 1.5, wz);
+            floor1WallGeos.push(w1Geo);
+          }
+
+          // Floor 2 Parapet / Columns (Rooftop of Tower B)
+          if (gx >= 14 && gx <= 22 && !(gx === 21 && gz >= 7 && gz <= 10)) {
+            const isPerimeter = gx === 14 || gx === 22 || gz === 4 || gz === 20;
+            const h = isPerimeter ? 1.4 : floorHeight; // 1.4m safety parapet
+            const w2Geo = new THREE.BoxGeometry(cellSize, h, cellSize);
+            w2Geo.translate(wx, floorHeight * 2 + h / 2, wz);
+            floor2WallGeos.push(w2Geo);
+          }
+        }
+      }
+    }
+
+    if (floor0WallGeos.length > 0) {
+      const merged0 = this.mergeBufferGeometries(floor0WallGeos);
+      const mesh0 = new THREE.Mesh(merged0, concreteWallMat);
+      rootGroup.add(mesh0);
+      blockingList.push(mesh0);
+    }
+    if (floor1WallGeos.length > 0) {
+      const merged1 = this.mergeBufferGeometries(floor1WallGeos);
+      const mesh1 = new THREE.Mesh(merged1, concreteWallMat);
+      rootGroup.add(mesh1);
+      blockingList.push(mesh1);
+    }
+    if (floor2WallGeos.length > 0) {
+      const merged2 = this.mergeBufferGeometries(floor2WallGeos);
+      const mesh2 = new THREE.Mesh(merged2, concreteWallMat);
+      rootGroup.add(mesh2);
+      blockingList.push(mesh2);
+    }
+
+    // 10. Construction Props (Floodlights, Rebar Stacks, Cement Pallets, Scaffolding)
+    // Floodlights
+    const floodCoords = [
+      { gx: 12, gz: 5, y: 0 },
+      { gx: 12, gz: 19, y: 0 },
+      { gx: 6, gz: 12, y: floorHeight },
+      { gx: 18, gz: 12, y: floorHeight },
+    ];
+    for (const fc of floodCoords) {
+      const fl = EnvironmentPropFactory.createConstructionFloodlight();
+      fl.position.set((fc.gx + 0.5) * cellSize - halfWidth, fc.y, (fc.gz + 0.5) * cellSize - halfHeight);
+      rootGroup.add(fl);
+    }
+
+    // Rebar Stacks
+    const rebarCoords = [
+      { gx: 5, gz: 6, y: 0 },
+      { gx: 8, gz: 18, y: 0 },
+      { gx: 16, gz: 6, y: floorHeight },
+      { gx: 19, gz: 18, y: floorHeight * 2 },
+    ];
+    for (const rc of rebarCoords) {
+      const rb = EnvironmentPropFactory.createRebarStack();
+      rb.position.set((rc.gx + 0.5) * cellSize - halfWidth, rc.y, (rc.gz + 0.5) * cellSize - halfHeight);
+      rootGroup.add(rb);
+      obstacleColliders.push({
+        x: rb.position.x,
+        z: rb.position.z,
+        radius: 1.2,
+        label: 'rebar',
+        minY: rc.y,
+        maxY: rc.y + 2.0,
+      });
+    }
+
+    // Cement Pallets
+    const cementCoords = [
+      { gx: 9, gz: 8, y: 0 },
+      { gx: 15, gz: 16, y: floorHeight },
+    ];
+    for (const cc of cementCoords) {
+      const cm = EnvironmentPropFactory.createCementBagsPallet();
+      cm.position.set((cc.gx + 0.5) * cellSize - halfWidth, cc.y, (cc.gz + 0.5) * cellSize - halfHeight);
+      rootGroup.add(cm);
+      obstacleColliders.push({
+        x: cm.position.x,
+        z: cm.position.z,
+        radius: 1.0,
+        label: 'cement',
+        minY: cc.y,
+        maxY: cc.y + 1.8,
+      });
+    }
+
+    // 11. Bilingual Tactical Construction Stencils (ID & EN)
+    const addConstructionStencil = (
+      wallGx: number,
+      wallGz: number,
+      face: 'north' | 'south' | 'east' | 'west',
+      dir: 'right' | 'left' | 'up',
+      label: string,
+      floor: number = 0,
+      colorType: 'stairs' | 'exit' = 'stairs',
+      subLabel?: string
+    ) => {
+      const decal = EnvironmentPropFactory.createDirectionalArrowDecal(dir, label, colorType, subLabel);
+      const wy = floor * floorHeight;
+
+      let wx = (wallGx + 0.5) * cellSize - halfWidth;
+      let wz = (wallGz + 0.5) * cellSize - halfHeight;
+      let rotY = 0;
+
+      if (face === 'west') {
+        wx = wallGx * cellSize - halfWidth - 0.06;
+        rotY = -Math.PI / 2;
+      } else if (face === 'east') {
+        wx = (wallGx + 1) * cellSize - halfWidth + 0.06;
+        rotY = Math.PI / 2;
+      } else if (face === 'north') {
+        wz = wallGz * cellSize - halfHeight - 0.06;
+        rotY = Math.PI;
+      } else if (face === 'south') {
+        wz = (wallGz + 1) * cellSize - halfHeight + 0.06;
+        rotY = 0;
+      }
+
+      decal.position.set(wx, wy, wz);
+      decal.rotation.y = rotY;
+      rootGroup.add(decal);
+    };
+
+    // Stencils on Floor 0 (Lantai 1):
+    addConstructionStencil(3, 11, 'north', 'up', 'TANGGA KE LANTAI 2', 0, 'stairs', 'STAIRS TO FLOOR 2');
+    addConstructionStencil(6, 4, 'south', 'right', 'TANGGA TOWER A ➔', 0, 'stairs', 'TOWER A STAIRS');
+
+    // Stencils on Floor 1 (Lantai 2):
+    addConstructionStencil(10, 11, 'south', 'right', 'JEMBATAN PENGHUBUNG ➔', 1, 'stairs', 'SKYBRIDGE TO TOWER B');
+    addConstructionStencil(14, 11, 'south', 'right', 'TANGGA KE ROOFTOP ➔', 1, 'stairs', 'STAIRS TO ROOFTOP');
+
+    // Stencils on Floor 2 (Lantai 3 Rooftop Deck):
+    addConstructionStencil(21, 11, 'south', 'right', 'PINTU EVAKUASI / EXIT VAULT ➔', 2, 'exit', 'EMERGENCY EVACUATION');
+    addConstructionStencil(22, 17, 'north', 'up', '★ PINTU EVAKUASI PROYEK ★', 2, 'exit', 'CONSTRUCTION EXIT VAULT');
+
+    // 12. Emergency Exit Vault Door on Floor 2 (Rooftop Deck at exitWx, exitWy, exitWz)
+    const exitVaultGroup = new THREE.Group();
+    exitVaultGroup.name = 'ConstructionExitVaultGroup';
+    const exitVault = EnvironmentPropFactory.createBunkerExitVault();
+    exitVaultGroup.add(exitVault);
+    exitVaultGroup.position.set(exitWx, exitWy, exitWz);
+    exitVaultGroup.rotation.y = selectedSpawns.exit.rotationY || 0;
+    rootGroup.add(exitVaultGroup);
+
+    const exitTriggerBox = new THREE.Box3(
+      new THREE.Vector3(exitWx - cellSize * 0.8, exitWy, exitWz - cellSize * 0.8),
+      new THREE.Vector3(exitWx + cellSize * 0.8, exitWy + floorHeight, exitWz + cellSize * 0.8)
+    );
+
+    // 13. World Weapon Pickups (Rasengan on Floor 0 & Kamehameha on Floor 1)
+    const weaponPickups = this.spawnWorldPickups(level, halfWidth, halfHeight, cellSize, rootGroup);
+
+    // 13B. Highlight Beacons for Pickups
+    const rasenganWx = (6 + 0.5) * cellSize - halfWidth;
+    const rasenganWz = (8 + 0.5) * cellSize - halfHeight;
+    const rasenganBeacon = new THREE.PointLight(0x06b6d4, 2.5, 9.0, 1.2);
+    rasenganBeacon.position.set(rasenganWx, 1.8, rasenganWz);
+    rootGroup.add(rasenganBeacon);
+
+    const kamehamehaWx = (18 + 0.5) * cellSize - halfWidth;
+    const kamehamehaWz = (8 + 0.5) * cellSize - halfHeight;
+    const kamehamehaBeacon = new THREE.PointLight(0x3b82f6, 2.6, 9.0, 1.2);
+    kamehamehaBeacon.position.set(kamehamehaWx, floorHeight + 1.8, kamehamehaWz);
+    rootGroup.add(kamehamehaBeacon);
+
+    // 14. Overview Camera Markers
+    const markers = this.createOverviewMarkers(pSpawnWx, monsterSpawns, exitWx, exitWz, totalLevelHeight, pSpawnWz);
+    rootGroup.add(markers.playerMarker);
+    markers.monsterMarkers.forEach((m) => rootGroup.add(m));
+    rootGroup.add(markers.exitMarker);
+
+    // 15. Collision Config
+    const collisionConfig: LevelCollisionConfig = {
+      levelId: 6,
+      environmentId: 'construction_site',
+      multiFloor: true,
+      floorCount: 3,
+      floorHeight: 4.8,
+      perimeterMargin: 1.2,
+      useGridWalls: true,
+      wallGrid: updatedGrid,
+      cylinderColliders: obstacleColliders.map((t) => ({
+        x: t.x,
+        z: t.z,
+        radius: t.radius,
+        height: 4.8,
+        label: t.label || 'obstacle',
+        minY: t.minY,
+        maxY: t.maxY,
+      })),
+      ramps: worldRamps,
+      bridges: worldBridges,
+      stairOpenings,
+    };
+
+    const overviewMapGroup = LabyrinthBuilder.createOverviewColliderMap(
+      level,
+      updatedGrid,
+      obstacleColliders,
+      pSpawnWx,
+      pSpawnWz,
+      selectedSpawns.player.rotationY,
+      monsterSpawns
+    );
+
+    return {
+      rootGroup,
+      exitDoorMesh: exitVaultGroup,
+      exitTriggerBox,
+      playerMarker: markers.playerMarker,
+      monsterMarker: markers.monsterMarkers[0],
+      monsterMarkers: markers.monsterMarkers,
+      exitMarker: markers.exitMarker,
+      overviewMapGroup,
+      playerWorldSpawn: {
+        x: pSpawnWx,
+        y: pSpawnWy,
+        z: pSpawnWz,
+        rotationY: selectedSpawns.player.rotationY,
+        floor: 0,
+      },
+      monsterWorldSpawn: {
+        x: mSpawnWx,
+        y: mSpawnWy,
+        z: mSpawnWz,
+        rotationY: monsterSpawns[0].rotationY,
+        floor: monsterSpawns[0].floor || 0,
+      },
+      monsterWorldSpawns: monsterSpawns,
+      exitWorldPos: { x: exitWx, y: exitWy, z: exitWz, floor: exitFloor },
+      selectedSpawns,
+      treeColliders: obstacleColliders,
+      updatedGrid,
+      navigationGrid: updatedGrid,
+      collisionConfig,
+      weaponPickups,
+      movingCrane: { jib: crane.jib, hook: crane.hook },
+      floorCount: 3,
+      floorHeight: 4.8,
+      ramps: worldRamps,
+      bridges: worldBridges,
       stairOpenings,
       blockingMeshes: blockingList,
     };
@@ -3759,14 +4313,17 @@ export class LabyrinthBuilder {
 
         const wx = (loc.x + 0.5) * cellSize - halfWidth;
         const wz = (loc.z + 0.5) * cellSize - halfHeight;
+        const floorIndex = loc.floor !== undefined ? loc.floor : 0;
+        const floorHeight = level.floorHeight || 3.8;
+        const wy = floorIndex * floorHeight;
         const pickupGroup = WeaponModelFactory.createWorldPickup(loc.weaponId);
-        pickupGroup.position.set(wx, 0, wz);
+        pickupGroup.position.set(wx, wy, wz);
         rootGroup.add(pickupGroup);
 
         weaponPickups.push({
           weaponId: loc.weaponId,
           group: pickupGroup,
-          position: new THREE.Vector3(wx, 0, wz),
+          position: new THREE.Vector3(wx, wy, wz),
           collected: false,
         });
       });

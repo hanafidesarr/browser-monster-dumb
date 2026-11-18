@@ -31,6 +31,8 @@ export class MonsterController {
   public state: MonsterState = 'SITTING_IDLE';
   public isAwake: boolean = false;
   public isRangedTriggered: boolean = false;
+  public hitReactionDuration: number = MonsterController.HIT_REACTION_DURATION;
+  public catchGracePeriod: number = MonsterController.CATCH_GRACE_PERIOD;
 
   public position: THREE.Vector3 = new THREE.Vector3();
   public rotationY: number = 0; // facing direction
@@ -454,12 +456,17 @@ export class MonsterController {
     weaponDef: WeaponDefinition,
     hitOrigin?: THREE.Vector3,
     knockbackDist: number = 1.8,
-    isRanged: boolean = false
+    isRanged: boolean = false,
+    customStunDuration?: number,
+    customCatchGrace?: number
   ): void {
     if (this.state !== 'SITTING_IDLE' || this.isAwake) return;
 
     this.isAwake = true;
-    this.isRangedTriggered = isRanged || weaponDef.swingType === 'shoot' || weaponDef.swingType === 'throw';
+    const isRasengan = weaponDef.id === 'rasengan' || weaponDef.impactSound === 'energy_sphere';
+    this.isRangedTriggered = !isRasengan && (isRanged || weaponDef.swingType === 'shoot' || weaponDef.swingType === 'throw');
+    this.hitReactionDuration = customStunDuration ?? (isRasengan ? 2.5 : MonsterController.HIT_REACTION_DURATION);
+    this.catchGracePeriod = customCatchGrace ?? (isRasengan ? 5.0 : MonsterController.CATCH_GRACE_PERIOD);
     this.currentHitReaction = weaponDef.monsterReaction;
     this.state = 'HIT_REACTION';
     this.stateTime = 0;
@@ -710,7 +717,7 @@ export class MonsterController {
 
   // 3. HIT_REACTION (Head / body reacts based on selected weapon)
   private updateHitReaction(dt: number): void {
-    const hitDuration = MonsterController.HIT_REACTION_DURATION;
+    const hitDuration = this.hitReactionDuration;
     this.animProgress = Math.min(1.0, this.stateTime / hitDuration);
     this.model.applyHitReaction(this.animProgress, this.currentHitReaction);
 
@@ -910,10 +917,10 @@ export class MonsterController {
       this.model.applyHopAnimation(cycle, isAirborne);
     }
 
-    // Check catch distance (grace period: CATCH_GRACE_PERIOD seconds after chase begins so player can turn and sprint)
+    // Check catch distance (grace period: catchGracePeriod seconds after chase begins so player can turn and sprint)
     const catchDist = Math.max(1.5, cfg.catchDistance);
     const verticalDist = Math.abs((playerPos.y - 1.65) - this.baseGroundY);
-    if (this.stateTime > MonsterController.CATCH_GRACE_PERIOD && horizontalDist <= catchDist && verticalDist <= 1.8) {
+    if (this.stateTime > this.catchGracePeriod && horizontalDist <= catchDist && verticalDist <= 1.8) {
       this.state = 'CATCH_PLAYER';
       this.position.y = this.baseGroundY + (this.monsterType === 'kunti' ? 0.05 : (this.monsterType === 'yeti' ? 0.0 : 0.15));
       if (this.monsterType === 'kunti') {

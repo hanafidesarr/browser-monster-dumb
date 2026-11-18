@@ -55,6 +55,12 @@ export class GameManager {
   private isTimerRunning: boolean = false;
   private isAttackSuccessful: boolean = false;
   private isExitUnlocked: boolean = true; // Special objective flag (Level 9)
+  private isKamehamehaCharging: boolean = false;
+  private kamehamehaChargeInterval: any = null;
+  private kamehamehaTimeout: any = null;
+  private kamehamehaFadeInterval: any = null;
+  private activeKamehamehaBeam: THREE.Group | null = null;
+  private lastWeaponNotReadyAlertTime: number = 0;
 
   // Level 1 Capture Jumpscare Presentation
   private isJumpscareActive: boolean = false;
@@ -297,6 +303,12 @@ export class GameManager {
 
     ui.onWeaponSelected = (weaponId) => {
       this.fpController.weapon.setWeapon(weaponId);
+      const isSpecial = weaponId === 'rasengan' || weaponId === 'toy_hammer' || weaponId === 'kamehameha' || weaponId === 'electric_fan';
+      if (isSpecial) {
+        this.fpController.weapon.setVisible(this.isPlayerInSpecialAttackArea());
+      } else {
+        this.fpController.weapon.setVisible(true);
+      }
     };
   }
 
@@ -336,6 +348,7 @@ export class GameManager {
 
   // Load a Level Definition and construct 3D Environment
   public loadLevel(levelId: number, enterOverview: boolean = true): void {
+    this.cancelKamehamehaSequence();
     const levelIndex = ALL_LEVELS.findIndex((l) => l.id === levelId);
     this.currentLevelIndex = levelIndex >= 0 ? levelIndex : 0;
     this.currentLevelDef = ALL_LEVELS[this.currentLevelIndex];
@@ -393,6 +406,10 @@ export class GameManager {
     // Equip currently selected comedy weapon from persistent save
     const savedWeaponId = SaveManager.getInstance().getSelectedWeapon() as WeaponId;
     this.fpController.weapon.setWeapon(savedWeaponId);
+    const isSpecial = savedWeaponId === 'rasengan' || savedWeaponId === 'toy_hammer' || savedWeaponId === 'kamehameha' || savedWeaponId === 'electric_fan';
+    if (isSpecial) {
+      this.fpController.weapon.setVisible(false);
+    }
 
     // Setup Monsters with isolated level-specific collision configuration
     const isLevel2 = this.currentLevelDef.id === 2;
@@ -486,6 +503,7 @@ export class GameManager {
       case 'banana_garden': return 0x242e29; // Matched to school (Level 2)
       case 'cemetery': return 0x242e29;      // Same bright clear tone as banana garden (Level 1)
       case 'bunker': return 0x24282c;        // Cold concrete military bunker tone
+      case 'construction': return 0x202830;  // Steel-blue night construction tone
       case 'cavern': return 0x222624;        // Atmospheric ancient cave tone
       case 'school': return 0x242e29;
       case 'labyrinth': return 0x262f33; // Bright clean tone matching Level 2
@@ -502,6 +520,10 @@ export class GameManager {
 
   private getThemeFog(fogColor: number): THREE.Fog {
     switch (this.currentLevelDef?.theme) {
+      case 'bunker':
+        return new THREE.Fog(fogColor, 25, 80);
+      case 'construction':
+        return new THREE.Fog(fogColor, 35, 110); // Clear night visibility across towers & skybridge
       case 'cemetery':
         return new THREE.Fog(fogColor, 20, 75); // Eerie atmospheric graveyard mist
       case 'labyrinth':
@@ -593,7 +615,9 @@ export class GameManager {
     const currentWeaponId = this.fpController.weapon.getWeaponId();
     const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
     const isMachineGun = currentWeaponId === 'machine_gun' || currentWeaponId === 'slipper';
-    const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : 'PUKUL');
+    const isRasengan = currentWeaponId === 'rasengan' || currentWeaponId === 'toy_hammer';
+    const isKamehameha = currentWeaponId === 'kamehameha' || currentWeaponId === 'electric_fan';
+    const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : (isRasengan ? 'RASENGAN' : (isKamehameha ? 'KAMEHAMEHA' : 'PUKUL')));
     UIManager.getInstance().showGameplayHUD(actionVerb);
 
     const monsterName = this.getLevelMonsterDisplayName();
@@ -627,6 +651,16 @@ export class GameManager {
           `CARI & TEMBAK ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH TERTEMBAK.`,
           `FIND & SHOOT ${monsterName} WITH ${weaponName}! THE EXIT DOOR WILL APPEAR AFTER IMPACT.`
         );
+      } else if (isRasengan) {
+        UIManager.getInstance().setStatusText(
+          `DEKATI ARAH ${monsterName} & HANTAM DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH IMPACT.`,
+          `APPROACH ${monsterName} & STRIKE WITH ${weaponName}! THE EXIT DOOR WILL APPEAR AFTER IMPACT.`
+        );
+      } else if (isKamehameha) {
+        UIManager.getInstance().setStatusText(
+          `BIDIK ${monsterName} DARI JAUH & TEMBAK DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH IMPACT.`,
+          `AIM AT ${monsterName} FROM AFAR & BLAST WITH ${weaponName}! THE EXIT DOOR WILL APPEAR AFTER IMPACT.`
+        );
       } else {
         UIManager.getInstance().setStatusText(
           `CARI & PUKUL ${monsterName} DENGAN ${weaponName}! PINTU EXIT AKAN MUNCUL SETELAH DIPUKUL.`,
@@ -636,6 +670,39 @@ export class GameManager {
     }
   }
 
+  // Check if player is currently in range and line of sight to use special anime techniques (Rasengan / Kamehameha)
+  private isPlayerInSpecialAttackArea(): boolean {
+    const currentWeaponId = this.fpController.weapon.getWeaponId();
+    const isRasengan = currentWeaponId === 'rasengan' || currentWeaponId === 'toy_hammer';
+    const isKamehameha = currentWeaponId === 'kamehameha' || currentWeaponId === 'electric_fan';
+    if (!isRasengan && !isKamehameha) return true;
+
+    if (this.state !== 'STEALTH' || this.isAttackSuccessful) return false;
+
+    const playerPos = this.fpController.position;
+    for (const m of this.monsters) {
+      if (m.state !== 'SITTING_IDLE' || m.isAwake) continue;
+
+      const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : (m.monsterType === 'yeti' ? 1.4 : 0.9);
+      const monsterCenter = new THREE.Vector3(m.position.x, m.position.y + monsterCenterY, m.position.z);
+      const dist = playerPos.distanceTo(monsterCenter);
+
+      if (isKamehameha) {
+        if (dist <= 30.0 && !this.isObstructedByGeometry(playerPos, monsterCenter)) {
+          return true;
+        }
+      } else if (isRasengan) {
+        const floorHeight = this.levelBuild?.floorHeight || 3.8;
+        const monsterFloor = Math.max(0, Math.round(m.position.y / floorHeight));
+        const sameFloor = this.fpController.currentFloor === monsterFloor || Math.abs(playerPos.y - (m.position.y + 1.65)) < 2.5;
+        if (dist <= 18.0 && sameFloor && !this.isObstructedByGeometry(playerPos, monsterCenter)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   // Execute Weapon Attack or Throwable Launch on Monster
   private performAttack(): void {
     if (this.state !== 'STEALTH' || this.isAttackSuccessful) return;
@@ -643,6 +710,38 @@ export class GameManager {
     const currentWeaponId = this.fpController.weapon.getWeaponId();
     const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
     const isMachineGun = currentWeaponId === 'machine_gun' || currentWeaponId === 'slipper';
+    const isRasengan = currentWeaponId === 'rasengan' || currentWeaponId === 'toy_hammer';
+    const isKamehameha = currentWeaponId === 'kamehameha' || currentWeaponId === 'electric_fan';
+
+    // Special Anime Techniques require being in the ghost area before activation
+    if (isRasengan || isKamehameha) {
+      if (!this.isPlayerInSpecialAttackArea()) {
+        const now = performance.now();
+        if (this.lastWeaponNotReadyAlertTime === 0 || now - this.lastWeaponNotReadyAlertTime >= 1200) {
+          this.lastWeaponNotReadyAlertTime = now;
+          UIManager.getInstance().showTemporaryWarning(
+            'SENJATA BELUM BISA DIGUNAKAN!',
+            'WEAPON CANNOT BE USED YET!',
+            1500
+          );
+        }
+        return;
+      }
+    }
+
+    // Ranged Anime Rush: Rasengan
+    if (isRasengan) {
+      const weaponDef = this.fpController.weapon.getWeaponDef();
+      this.handleRasenganAttack(weaponDef);
+      return;
+    }
+
+    // Ranged Anime Beam: Kamehameha
+    if (isKamehameha) {
+      const weaponDef = this.fpController.weapon.getWeaponDef();
+      this.handleKamehamehaBlast(weaponDef);
+      return;
+    }
 
     // Ranged Firearm: Machine Gun
     if (isMachineGun) {
@@ -726,7 +825,13 @@ export class GameManager {
         AudioManager.getInstance().playBunkerKlaxon();
       }
       const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : (hitMonster.monsterType === 'yeti' ? 'GENDERWO' : 'POCONG');
-      if (this.currentLevelDef.theme === 'bunker') {
+      if (weaponDef.id === 'rasengan' || weaponDef.id === 'toy_hammer') {
+        this.triggerScreenShake(0.65);
+        UIManager.getInstance().setStatusText(
+          `RASENGAN!!! ${monsterName} TERHANTAM PUSARAN ANGIN CHAKRA! CEPAT LARI KE PINTU EXIT!`,
+          `RASENGAN STRIKE! ${monsterName} HIT BY CHAKRA VORTEX! SPRINT TO THE EXIT DOOR!`
+        );
+      } else if (this.currentLevelDef.theme === 'bunker') {
         UIManager.getInstance().setStatusText(
           `BUNKER CODE RED LOCKDOWN! SEMUA HANTU MENGEJAR! CEPAT LARI KE PINTU EVAKUASI LANTAI 2!`,
           `BUNKER CODE RED LOCKDOWN! ALL GHOSTS CHASING! SPRINT TO THE FLOOR 2 EXIT VAULT!`
@@ -911,6 +1016,677 @@ export class GameManager {
     }
   }
 
+  // Handle Anime Rasengan Rush Dash & White-Blue Explosion Impact (Naruto Slow-Motion Cinematic)
+  private handleRasenganAttack(weaponDef: WeaponDefinition): void {
+    if (this.state !== 'STEALTH' || this.isAttackSuccessful) return;
+
+    // 1. Find nearest valid target monster within 18.0m in front of player
+    const MAX_RASENGAN_RANGE = 18.0;
+    const playerPos = this.fpController.position;
+    const forward = this.fpController.getForwardVector();
+    let targetMonster: MonsterController | null = null;
+    let closestDist = Infinity;
+
+    for (const m of this.monsters) {
+      if (m.state !== 'SITTING_IDLE' || m.isAwake) continue;
+
+      const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : (m.monsterType === 'yeti' ? 1.4 : 0.9);
+      const monsterCenter = new THREE.Vector3(m.position.x, m.position.y + monsterCenterY, m.position.z);
+      const dist = playerPos.distanceTo(monsterCenter);
+      if (dist > MAX_RASENGAN_RANGE) continue;
+
+      // Line of sight check
+      if (this.isObstructedByGeometry(playerPos, monsterCenter)) continue;
+
+      // Check if monster is in front of player (generous FOV <= 85 degrees)
+      const toMonster = new THREE.Vector3().subVectors(monsterCenter, playerPos).normalize();
+      const dot = forward.dot(toMonster);
+      if (dot > 0.15 && dist < closestDist) {
+        closestDist = dist;
+        targetMonster = m;
+      }
+    }
+
+    // Play Naruto Rasengan sound asset (naruto-rasengan.mp3) at normal playback speed (sound tetap!)
+    AudioManager.getInstance().playRasenganAudio();
+
+    if (!targetMonster) {
+      // Swung into air: trigger complete 5-stage animation sequence forward
+      this.fpController.weapon.startRasenganSequence(
+        () => {
+          // Subtle camera reaction on thrust reach
+          this.triggerScreenShake(0.18);
+        },
+        () => {
+          // Recovery complete
+          const monsterName = this.getLevelMonsterDisplayName();
+          UIManager.getInstance().setStatusText(
+            `DEKATI ARAH ${monsterName} UNTUK MENYERANG DENGAN RASENGAN!`,
+            `AIM TOWARDS ${monsterName} TO STRIKE WITH RASENGAN!`
+          );
+        }
+      );
+      UIManager.getInstance().setStatusText('RASEN...!', 'RASEN...!');
+      return;
+    }
+
+    // Target locked! Begin 5-Stage Coordinated Rasengan Attack Sequence
+    this.state = 'ATTACK';
+    this.isAttackSuccessful = true;
+    this.fpController.setEnabled(false); // Lock movement input during attack sequence
+
+    const monsterCenterY = targetMonster.monsterType === 'kunti' ? 0.45 : (targetMonster.monsterType === 'yeti' ? 1.4 : 0.9);
+    const targetMonsterPos = new THREE.Vector3(targetMonster.position.x, targetMonster.position.y + monsterCenterY, targetMonster.position.z);
+
+    // Compute player rush end position:
+    // Genderwo (Yeti) is massive with towering height and long reach, so maintain a generous 5.6m safe distance.
+    // For Pocong and Kunti, keep 4.4m. Player does not advance closer than this distance.
+    const isYeti = targetMonster.monsterType === 'yeti';
+    const MIN_SAFE_DIST = isYeti ? 5.6 : 4.4;
+    const currentDist = playerPos.distanceTo(targetMonsterPos);
+    const dirToPlayer = new THREE.Vector3().subVectors(playerPos, targetMonsterPos).normalize();
+    const destPos = currentDist > MIN_SAFE_DIST
+      ? new THREE.Vector3().copy(targetMonsterPos).addScaledVector(dirToPlayer, MIN_SAFE_DIST)
+      : playerPos.clone();
+    destPos.y = targetMonster.position.y + 1.65; // Adjust player eye height to monster floor
+
+    const startPlayerPos = playerPos.clone();
+    const defaultFov = 75;
+    const targetFov = 64; // Subtle telephoto anime focus
+
+    // Trigger First-Person 5-Stage Rasengan Animation Sequence on WeaponController
+    // Stage 1 (Prep: 0.30s) + Stage 2 (Charge: 0.55s) + Stage 3 (Hold: 0.25s) + Stage 4 (Thrust: 0.20s) = 1.30s to Impact!
+    const approachDuration = 1.30;
+    const startTime = performance.now();
+
+    UIManager.getInstance().setStatusText('RASEN...!', 'RASEN...!');
+    setTimeout(() => {
+      UIManager.getInstance().setStatusText('RASENGAAAN...!', 'RASENGAAAN...!');
+    }, 850);
+
+    // Synchronize character forward approach with the weapon animation
+    const approachInterval = setInterval(() => {
+      const elapsed = (performance.now() - startTime) / 1000;
+      const t = Math.min(1.0, elapsed / approachDuration);
+
+      // Smooth deceleration into striking range
+      const ease = 1 - Math.pow(1 - t, 2.5);
+      this.fpController.position.lerpVectors(startPlayerPos, destPos, ease);
+
+      // Smooth camera FOV focus
+      this.fpController.camera.fov = THREE.MathUtils.lerp(defaultFov, targetFov, ease);
+      this.fpController.camera.updateProjectionMatrix();
+
+      if (t >= 1.0) {
+        clearInterval(approachInterval);
+        this.fpController.position.copy(destPos);
+      }
+    }, 16);
+
+    let retreatInterval: any = null;
+    let retreatTargetPos = destPos.clone();
+
+    // Start 5-Stage Rasengan Weapon Animation with Impact and Recovery Callbacks
+    this.fpController.weapon.startRasenganSequence(
+      () => {
+        // --- STAGE 5: IMPACT EVENT (Exact moment thrust reaches target at 1.30s) ---
+        clearInterval(approachInterval);
+        this.fpController.position.copy(destPos);
+
+        // 1. Create White-Blue Chakra Detonation Explosion Effect at Monster
+        this.createRasenganWhiteBlueExplosion(targetMonsterPos);
+
+        // 2. Small controlled camera reaction during impact (Section 7)
+        this.triggerScreenShake(0.65);
+
+        // 3. Reveal and illuminate Exit Door
+        if (this.levelBuild?.exitDoorMesh) {
+          this.levelBuild.exitDoorMesh.visible = true;
+          const doorLight = this.levelBuild.exitDoorMesh.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
+          if (doorLight) {
+            doorLight.color.setHex(0x22c55e);
+            doorLight.intensity = 3.8;
+          }
+        }
+
+        // 4. Monster hit reaction: knockback (6.5m for Genderwo, 5.8m for others), scream, and generous stun delay
+        const knockbackDist = isYeti ? 6.5 : 5.8;
+        targetMonster.triggerWeaponHit(weaponDef, this.fpController.position, knockbackDist, false, 2.8, 5.5);
+
+        // 5. Automatic Player Recoil / Retreat Step (Mundur ke belakang setelah menyerang agar mudah lari)
+        const retreatDist = isYeti ? 4.5 : 3.8;
+        const retreatStartPos = destPos.clone();
+        retreatTargetPos = retreatStartPos.clone();
+        const steps = 15;
+        for (let s = 1; s <= steps; s++) {
+          const candidate = retreatStartPos.clone().addScaledVector(dirToPlayer, (retreatDist * s) / steps);
+          if (!this.fpController.collidesWithWalls(candidate.x, candidate.z)) {
+            retreatTargetPos.copy(candidate);
+          } else {
+            break; // Stop at safe boundary before wall
+          }
+        }
+
+        // Smoothly animate player retreating / leaping backward over 0.50s (during Stage 5 -> Stage 6 recovery)
+        const retreatDuration = 0.50;
+        const retreatStartTime = performance.now();
+        retreatInterval = setInterval(() => {
+          const elapsed = (performance.now() - retreatStartTime) / 1000;
+          const p = Math.min(1.0, elapsed / retreatDuration);
+          const easeOut = 1 - Math.pow(1 - p, 2.0); // Smooth physical recoil deceleration
+          this.fpController.position.lerpVectors(retreatStartPos, retreatTargetPos, easeOut);
+          if (p >= 1.0) {
+            clearInterval(retreatInterval);
+            this.fpController.position.copy(retreatTargetPos);
+          }
+        }, 16);
+
+        // Delayed awakening for secondary monsters (gives player a clear 2.2s window to escape without being ambushed)
+        setTimeout(() => {
+          for (const m of this.monsters) {
+            if (m !== targetMonster && m.state === 'SITTING_IDLE') {
+              m.wakeUpAndChase();
+            }
+          }
+        }, 2200);
+
+        const monsterName = targetMonster.monsterType === 'kunti' ? 'KUNTILANAK' : (targetMonster.monsterType === 'yeti' ? 'GENDERWO' : 'POCONG');
+        UIManager.getInstance().setStatusText(
+          `RASENGAN MENGHANCURKAN ${monsterName}! CEPAT LARI KE PINTU EXIT!`,
+          `RASENGAN BLASTED ${monsterName}! SPRINT TO THE EXIT DOOR!`
+        );
+      },
+      () => {
+        // --- STAGE 6: RECOVERY COMPLETE (Arm smoothly returned to idle at 1.80s, player retreat finished) ---
+        if (retreatInterval) {
+          clearInterval(retreatInterval);
+        }
+        this.fpController.position.copy(retreatTargetPos);
+
+        // Smooth camera FOV restoration
+        const fovStart = this.fpController.camera.fov;
+        const fovStartTime = performance.now();
+        const fovDuration = 250;
+        const fovInterval = setInterval(() => {
+          const fovElapsed = performance.now() - fovStartTime;
+          const fovP = Math.min(1.0, fovElapsed / fovDuration);
+          this.fpController.camera.fov = THREE.MathUtils.lerp(fovStart, defaultFov, fovP);
+          this.fpController.camera.updateProjectionMatrix();
+          if (fovP >= 1.0) clearInterval(fovInterval);
+        }, 16);
+
+        this.fpController.setMonsterObstacle(null);
+        this.fpController.setEnabled(true);
+        UIManager.getInstance().switchToChaseControls();
+        this.fpController.weapon.disableAttackPermanently();
+        this.fpController.weapon.setVisible(false);
+      }
+    );
+  }
+
+  // Create White-Blue Chakra Detonation Explosion Effect at Monster
+  private createRasenganWhiteBlueExplosion(pos: THREE.Vector3): void {
+    const explosionGroup = new THREE.Group();
+    explosionGroup.position.copy(pos);
+
+    // 1. Inner White Blazing Core Sphere
+    const coreGeo = new THREE.SphereGeometry(0.7, 16, 16);
+    const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    explosionGroup.add(coreMesh);
+
+    // 2. Outer Electric Cyan Shockwave Sphere
+    const cyanGeo = new THREE.SphereGeometry(1.15, 16, 16);
+    const cyanMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+    });
+    const cyanMesh = new THREE.Mesh(cyanGeo, cyanMat);
+    explosionGroup.add(cyanMesh);
+
+    // 3. Horizontal White-Blue Shockwave Rings
+    const ringGeo = new THREE.RingGeometry(0.35, 1.6, 24);
+    ringGeo.rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x67e8f9,
+      transparent: true,
+      opacity: 0.92,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    const ringMesh1 = new THREE.Mesh(ringGeo, ringMat);
+    explosionGroup.add(ringMesh1);
+
+    const ringMesh2 = new THREE.Mesh(ringGeo, ringMat.clone());
+    ringMesh2.rotation.z = Math.PI / 3;
+    explosionGroup.add(ringMesh2);
+
+    // 4. Point light flash
+    const flashLight = new THREE.PointLight(0x67e8f9, 12.0, 24.0, 1.2);
+    explosionGroup.add(flashLight);
+
+    this.scene.add(explosionGroup);
+
+    // Animate expanding and fading out over 0.65s
+    const startTime = performance.now();
+    const duration = 650;
+    const animInterval = setInterval(() => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(1.0, elapsed / duration);
+
+      const scale = 1.0 + progress * 2.8;
+      coreMesh.scale.set(scale * 0.7, scale * 0.7, scale * 0.7);
+      cyanMesh.scale.set(scale, scale, scale);
+      ringMesh1.scale.set(scale * 1.4, scale * 1.4, scale * 1.4);
+      ringMesh2.scale.set(scale * 1.25, scale * 1.25, scale * 1.25);
+
+      const fade = 1.0 - progress;
+      coreMat.opacity = fade;
+      cyanMat.opacity = fade * 0.9;
+      (ringMesh1.material as THREE.MeshBasicMaterial).opacity = fade * 0.92;
+      (ringMesh2.material as THREE.MeshBasicMaterial).opacity = fade * 0.8;
+      flashLight.intensity = fade * 12.0;
+
+      if (progress >= 1.0) {
+        clearInterval(animInterval);
+        this.scene.remove(explosionGroup);
+        this.disposeHierarchy(explosionGroup);
+      }
+    }, 20);
+  }
+
+  // Cleanup active Kamehameha beam and timers to guarantee no hangs, memory leaks, or stale callbacks
+  private cancelKamehamehaSequence(): void {
+    if (this.kamehamehaChargeInterval) {
+      clearInterval(this.kamehamehaChargeInterval);
+      this.kamehamehaChargeInterval = null;
+    }
+    if (this.kamehamehaTimeout) {
+      clearTimeout(this.kamehamehaTimeout);
+      this.kamehamehaTimeout = null;
+    }
+    if (this.kamehamehaFadeInterval) {
+      clearInterval(this.kamehamehaFadeInterval);
+      this.kamehamehaFadeInterval = null;
+    }
+    if (this.activeKamehamehaBeam) {
+      this.scene.remove(this.activeKamehamehaBeam);
+      this.disposeHierarchy(this.activeKamehamehaBeam);
+      this.activeKamehamehaBeam = null;
+    }
+    this.isKamehamehaCharging = false;
+    AudioManager.getInstance().stopKamehamehaAudio();
+    AudioManager.getInstance().stopRasenganAudio();
+  }
+
+  // Handle Ranged Anime Ki Beam (Kamehameha with charging sound delay & long energy laser beam toward monster)
+  private handleKamehamehaBlast(weaponDef: WeaponDefinition): void {
+    if (this.state !== 'STEALTH' || this.isAttackSuccessful || this.isKamehamehaCharging) return;
+
+    this.isKamehamehaCharging = true;
+    this.fpController.setEnabled(false); // Martial arts stance during chant
+    this.fpController.weapon.startKamehamehaCharge();
+
+    // Start playing Dragon Ball kamehameha.mp3 ("Ka... me... ha... me... HA!")
+    AudioManager.getInstance().playKamehamehaAudio();
+
+    // Dynamic Ki Gathering loop over 4.85 seconds (Ki sphere charges in hands model)
+    const chargeStartTime = performance.now();
+    const chargeDuration = 4850;
+    this.kamehamehaChargeInterval = setInterval(() => {
+      const elapsed = performance.now() - chargeStartTime;
+      const progress = Math.min(1.0, elapsed / chargeDuration);
+
+      this.fpController.weapon.updateKamehamehaCharge(progress);
+
+      // Subtle staged tremors (screen stays clear)
+      if (elapsed < 1400) {
+        this.triggerScreenShake(0.04);
+      } else if (elapsed < 2800) {
+        this.triggerScreenShake(0.08);
+      } else if (elapsed < 3900) {
+        this.triggerScreenShake(0.15);
+      } else {
+        this.triggerScreenShake(0.25);
+      }
+    }, 25);
+
+    // Staged HUD status chants
+    UIManager.getInstance().setStatusText('KA... (MENGUMPULKAN KI)', 'KA... (GATHERING KI)');
+    setTimeout(() => {
+      if (this.isKamehamehaCharging) UIManager.getInstance().setStatusText('KA... ME...', 'KA... ME...');
+    }, 1450);
+
+    setTimeout(() => {
+      if (this.isKamehamehaCharging) UIManager.getInstance().setStatusText('KA... ME... HA...', 'KA... ME... HA...');
+    }, 2850);
+
+    setTimeout(() => {
+      if (this.isKamehamehaCharging) UIManager.getInstance().setStatusText('KA... ME... HA... ME...', 'KA... ME... HA... ME...');
+    }, 3950);
+
+    // 2. AT DELAY (4.85s): Voice shouts "...HAAAAAAA!!!!!" -> LONG LASER BEAM ERUPTS TOWARD MONSTER!
+    this.kamehamehaTimeout = setTimeout(() => {
+      if (!this.isKamehamehaCharging || (this.state !== 'STEALTH' && this.state !== 'ATTACK')) return;
+
+      if (this.kamehamehaChargeInterval) {
+        clearInterval(this.kamehamehaChargeInterval);
+        this.kamehamehaChargeInterval = null;
+      }
+
+      this.fpController.weapon.fireKamehamehaPose();
+      UIManager.getInstance().setStatusText('...HAAAAAAA!!!!!', '...HAAAAAAA!!!!!');
+
+      // 3. TARGETING & DIRECTION CALCULATION
+      const camPos = this.fpController.position.clone();
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), this.fpController.camera);
+      const camDir = raycaster.ray.direction.clone().normalize();
+      const MAX_BEAM_RANGE = 38.0;
+
+      // Check blocking environment geometry along aim line
+      const blocking = this.levelBuild ? this.levelBuild.blockingMeshes : [];
+      const wallIntersects = raycaster.intersectObjects(blocking, true);
+      const validWallIntersects = wallIntersects.filter((h) => h.distance > 2.0);
+      const maxRayDist = validWallIntersects.length > 0 ? Math.min(MAX_BEAM_RANGE, validWallIntersects[0].distance) : MAX_BEAM_RANGE;
+
+      // Find valid target monster in line of sight within range
+      let hitMonster: MonsterController | null = null;
+      let closestDist = maxRayDist;
+      let targetImpactPos = new THREE.Vector3();
+
+      for (const m of this.monsters) {
+        if (m.state !== 'SITTING_IDLE' || m.isAwake) continue;
+
+        const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : (m.monsterType === 'yeti' ? 1.4 : 0.9);
+        const monsterCenter = new THREE.Vector3(m.position.x, m.position.y + monsterCenterY, m.position.z);
+        const distFromPlayer = camPos.distanceTo(monsterCenter);
+        if (distFromPlayer > MAX_BEAM_RANGE) continue;
+
+        // Verify line of sight in 3D (no solid walls or floors in between)
+        if (this.isObstructedByGeometry(camPos, monsterCenter)) continue;
+
+        // Check if monster intersects ray or is within forgiving beam cylinder (2.6m radius)
+        let isHit = false;
+        let hitDist = distFromPlayer;
+
+        const monsterHits = raycaster.intersectObjects(m.group.children, true);
+        if (monsterHits.length > 0 && monsterHits[0].distance <= maxRayDist) {
+          isHit = true;
+          hitDist = monsterHits[0].distance;
+        } else {
+          const toMonster = new THREE.Vector3().subVectors(monsterCenter, raycaster.ray.origin);
+          const distAlongRay = toMonster.dot(camDir);
+          if (distAlongRay > 0 && distAlongRay <= maxRayDist) {
+            const pointOnRay = new THREE.Vector3().copy(raycaster.ray.origin).addScaledVector(camDir, distAlongRay);
+            if (pointOnRay.distanceTo(monsterCenter) <= 2.6) {
+              isHit = true;
+              hitDist = distAlongRay;
+            }
+          }
+        }
+
+        if (isHit && hitDist <= closestDist) {
+          closestDist = hitDist;
+          hitMonster = m;
+          targetImpactPos.copy(monsterCenter);
+        }
+      }
+
+      // If no monster hit, beam reaches wall contact or max range
+      if (!hitMonster) {
+        if (validWallIntersects.length > 0) {
+          targetImpactPos.copy(validWallIntersects[0].point);
+        } else {
+          targetImpactPos.copy(camPos).addScaledVector(camDir, maxRayDist);
+        }
+      }
+
+      // 4. BEAM ORIGIN & ALIGNMENT
+      // Start in front of the hands, oriented directly toward the monster target
+      const beamOrigin = new THREE.Vector3();
+      const hasSpherePos = this.fpController.weapon.getKamehamehaSphereWorldPosition(beamOrigin);
+      if (!hasSpherePos) {
+        const handOffset = new THREE.Vector3(0.0, -0.22, -0.52).applyQuaternion(this.fpController.camera.quaternion);
+        beamOrigin.copy(this.fpController.camera.position).add(handOffset);
+      }
+      const toTarget = new THREE.Vector3().subVectors(targetImpactPos, beamOrigin);
+      const beamDir = toTarget.clone().normalize();
+      // Push start point 0.35m forward along the laser path so it never encloses the camera lens
+      beamOrigin.addScaledVector(beamDir, 0.35);
+
+      const adjustedVector = new THREE.Vector3().subVectors(targetImpactPos, beamOrigin);
+      const beamLen = Math.max(0.4, adjustedVector.length());
+
+      const beamQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), beamDir);
+
+      const beamGroup = new THREE.Group();
+      beamGroup.position.copy(beamOrigin);
+      beamGroup.quaternion.copy(beamQuat);
+
+      // Sub-Group for the stretching laser body (stretches along Y from 0 to beamLen)
+      const beamBodyGroup = new THREE.Group();
+
+      // Layer A: Inner Laser Core (Concentrated bright white spine, radius 0.05m -> 0.07m)
+      const coreGeo = new THREE.CylinderGeometry(0.05, 0.07, beamLen, 16);
+      coreGeo.translate(0, beamLen / 2, 0); // Base at Y=0, tip at Y=beamLen
+      const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+      beamBodyGroup.add(coreMesh);
+
+      // Layer B: Main Electric Cyan Energy Beam (Radius 0.14m -> 0.20m, clear and visible across room)
+      const cyanGeo = new THREE.CylinderGeometry(0.14, 0.20, beamLen, 18);
+      cyanGeo.translate(0, beamLen / 2, 0);
+      const cyanMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.88,
+        blending: THREE.AdditiveBlending,
+      });
+      const cyanMesh = new THREE.Mesh(cyanGeo, cyanMat);
+      beamBodyGroup.add(cyanMesh);
+
+      // Layer C: Outer Soft Electric Blue Aura Shell (Radius 0.22m -> 0.32m)
+      const auraGeo = new THREE.CylinderGeometry(0.22, 0.32, beamLen, 18);
+      auraGeo.translate(0, beamLen / 2, 0);
+      const auraMat = new THREE.MeshBasicMaterial({
+        color: 0x60a5fa,
+        transparent: true,
+        opacity: 0.45,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const auraMesh = new THREE.Mesh(auraGeo, auraMat);
+      beamBodyGroup.add(auraMesh);
+
+      // Initially starts extending from hands (scale Y starts near 0)
+      beamBodyGroup.scale.set(1.0, 0.02, 1.0);
+      beamGroup.add(beamBodyGroup);
+
+      // Layer D: Blazing Ki Surge Head (Sphere leading the laser surge toward the target)
+      const headGeo = new THREE.SphereGeometry(0.18, 14, 14);
+      const headMat = new THREE.MeshBasicMaterial({
+        color: 0xe0f2fe,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+      });
+      const beamHead = new THREE.Mesh(headGeo, headMat);
+      beamHead.position.set(0, beamLen * 0.02, 0);
+      beamGroup.add(beamHead);
+
+      // Layer E: Energy Helix Rings spinning along active beam axis
+      const ringMeshes: THREE.Mesh[] = [];
+      const numRings = Math.min(8, Math.max(4, Math.floor(beamLen / 3.0)));
+      for (let r = 0; r < numRings; r++) {
+        const ringGeo = new THREE.TorusGeometry(0.26 + (r / numRings) * 0.10, 0.03, 8, 20);
+        ringGeo.rotateX(Math.PI / 2); // Align ring with cylinder Y-axis
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: 0x93c5fd,
+          transparent: true,
+          opacity: 0.85,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.set(0, (beamLen * 0.02 * (r + 0.5)) / numRings, 0);
+        beamGroup.add(ring);
+        ringMeshes.push(ring);
+      }
+
+      // Layer F: Controlled Atmospheric Illumination (Point light along active laser path)
+      const beamLight = new THREE.PointLight(0x60a5fa, 4.0, 30.0, 1.2);
+      beamLight.position.set(0, 0.5, 0);
+      beamGroup.add(beamLight);
+
+      this.scene.add(beamGroup);
+      this.activeKamehamehaBeam = beamGroup;
+
+      // 5. DYNAMIC EXTENDING & SUSTAINED BEAM LIFECYCLE
+      // Stage 1: Laser surge extends from hands across room to monster (0.0s to 0.22s)
+      // Stage 2: Laser slams into monster -> Impact explosion & reaction! (at 0.22s)
+      // Stage 3: Sustained laser blast pours into monster (0.22s to 0.70s)
+      // Stage 4: Smooth fade out and recovery (0.70s to 1.00s)
+      const extendDuration = 0.22; // 220ms clearly visible anime laser surge
+      const totalBeamDuration = 1.00;
+      let impactTriggered = false;
+
+      // Initial subtle hand recoil
+      this.triggerScreenShake(0.35);
+
+      const fadeStartTime = performance.now();
+      this.kamehamehaFadeInterval = setInterval(() => {
+        const elapsed = (performance.now() - fadeStartTime) / 1000;
+
+        // Phase 1: Rapid anime extension surge
+        if (elapsed < extendDuration) {
+          const rawP = Math.min(1.0, elapsed / extendDuration);
+          const easeOut = 1 - Math.pow(1 - rawP, 2.2); // Energetic surge
+          const currentLen = beamLen * Math.max(0.04, easeOut);
+
+          beamBodyGroup.scale.set(1.0, easeOut, 1.0);
+          beamHead.position.set(0, currentLen, 0);
+          beamLight.position.set(0, currentLen * 0.5, 0);
+
+          for (let i = 0; i < ringMeshes.length; i++) {
+            ringMeshes[i].position.set(0, (currentLen * (i + 0.5)) / numRings, 0);
+            ringMeshes[i].rotation.y += 0.28 * (i % 2 === 0 ? 1 : -1);
+          }
+        } else if (!impactTriggered) {
+          // Phase 2: EXACT MOMENT LASER REACHES MONSTER!
+          impactTriggered = true;
+          beamBodyGroup.scale.set(1.0, 1.0, 1.0);
+          beamHead.position.set(0, beamLen, 0);
+          beamLight.position.set(0, beamLen * 0.5, 0);
+
+          // Impact detonation on target
+          this.createRasenganWhiteBlueExplosion(targetImpactPos);
+          this.triggerScreenShake(0.65); // Impact blast impulse
+
+          if (hitMonster) {
+            this.state = 'CHASE';
+            this.isAttackSuccessful = true;
+            this.isKamehamehaCharging = false;
+
+            // Reveal exit door and illuminate with green glow
+            if (this.levelBuild?.exitDoorMesh) {
+              this.levelBuild.exitDoorMesh.visible = true;
+              const doorPointLight = this.levelBuild.exitDoorMesh.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
+              if (doorPointLight) {
+                doorPointLight.color.setHex(0x22c55e);
+                doorPointLight.intensity = 3.8;
+              }
+            }
+
+            this.fpController.setMonsterObstacle(null);
+            this.fpController.setEnabled(true);
+            UIManager.getInstance().switchToChaseControls();
+
+            // Monster blasted with knockback, generous stun delay & catch grace period
+            const isYeti = hitMonster.monsterType === 'yeti';
+            const knockbackDist = isYeti ? 6.5 : 5.5;
+            hitMonster.triggerWeaponHit(weaponDef, this.fpController.position, knockbackDist, false, 2.8, 5.5);
+
+            // Delayed awakening for secondary monsters (gives player clear 2.2s window without ambush)
+            setTimeout(() => {
+              for (const m of this.monsters) {
+                if (m !== hitMonster && m.state === 'SITTING_IDLE') {
+                  m.wakeUpAndChase();
+                }
+              }
+            }, 2200);
+
+            const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : (hitMonster.monsterType === 'yeti' ? 'GENDERWO' : 'POCONG');
+            UIManager.getInstance().setStatusText(
+              `KAMEHAMEHA MENGHANCURKAN ${monsterName}! CEPAT LARI KE PINTU EXIT!`,
+              `KAMEHAMEHA BLASTED ${monsterName}! SPRINT TO THE EXIT DOOR!`
+            );
+          } else {
+            // Miss: hit wall or distance
+            this.state = 'STEALTH';
+            this.isAttackSuccessful = false;
+            this.isKamehamehaCharging = false;
+            this.fpController.setEnabled(true);
+
+            const monsterName = this.getLevelMonsterDisplayName();
+            UIManager.getInstance().setStatusText(
+              `TEMBAKAN KAMEHAMEHA MELESET! BIDIK KE ARAH ${monsterName} DAN TEMBAK LAGI!`,
+              `KAMEHAMEHA MISSED! AIM TOWARDS ${monsterName} AND FIRE AGAIN!`
+            );
+          }
+        } else {
+          // Phase 3: Sustained full-length laser drilling into target
+          beamBodyGroup.scale.set(1.0, 1.0, 1.0);
+          beamHead.position.set(0, beamLen, 0);
+          beamLight.position.set(0, beamLen * 0.5, 0);
+
+          for (let i = 0; i < ringMeshes.length; i++) {
+            ringMeshes[i].position.set(0, (beamLen * (i + 0.5)) / numRings, 0);
+            ringMeshes[i].rotation.y += 0.28 * (i % 2 === 0 ? 1 : -1);
+          }
+
+          const pulse = 1.0 + Math.sin(elapsed * 25.0) * 0.06;
+          cyanMesh.scale.set(pulse, 1.0, pulse);
+          auraMesh.scale.set(pulse * 1.04, 1.0, pulse * 1.04);
+
+          // Phase 4: Fade out in last 30% of total duration
+          if (elapsed > totalBeamDuration - 0.30) {
+            const fadeP = (totalBeamDuration - elapsed) / 0.30;
+            cyanMat.opacity = Math.max(0, fadeP * 0.88);
+            auraMat.opacity = Math.max(0, fadeP * 0.45);
+            coreMat.opacity = Math.max(0, fadeP);
+            headMat.opacity = Math.max(0, fadeP * 0.95);
+            beamLight.intensity = Math.max(0, fadeP * 4.0);
+          }
+        }
+
+        // Complete & Cleanup
+        if (elapsed >= totalBeamDuration) {
+          if (this.kamehamehaFadeInterval) {
+            clearInterval(this.kamehamehaFadeInterval);
+            this.kamehamehaFadeInterval = null;
+          }
+          if (this.activeKamehamehaBeam) {
+            this.scene.remove(this.activeKamehamehaBeam);
+            this.disposeHierarchy(this.activeKamehamehaBeam);
+            this.activeKamehamehaBeam = null;
+          }
+
+          // Recovery: smoothly reset weapon viewmodel back to idle (hands return to normal)
+          this.fpController.weapon.resetKamehameha();
+          this.fpController.setEnabled(true);
+
+          if (this.isAttackSuccessful) {
+            this.fpController.weapon.disableAttackPermanently();
+            this.fpController.weapon.setVisible(false);
+          }
+        }
+      }, 20);
+    }, 4850);
+  }
+
   // Handle Grenade Detonation Blast: Impact on Monster vs Miss
   private handleGrenadeDetonation(impactPos: THREE.Vector3, weaponDef: WeaponDefinition): void {
     if (this.state !== 'STEALTH') return;
@@ -1011,6 +1787,7 @@ export class GameManager {
   // Handle monster catching player (Face Jumpscare presentation directly in front of player)
   private handlePlayerCaught(m?: MonsterController, reason: string = 'Monster berhasil menangkapmu!', enReason?: string): void {
     if (this.state === 'GAME_OVER' || this.state === 'JUMPSCARE' || this.isJumpscareActive) return;
+    this.cancelKamehamehaSequence();
 
     const monsterName = (this.currentLevelDef?.id === 2 || m?.monsterType === 'kunti')
       ? 'Kuntilanak'
@@ -1105,6 +1882,7 @@ export class GameManager {
   // Trigger Game Over
   private triggerGameOver(reason: string, enReason?: string): void {
     if (this.state === 'GAME_OVER') return;
+    this.cancelKamehamehaSequence();
     this.state = 'GAME_OVER';
     this.isTimerRunning = false;
     this.fpController.setEnabled(false);
@@ -1121,6 +1899,7 @@ export class GameManager {
 
   // Escape Reached: Level Complete!
   private triggerLevelComplete(): void {
+    this.cancelKamehamehaSequence();
     this.state = 'LEVEL_COMPLETE';
     this.isTimerRunning = false;
     this.fpController.setEnabled(false);
@@ -1307,9 +2086,27 @@ export class GameManager {
         const currentWeaponId = this.fpController.weapon.getWeaponId();
         const isGrenade = currentWeaponId === 'grenade' || currentWeaponId === 'signboard';
         const isMachineGun = currentWeaponId === 'machine_gun' || currentWeaponId === 'slipper';
-        const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : 'PUKUL');
+        const isRasengan = currentWeaponId === 'rasengan' || currentWeaponId === 'toy_hammer';
+        const isKamehameha = currentWeaponId === 'kamehameha' || currentWeaponId === 'electric_fan';
+        const isSpecialTechnique = isRasengan || isKamehameha;
+        const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : (isRasengan ? 'RASENGAN' : (isKamehameha ? 'KAMEHAMEHA' : 'PUKUL')));
+        const targetMonster = nearestAttackableMonster || nearestMonster;
+        const targetMonsterName = targetMonster?.monsterType === 'kunti' ? 'Kuntilanak' : (targetMonster?.monsterType === 'yeti' ? 'Genderwo' : 'Pocong');
 
-        if (isGrenade || isMachineGun) {
+        if (isSpecialTechnique) {
+          const inSpecialArea = this.isPlayerInSpecialAttackArea();
+          canAttackAny = inSpecialArea;
+          if (inSpecialArea) {
+            this.fpController.weapon.setVisible(true);
+            // Hilangkan alert banner ketika bisa menggunakan senjata (sesuai instruksi user)
+            UIManager.getInstance().setAttackPromptVisible(false);
+            UIManager.getInstance().setMobileAttackReady(true);
+          } else {
+            this.fpController.weapon.setVisible(false);
+            UIManager.getInstance().setAttackPromptVisible(false);
+            UIManager.getInstance().setMobileAttackReady(false);
+          }
+        } else if (isGrenade || isMachineGun) {
           const target = nearestAttackableMonster || nearestMonster;
           const alertDist = isMachineGun ? 25.0 : 18.0;
           const floorHeight = this.levelBuild?.floorHeight || 3.8;
@@ -1317,13 +2114,14 @@ export class GameManager {
           const sameFloor = target
             ? (this.fpController.currentFloor === monsterFloor || Math.abs(this.fpController.position.y - target.position.y) < 2.5)
             : false;
-          const isNearMonster = nearestDist <= alertDist && sameFloor;
-          canAttackAny = isNearMonster;
+          canAttackAny = nearestDist <= alertDist && sameFloor;
+          this.fpController.weapon.setVisible(true);
+          UIManager.getInstance().setAttackPromptVisible(canAttackAny, targetMonsterName, actionVerb);
+        } else {
+          this.fpController.weapon.setVisible(true);
+          UIManager.getInstance().setAttackPromptVisible(canAttackAny, targetMonsterName, actionVerb);
         }
 
-        const targetMonster = nearestAttackableMonster || nearestMonster;
-        const targetMonsterName = targetMonster?.monsterType === 'kunti' ? 'Kuntilanak' : (targetMonster?.monsterType === 'yeti' ? 'Genderwo' : 'Pocong');
-        UIManager.getInstance().setAttackPromptVisible(canAttackAny, targetMonsterName, actionVerb);
         UIManager.getInstance().setDetectionMeter(0);
 
         if (inputMgr.consumeAttackRequest()) {
@@ -1333,20 +2131,26 @@ export class GameManager {
         // Check weapon pickup discovery in level environment
         this.updateWeaponPickups();
       } else {
+        const currentWeaponId = this.fpController.weapon.getWeaponId();
+        const isSpecialTechnique = currentWeaponId === 'rasengan' || currentWeaponId === 'toy_hammer' || currentWeaponId === 'kamehameha' || currentWeaponId === 'electric_fan';
+        if (isSpecialTechnique && this.isAttackSuccessful) {
+          this.fpController.weapon.setVisible(false);
+        }
         UIManager.getInstance().setAttackPromptVisible(false);
         UIManager.getInstance().setDetectionMeter(0);
         UIManager.getInstance().hidePickupPrompt();
       }
 
       // 4. Escape Door Trigger Check & Catch Check (during CHASE phase!)
-      if (this.state === 'CHASE') {
+      if (this.state === 'CHASE' || (this.isAttackSuccessful && (this.state === 'ATTACK' || this.state === 'CHASE'))) {
         for (const m of this.monsters) {
           const horizontalDist = Math.hypot(
             m.position.x - this.fpController.position.x,
             m.position.z - this.fpController.position.z
           );
           const verticalDiff = Math.abs(m.position.y - (this.fpController.position.y - 1.65));
-          if (m.stateTime > MonsterController.CATCH_GRACE_PERIOD && horizontalDist <= 1.5 && verticalDiff <= 1.5) {
+          const grace = m.catchGracePeriod ?? MonsterController.CATCH_GRACE_PERIOD;
+          if (m.stateTime > grace && horizontalDist <= 1.5 && verticalDiff <= 1.5) {
             const mName = m.monsterType === 'kunti' ? 'Kuntilanak' : (m.monsterType === 'yeti' ? 'Genderwo' : 'Pocong');
             this.handlePlayerCaught(m, `${mName} berhasil menangkapmu!`);
             return;
@@ -1395,6 +2199,14 @@ export class GameManager {
     } else if (this.state === 'MAIN_MENU') {
       // Gentle background rotation in main menu
       this.overviewCam.update(dt);
+    }
+
+    // 6. Construction Site Moving Tower Crane Animation (Rotating Jib & Gently Swinging Hook)
+    if (this.levelBuild?.movingCrane) {
+      const craneTime = this.totalTime;
+      this.levelBuild.movingCrane.jib.rotation.y = Math.sin(craneTime * 0.35) * 0.75;
+      this.levelBuild.movingCrane.hook.rotation.z = Math.sin(craneTime * 1.4) * 0.09;
+      this.levelBuild.movingCrane.hook.rotation.x = Math.cos(craneTime * 1.1) * 0.05;
     }
 
     // Render Active Camera
@@ -1585,7 +2397,15 @@ export class GameManager {
 
     const isGrenade = pickup.weaponId === 'grenade' || pickup.weaponId === 'signboard';
     const isMachineGun = pickup.weaponId === 'machine_gun' || pickup.weaponId === 'slipper';
-    const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : 'PUKUL');
+    const isRasengan = pickup.weaponId === 'rasengan' || pickup.weaponId === 'toy_hammer';
+    const isKamehameha = pickup.weaponId === 'kamehameha' || pickup.weaponId === 'electric_fan';
+    const isSpecialTechnique = isRasengan || isKamehameha;
+    if (isSpecialTechnique) {
+      this.fpController.weapon.setVisible(this.isPlayerInSpecialAttackArea());
+    } else {
+      this.fpController.weapon.setVisible(true);
+    }
+    const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : (isRasengan ? 'RASENGAN' : (isKamehameha ? 'KAMEHAMEHA' : 'PUKUL')));
     UIManager.getInstance().showGameplayHUD(actionVerb);
 
     // Hide all other world pickups of the same weapon ID in the active level environment

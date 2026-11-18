@@ -275,9 +275,9 @@ const LEVEL_LOCALIZATION: Record<Language, Record<number, LevelLocalization>> = 
       description: 'Bunker militer 2 lantai yang sangat luas. Masuki gerbang baja dari parit luar, ambil Spatula, dan serang 2 Kuntilanak & 1 Pocong sebelum lari ke pintu evakuasi di lantai 2!',
     },
     6: {
-      title: 'PABRIK TERBENGKALAI',
-      subtitle: 'SEKTOR 06 — AREA MESIN INDUSTRI (3 LANTAI)',
-      description: 'Pabrik industri 3 lantai penuh pipa bertekanan, jembatan gantung goyang, dan mesin tua berdengung.',
+      title: 'PROYEK BANGUNAN ANGKER',
+      subtitle: 'SEKTOR 06 — PROYEK TOWER & CRANE BERGERAK (3 LANTAI)',
+      description: 'Area proyek gedung bertingkat 3 lantai dengan crane raksasa berputar dan jembatan penghubung antar menara. Temukan Rasengan di lantai dasar & Kamehameha di lantai 2 untuk mengalahkan trio Genderwo, Pocong, & Kuntilanak!',
     },
     7: {
       title: 'HOTEL BERHANTU',
@@ -327,9 +327,9 @@ const LEVEL_LOCALIZATION: Record<Language, Record<number, LevelLocalization>> = 
       description: 'A massive 2-floor underground military bunker. Enter from the outdoor trench, grab the Spatula, and strike 2 Kuntilanaks & 1 Pocong before escaping to the exit vault on floor 2!',
     },
     6: {
-      title: 'THE FACTORY',
-      subtitle: 'SECTOR 06 — INDUSTRIAL MACHINERY (3 FLOORS)',
-      description: 'A 3-floor industrial factory with pressure pipes, swaying bridges, and humming heavy machinery.',
+      title: 'THE CONSTRUCTION SITE',
+      subtitle: 'SECTOR 06 — HIGH-RISE SITE & MOVING CRANE (3 FLOORS)',
+      description: 'A 3-floor high-rise construction site with a moving tower crane and skybridge connecting twin towers. Discover Rasengan on the ground yard & Kamehameha on the 2nd floor to defeat Genderwo, Pocong, & Kuntilanak!',
     },
     7: {
       title: 'HAUNTED HOTEL',
@@ -390,13 +390,21 @@ const WEAPON_LOCALIZATION: Record<Language, Record<string, WeaponLocalization>> 
       name: 'Spatula Raksasa',
       description: 'Sodetan masak stainless steel ukuran jumbo. Menampar punggung monster.',
     },
+    rasengan: {
+      name: 'Rasengan',
+      description: 'Bola energi chakra spiral biru berkecepatan tinggi. Hantamkan ke tubuh monster!',
+    },
+    kamehameha: {
+      name: 'Kamehameha',
+      description: 'Pancaran sinar energi dahsyat. Tembakkan balok energi lurus dari jarak jauh!',
+    },
     toy_hammer: {
-      name: 'Palu Mainan',
-      description: 'Palu plastik warna-warni yang menghasilkan bunyi pegas kartun lucu.',
+      name: 'Rasengan',
+      description: 'Bola energi chakra spiral biru berkecepatan tinggi. Hantamkan ke tubuh monster!',
     },
     electric_fan: {
-      name: 'Kipas Angin',
-      description: 'Kipas angin meja tua yang berat. Ayunan canggung dengan dentuman unik.',
+      name: 'Kamehameha',
+      description: 'Pancaran sinar energi dahsyat. Tembakkan balok energi lurus dari jarak jauh!',
     },
   },
   en: {
@@ -428,13 +436,21 @@ const WEAPON_LOCALIZATION: Record<Language, Record<string, WeaponLocalization>> 
       name: 'Giant Spatula',
       description: 'Jumbo stainless kitchen spatula. Slaps monsters squarely on the back.',
     },
+    rasengan: {
+      name: 'Rasengan',
+      description: 'High-speed swirling blue chakra energy sphere. Thrust directly into monsters!',
+    },
+    kamehameha: {
+      name: 'Kamehameha',
+      description: 'Devastating ki energy beam blast. Fires a straight laser beam from long range!',
+    },
     toy_hammer: {
-      name: 'Toy Hammer',
-      description: 'Colorful plastic squeaky toy hammer with funny cartoon spring sounds.',
+      name: 'Rasengan',
+      description: 'High-speed swirling blue chakra energy sphere. Thrust directly into monsters!',
     },
     electric_fan: {
-      name: 'Electric Fan',
-      description: 'Heavy vintage oscillating desk fan. Clunky swing with a unique thud.',
+      name: 'Kamehameha',
+      description: 'Devastating ki energy beam blast. Fires a straight laser beam from long range!',
     },
   },
 };

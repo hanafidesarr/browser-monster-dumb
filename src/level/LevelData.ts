@@ -12,6 +12,7 @@ export type LevelTheme =
   | 'cavern'
   | 'sewer'
   | 'factory'
+  | 'construction'
   | 'hotel'
   | 'subway'
   | 'research_facility'
@@ -21,6 +22,7 @@ export interface WeaponPickupLocation {
   weaponId: WeaponId;
   x: number; // grid coordinate X
   z: number; // grid coordinate Z
+  floor?: number; // Multi-floor elevation level (0 for ground floor)
 }
 
 export interface InteractiveSwitchLocation {
@@ -179,17 +181,31 @@ const LEVEL_5_GRID: number[][] = Array.from({ length: 27 }, (_, z) =>
   })
 );
 
-// 6. LEVEL 6: THE FACTORY (Machinery blocks, conveyor barriers, cargo crates)
-const LEVEL_6_GRID = create21x21Grid((g) => {
-  for (let z = 3; z <= 6; z++) {
-    for (let x = 3; x <= 7; x++) g[z][x] = 1;
-    for (let x = 13; x <= 17; x++) g[z][x] = 1;
-  }
-  for (let z = 14; z <= 17; z++) {
-    for (let x = 3; x <= 7; x++) g[z][x] = 1;
-    for (let x = 13; x <= 17; x++) g[z][x] = 1;
-  }
-});
+// 6. LEVEL 6: THE CONSTRUCTION SITE (Twin Towers, Crane Courtyard, Rebar & Concrete Structural Columns)
+const LEVEL_6_GRID: number[][] = Array.from({ length: 25 }, (_, z) =>
+  Array.from({ length: 25 }, (_, x) => {
+    // Outer perimeter security sheet fence
+    if (x === 0 || x === 24 || z === 0 || z === 24) return 1;
+
+    // Tower A (West Building, x: 2..10, z: 4..20)
+    if ((z === 4 || z === 20) && x >= 2 && x <= 10 && x !== 6) return 1;
+    if (x === 2 && z >= 4 && z <= 20 && z !== 12) return 1;
+    if (x === 10 && z >= 4 && z <= 20 && z !== 12 && z !== 13) return 1;
+
+    // Tower A Internal Structural Columns
+    if ((x === 5 || x === 8) && (z === 8 || z === 16)) return 1;
+
+    // Tower B (East Building, x: 14..22, z: 4..20)
+    if ((z === 4 || z === 20) && x >= 14 && x <= 22 && x !== 18) return 1;
+    if (x === 14 && z >= 4 && z <= 20 && z !== 12 && z !== 13) return 1;
+    if (x === 22 && z >= 4 && z <= 20 && z !== 12) return 1;
+
+    // Tower B Internal Structural Columns
+    if ((x === 16 || x === 19) && (z === 8 || z === 16)) return 1;
+
+    return 0;
+  })
+);
 
 // 7. LEVEL 7: THE HOTEL (Lobby, wing corridors, guest suites)
 const LEVEL_7_GRID = create21x21Grid((g) => {
@@ -461,39 +477,42 @@ export const ALL_LEVELS: LevelDefinition[] = [
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
   },
 
-  // LEVEL 6: THE FACTORY (3 FLOORS)
+  // LEVEL 6: THE CONSTRUCTION SITE (3 FLOORS: Ground Yard, Mezzanine Skybridge, Rooftop Deck)
   {
     id: 6,
-    title: 'THE FACTORY',
-    subtitle: 'SECTOR 06 — INDUSTRIAL ENGINE (3 FLOORS)',
-    description: 'Pabrik industri 3 tingkat dengan catwalk jembatan kayu kokoh. Palu Mainan berdecit menunggu di atas meja kerja!',
+    title: 'PROYEK BANGUNAN ANGKER',
+    subtitle: 'SECTOR 06 — THE CONSTRUCTION SITE (3 FLOORS)',
+    description: 'Area proyek gedung bertingkat yang mangkrak dinaungi tower crane berputar. Ambil Rasengan atau Kamehameha untuk menghajar 1 Genderwo, 1 Kuntilanak & 1 Pocong, lalu seberangi skybridge ke lantai 3!',
     difficultyRating: 6,
-    theme: 'factory',
-    gridWidth: 21,
-    gridHeight: 21,
-    cellSize: 3.8,
-    wallHeight: 5.2,
+    theme: 'construction',
+    monsterType: 'yeti',
+    monsterTypes: ['yeti', 'pocong', 'kunti'],
+    gridWidth: 25,
+    gridHeight: 25,
+    cellSize: 4.0,
+    wallHeight: 4.8,
     grid: LEVEL_6_GRID,
-    playerSpawn: { x: 2, z: 2, rotationY: 0 },
-    monsterSpawn: { x: 4, z: 2, rotationY: 0 },
-    exitDoor: { x: 18, z: 18, normal: { x: 0, z: -1 } },
+    playerSpawn: { x: 6, z: 2, rotationY: 0 },
+    monsterSpawn: { x: 12, z: 18, rotationY: 0 },
+    exitDoor: { x: 20, z: 18, normal: { x: 0, z: -1 }, floor: 2 },
     floorCount: 3,
-    floorHeight: 3.8,
+    floorHeight: 4.8,
     monsterCount: 3,
     ramps: [
-      { fromFloor: 0, toFloor: 1, startCell: { x: 2, z: 10 }, endCell: { x: 2, z: 7 }, isStair: true },
-      { fromFloor: 1, toFloor: 2, startCell: { x: 18, z: 7 }, endCell: { x: 18, z: 10 }, isStair: true },
+      { fromFloor: 0, toFloor: 1, startCell: { x: 3, z: 10 }, endCell: { x: 3, z: 7 }, isStair: true },
+      { fromFloor: 1, toFloor: 2, startCell: { x: 21, z: 7 }, endCell: { x: 21, z: 10 }, isStair: true },
     ],
     bridges: [
-      { id: 'l6_bridge', floor: 1, startCell: { x: 9, z: 13 }, endCell: { x: 9, z: 16 }, type: 'stable' },
+      { id: 'l6_skybridge', floor: 1, startCell: { x: 10, z: 12 }, endCell: { x: 14, z: 12 }, type: 'stable' },
     ],
     weaponPickups: [
-      { weaponId: 'toy_hammer', x: 18, z: 2 },
+      { weaponId: 'rasengan', x: 6, z: 8, floor: 0 },
+      { weaponId: 'kamehameha', x: 18, z: 8, floor: 1 },
     ],
     monsterConfig: {
-      detectionFovDeg: 94,
-      detectionDistance: 11.5,
-      reactionDelaySeconds: 0.60,
+      detectionFovDeg: 95,
+      detectionDistance: 13.0,
+      reactionDelaySeconds: 0.58,
       rearAttackAngleDeg: 175,
       attackDistance: 2.4,
       chaseSpeed: 5.62, // 93.7% of player sprint (6.0)

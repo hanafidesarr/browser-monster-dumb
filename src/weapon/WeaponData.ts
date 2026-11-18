@@ -9,7 +9,9 @@ export type WeaponId =
   | 'broom'
   | 'spatula'
   | 'toy_hammer'
-  | 'electric_fan';
+  | 'electric_fan'
+  | 'rasengan'
+  | 'kamehameha';
 
 export type WeaponSwingType = 'standard' | 'heavy' | 'fast' | 'overhead' | 'throw' | 'shoot';
 
@@ -21,7 +23,9 @@ export type WeaponImpactSound =
   | 'boing'
   | 'fan'
   | 'explosion'
-  | 'gunshot';
+  | 'gunshot'
+  | 'energy_sphere'
+  | 'beam';
 
 export type MonsterReactionType =
   | 'snap'
@@ -115,23 +119,23 @@ export const ALL_WEAPONS: WeaponDefinition[] = [
     monsterReaction: 'surprise',
   },
   {
-    id: 'toy_hammer',
-    name: 'Toy Hammer',
-    nameId: 'Palu Mainan',
-    description: 'Palu plastik warna-warni yang menghasilkan bunyi pegas kartun lucu.',
-    swingDuration: 0.30,
+    id: 'rasengan',
+    name: 'Rasengan',
+    nameId: 'Rasengan',
+    description: 'Bola energi chakra spiral biru berkecepatan tinggi. Hantamkan ke tubuh monster!',
+    swingDuration: 0.32,
     swingType: 'fast',
-    impactSound: 'boing',
+    impactSound: 'energy_sphere',
     monsterReaction: 'wobble',
   },
   {
-    id: 'electric_fan',
-    name: 'Electric Fan',
-    nameId: 'Kipas Angin',
-    description: 'Kipas angin meja tua yang berat. Ayunan canggung dengan dentuman unik.',
-    swingDuration: 0.54,
-    swingType: 'heavy',
-    impactSound: 'fan',
+    id: 'kamehameha',
+    name: 'Kamehameha',
+    nameId: 'Kamehameha',
+    description: 'Pancaran sinar energi dahsyat. Tembakkan balok energi lurus dari jarak jauh!',
+    swingDuration: 0.50,
+    swingType: 'shoot',
+    impactSound: 'beam',
     monsterReaction: 'stagger',
   },
 ];
@@ -144,10 +148,16 @@ export const WEAPON_MAP: Record<WeaponId, WeaponDefinition> = ALL_WEAPONS.reduce
   {} as Record<WeaponId, WeaponDefinition>
 );
 
-// Backward-compatibility aliases for signboard & slipper
+// Backward-compatibility aliases
 if (WEAPON_MAP['grenade']) {
   WEAPON_MAP['signboard'] = WEAPON_MAP['grenade'];
 }
 if (WEAPON_MAP['machine_gun']) {
   WEAPON_MAP['slipper'] = WEAPON_MAP['machine_gun'];
+}
+if (WEAPON_MAP['rasengan']) {
+  WEAPON_MAP['toy_hammer'] = WEAPON_MAP['rasengan'];
+}
+if (WEAPON_MAP['kamehameha']) {
+  WEAPON_MAP['electric_fan'] = WEAPON_MAP['kamehameha'];
 }

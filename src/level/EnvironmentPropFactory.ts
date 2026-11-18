@@ -2544,4 +2544,330 @@ export class EnvironmentPropFactory {
     mesh.renderOrder = 25;
     return mesh;
   }
+
+  // =========================================================================
+  // LEVEL 6 — HIGH-RISE CONSTRUCTION SITE PROPS (Tower Crane, Skybridge, Rebar, Scaffolding)
+  // =========================================================================
+
+  /**
+   * Heavy Industrial Tower Crane (Derek Menara Konstruksi Bergerak)
+   * Returns root group along with rotating jib and gently swinging hook group!
+   */
+  public static createTowerCrane(
+    mastHeight: number = 22.0,
+    jibLength: number = 24.0
+  ): { root: THREE.Group; jib: THREE.Group; hook: THREE.Group } {
+    const root = new THREE.Group();
+    root.name = 'TowerCraneRoot';
+
+    const yellowMat = new THREE.MeshLambertMaterial({ color: 0xf59e0b, roughness: 0.5 });
+    const darkMat = new THREE.MeshLambertMaterial({ color: 0x1f2421, roughness: 0.7 });
+    const concreteMat = new THREE.MeshLambertMaterial({ color: 0x64748b, roughness: 0.8 });
+    const cableMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+    const redLightMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+
+    // 1. Concrete Base Footing Foundation
+    const footing = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.2, 3.6), concreteMat);
+    footing.position.y = 0.6;
+    root.add(footing);
+
+    // 2. Vertical Lattice Mast Tower (4 Corner Steel Chords + Horizontal Ties)
+    const mastGroup = new THREE.Group();
+    const chordGeo = new THREE.BoxGeometry(0.18, mastHeight, 0.18);
+    const hw = 1.1;
+    const chords = [
+      [-hw, -hw],
+      [hw, -hw],
+      [-hw, hw],
+      [hw, hw],
+    ];
+    for (const [cx, cz] of chords) {
+      const col = new THREE.Mesh(chordGeo, yellowMat);
+      col.position.set(cx, mastHeight / 2 + 1.2, cz);
+      mastGroup.add(col);
+    }
+
+    // Horizontal Lattice Braces every 2.4 meters
+    for (let y = 2.4; y < mastHeight + 1.2; y += 2.4) {
+      const tieGeo = new THREE.BoxGeometry(2.3, 0.12, 0.12);
+      const tie1 = new THREE.Mesh(tieGeo, darkMat);
+      tie1.position.set(0, y, hw);
+      const tie2 = new THREE.Mesh(tieGeo, darkMat);
+      tie2.position.set(0, y, -hw);
+      const tie3Geo = new THREE.BoxGeometry(0.12, 0.12, 2.3);
+      const tie3 = new THREE.Mesh(tie3Geo, darkMat);
+      tie3.position.set(hw, y, 0);
+      const tie4 = new THREE.Mesh(tie3Geo, darkMat);
+      tie4.position.set(-hw, y, 0);
+      mastGroup.add(tie1, tie2, tie3, tie4);
+    }
+    root.add(mastGroup);
+
+    // 3. Rotating Slew Ring & Jib Arm Unit (At mastHeight + 1.2m)
+    const jib = new THREE.Group();
+    jib.name = 'CraneJib';
+    jib.position.set(0, mastHeight + 1.2, 0);
+
+    // Operator Cab
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.2, 1.8), yellowMat);
+    cab.position.set(1.4, 1.2, 0);
+    jib.add(cab);
+
+    // Crane Tower Apex Peak (Cathead A-frame)
+    const apexHeight = 5.5;
+    const apex = new THREE.Mesh(new THREE.ConeGeometry(1.4, apexHeight, 4), darkMat);
+    apex.position.set(0, apexHeight / 2, 0);
+    apex.rotation.y = Math.PI / 4;
+    jib.add(apex);
+
+    // Blinking Red Aviation Beacon at Crane Peak
+    const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), redLightMat);
+    beacon.position.set(0, apexHeight + 0.15, 0);
+    const beaconLight = new THREE.PointLight(0xef4444, 2.5, 25.0, 1.2);
+    beaconLight.position.set(0, apexHeight + 0.3, 0);
+    jib.add(beacon);
+    jib.add(beaconLight);
+
+    // Horizontal Forward Jib (Triangular steel truss)
+    const forwardJibGeo = new THREE.BoxGeometry(0.8, 0.8, jibLength);
+    forwardJibGeo.translate(0, 0.5, jibLength / 2);
+    const forwardJib = new THREE.Mesh(forwardJibGeo, yellowMat);
+    jib.add(forwardJib);
+
+    // Rear Counter-Jib (With concrete counterweights)
+    const counterLen = 9.0;
+    const counterJibGeo = new THREE.BoxGeometry(0.8, 0.8, counterLen);
+    counterJibGeo.translate(0, 0.5, -counterLen / 2);
+    const counterJib = new THREE.Mesh(counterJibGeo, yellowMat);
+    jib.add(counterJib);
+
+    const counterWeight = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.8, 3.2), concreteMat);
+    counterWeight.position.set(0, 0.9, -counterLen + 1.8);
+    jib.add(counterWeight);
+
+    // 4. Trolley & Swinging Hook Unit (Positioned out along forward jib at z = 14m)
+    const hook = new THREE.Group();
+    hook.name = 'CraneHook';
+    hook.position.set(0, 0.5, 14.0);
+
+    // Hoist Cable dropping down ~8 meters
+    const cableLen = 8.5;
+    const cableGeo = new THREE.CylinderGeometry(0.02, 0.02, cableLen, 6);
+    cableGeo.translate(0, -cableLen / 2, 0);
+    const cable = new THREE.Mesh(cableGeo, cableMat);
+    hook.add(cable);
+
+    // Cargo Hook Block & Heavy Steel I-Beam suspended at bottom
+    const block = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.6, 0.4), yellowMat);
+    block.position.set(0, -cableLen, 0);
+    hook.add(block);
+
+    // Heavy Suspended Structural Steel Girder (Swinging Cargo)
+    const girder = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 4.8), darkMat);
+    girder.position.set(0, -cableLen - 0.5, 0);
+    hook.add(girder);
+
+    jib.add(hook);
+    root.add(jib);
+
+    return { root, jib, hook };
+  }
+
+  /**
+   * Skybridge Truss Catwalk (Jembatan Rangka Baja Penghubung Antar Gedung)
+   */
+  public static createSkybridgeTruss(width: number, length: number): THREE.Group {
+    const bridge = new THREE.Group();
+    bridge.name = 'SkybridgeTruss';
+
+    const steelMat = new THREE.MeshLambertMaterial({ color: 0x334155, roughness: 0.6 });
+    const deckMat = new THREE.MeshLambertMaterial({ color: 0x475569, roughness: 0.7 });
+    const railMat = new THREE.MeshLambertMaterial({ color: 0xf59e0b, roughness: 0.4 });
+
+    // Corrugated heavy steel deck floor
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(width, 0.22, length), deckMat);
+    deck.position.y = 0.11;
+    bridge.add(deck);
+
+    // Bottom structural support I-beams
+    const beamL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, length), steelMat);
+    beamL.position.set(-width / 2 + 0.12, -0.22, 0);
+    const beamR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, length), steelMat);
+    beamR.position.set(width / 2 - 0.12, -0.22, 0);
+    bridge.add(beamL, beamR);
+
+    // Safety Railings (Yellow caution handrails at y = 1.1m)
+    const postCount = Math.max(3, Math.floor(length / 2.2));
+    for (let i = 0; i <= postCount; i++) {
+      const zPos = -length / 2 + (i / postCount) * length;
+      const postGeo = new THREE.BoxGeometry(0.08, 1.15, 0.08);
+      const postL = new THREE.Mesh(postGeo, railMat);
+      postL.position.set(-width / 2 + 0.08, 0.68, zPos);
+      const postR = new THREE.Mesh(postGeo, railMat);
+      postR.position.set(width / 2 - 0.08, 0.68, zPos);
+      bridge.add(postL, postR);
+    }
+
+    // Top horizontal handrails
+    const railGeo = new THREE.CylinderGeometry(0.035, 0.035, length, 8);
+    railGeo.rotateX(Math.PI / 2);
+    const topRailL = new THREE.Mesh(railGeo, railMat);
+    topRailL.position.set(-width / 2 + 0.08, 1.25, 0);
+    const topRailR = new THREE.Mesh(railGeo, railMat);
+    topRailR.position.set(width / 2 - 0.08, 1.25, 0);
+    bridge.add(topRailL, topRailR);
+
+    // Mid safety bar
+    const midRailL = new THREE.Mesh(railGeo, railMat);
+    midRailL.position.set(-width / 2 + 0.08, 0.65, 0);
+    const midRailR = new THREE.Mesh(railGeo, railMat);
+    midRailR.position.set(width / 2 - 0.08, 0.65, 0);
+    bridge.add(midRailL, midRailR);
+
+    return bridge;
+  }
+
+  /**
+   * Construction Rebar Bundle Stack (Tumpukan Besi Beton Proyek)
+   */
+  public static createRebarStack(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'RebarStack';
+
+    const rebarMat = new THREE.MeshLambertMaterial({ color: 0x4a3b32, roughness: 0.8 }); // Rusted steel
+    const woodMat = new THREE.MeshLambertMaterial({ color: 0x85542b, roughness: 0.7 });
+
+    // Wooden Dunnage Blocks
+    const dunnage1 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.16, 0.22), woodMat);
+    dunnage1.position.set(0, 0.08, -1.2);
+    const dunnage2 = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.16, 0.22), woodMat);
+    dunnage2.position.set(0, 0.08, 1.2);
+    group.add(dunnage1, dunnage2);
+
+    // 24 Corrugated Steel Rebar Bars
+    const barGeo = new THREE.CylinderGeometry(0.035, 0.035, 3.6, 6);
+    barGeo.rotateX(Math.PI / 2);
+
+    for (let row = 0; row < 3; row++) {
+      for (let col = -3; col <= 3; col++) {
+        const bar = new THREE.Mesh(barGeo, rebarMat);
+        bar.position.set(col * 0.14, 0.22 + row * 0.14, (Math.random() - 0.5) * 0.2);
+        group.add(bar);
+      }
+    }
+    return group;
+  }
+
+  /**
+   * Cement Bags on Pallet (Tumpukan Sak Semen Proyek)
+   */
+  public static createCementBagsPallet(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'CementBagsPallet';
+
+    const palletMat = new THREE.MeshLambertMaterial({ color: 0x92613b, roughness: 0.7 });
+    const bagMat = new THREE.MeshLambertMaterial({ color: 0x94a3b8, roughness: 0.9 }); // Gray paper bag
+
+    // Wooden Pallet Base
+    const pallet = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.14, 1.4), palletMat);
+    pallet.position.y = 0.07;
+    group.add(pallet);
+
+    // Stacked Bags of Cement
+    for (let layer = 0; layer < 3; layer++) {
+      for (let bx = -0.32; bx <= 0.32; bx += 0.64) {
+        for (let bz = -0.32; bz <= 0.32; bz += 0.64) {
+          const bag = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.22, 0.55), bagMat);
+          bag.position.set(bx, 0.25 + layer * 0.22, bz);
+          bag.rotation.y = (Math.random() - 0.5) * 0.1;
+          group.add(bag);
+        }
+      }
+    }
+    return group;
+  }
+
+  /**
+   * Dual Halogen Construction Floodlight Tripod (Lampu Sorot Proyek)
+   */
+  public static createConstructionFloodlight(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'ConstructionFloodlight';
+
+    const yellowMat = new THREE.MeshLambertMaterial({ color: 0xf59e0b, roughness: 0.4 });
+    const metalMat = new THREE.MeshLambertMaterial({ color: 0x1e2421, roughness: 0.7 });
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xfffae0 });
+
+    // Tripod Legs
+    for (let i = 0; i < 3; i++) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.4, 6), metalMat);
+      leg.position.set(Math.cos((i * Math.PI * 2) / 3) * 0.4, 0.6, Math.sin((i * Math.PI * 2) / 3) * 0.4);
+      leg.rotation.x = Math.cos((i * Math.PI * 2) / 3) * 0.35;
+      leg.rotation.z = Math.sin((i * Math.PI * 2) / 3) * 0.35;
+      group.add(leg);
+    }
+
+    // Mast Pole
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.2, 8), metalMat);
+    mast.position.y = 1.4;
+    group.add(mast);
+
+    // Crossbar
+    const crossbar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 0.06), yellowMat);
+    crossbar.position.y = 2.4;
+    group.add(crossbar);
+
+    // Dual Halogen Floodlamp Fixtures
+    for (const side of [-0.32, 0.32]) {
+      const box = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.24, 0.22), yellowMat);
+      box.position.set(side, 2.45, 0.08);
+      box.rotation.x = -0.3; // Angled down towards ground
+      group.add(box);
+
+      const bulb = new THREE.Mesh(new THREE.PlaneGeometry(0.28, 0.2), glowMat);
+      bulb.position.set(side, 2.42, 0.2);
+      bulb.rotation.x = -0.3;
+      group.add(bulb);
+    }
+
+    // High-Intensity Illumination Point Light
+    const light = new THREE.PointLight(0xfffae0, 2.4, 16.0, 1.3);
+    light.position.set(0, 2.5, 0.4);
+    group.add(light);
+
+    return group;
+  }
+
+  /**
+   * Pipe Scaffolding Frame (Perancah Pipa Konstruksi)
+   */
+  public static createConstructionScaffolding(width: number = 2.4, height: number = 4.8): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'ConstructionScaffolding';
+
+    const pipeMat = new THREE.MeshLambertMaterial({ color: 0x475569, roughness: 0.5 });
+    const woodMat = new THREE.MeshLambertMaterial({ color: 0x92613b, roughness: 0.7 });
+
+    // Vertical Corner Pipes
+    const hw = width / 2;
+    for (const [x, z] of [
+      [-hw, -0.6],
+      [hw, -0.6],
+      [-hw, 0.6],
+      [hw, 0.6],
+    ]) {
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, height, 8), pipeMat);
+      col.position.set(x, height / 2, z);
+      group.add(col);
+    }
+
+    // Wooden Walkway Planks at mid & top
+    for (const y of [height * 0.5, height]) {
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(width, 0.08, 1.1), woodMat);
+      plank.position.set(0, y, 0);
+      group.add(plank);
+    }
+
+    return group;
+  }
 }

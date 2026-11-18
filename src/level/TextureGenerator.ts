@@ -1964,4 +1964,161 @@ export class TextureGenerator {
     t.wrapT = THREE.RepeatWrapping;
     return this.setPixelated(t);
   }
+
+  // PS1 Construction Site Formwork Concrete Wall (Dinding Beton Cor Proyek Bertingkat)
+  public static createConstructionWallTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Medium industrial slate-gray concrete base
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(0, 0, size, size);
+
+    // Fine concrete aggregate noise
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 26;
+        const r = Math.max(50, Math.min(125, 71 + n));
+        const g = Math.max(60, Math.min(140, 85 + n * 1.05));
+        const b = Math.max(75, Math.min(160, 105 + n * 1.1));
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Horizontal formwork board seams (cetakan kayu bekisting)
+    for (const ySeam of [32, 64, 96]) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+      ctx.fillRect(0, ySeam - 1, size, 2);
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.35)';
+      ctx.fillRect(0, ySeam + 1, size, 1);
+    }
+
+    // Vertical panel joints
+    for (const xJoint of [42, 84]) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.65)';
+      ctx.fillRect(xJoint, 0, 2, size);
+    }
+
+    // Tie-rod circular holes (lubang angkur besi bekisting)
+    const tieHoles = [
+      { x: 21, y: 16 }, { x: 63, y: 16 }, { x: 105, y: 16 },
+      { x: 21, y: 48 }, { x: 63, y: 48 }, { x: 105, y: 48 },
+      { x: 21, y: 80 }, { x: 63, y: 80 }, { x: 105, y: 80 },
+      { x: 21, y: 112 }, { x: 63, y: 112 }, { x: 105, y: 112 },
+    ];
+    for (const h of tieHoles) {
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // Subtle orange surveyor chalk marking
+    ctx.strokeStyle = 'rgba(249, 115, 22, 0.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(35, 100);
+    ctx.lineTo(55, 108);
+    ctx.stroke();
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Construction Site Structural Floor Slab (Lantai Beton Cor Bertulang)
+  public static createConstructionFloorTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Hardened structural slab base
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(0, 0, size, size);
+
+    // Concrete grit & screed texture
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 22;
+        const r = Math.max(38, Math.min(105, 51 + n));
+        const g = Math.max(48, Math.min(120, 65 + n * 1.05));
+        const b = Math.max(62, Math.min(145, 85 + n * 1.1));
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Expansion joint cut lines
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 63, size, 2);
+    ctx.fillRect(63, 0, 2, size);
+
+    // Worksite dust & light scuffs
+    for (let i = 0; i < 5; i++) {
+      const sx = Math.random() * size;
+      const sy = Math.random() * size;
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.25)';
+      ctx.fillRect(sx, sy, 8 + Math.random() * 12, 3);
+    }
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
+
+  // PS1 Construction Yard Outdoor Dirt & Crushed Rock Ground (Tanah & Kerikil Proyek Luar)
+  public static createConstructionGroundTexture(): THREE.CanvasTexture {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+
+    // Heavy compacted dirt & crushed aggregate base
+    ctx.fillStyle = '#292524';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let x = 0; x < size; x += 2) {
+      for (let y = 0; y < size; y += 2) {
+        const n = (Math.random() - 0.5) * 28;
+        const r = Math.max(30, Math.min(85, 41 + n));
+        const g = Math.max(26, Math.min(80, 37 + n * 0.95));
+        const b = Math.max(22, Math.min(75, 36 + n * 0.9));
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+    }
+
+    // Crushed gravel stones scattered
+    for (let i = 0; i < 18; i++) {
+      const gx = Math.random() * size;
+      const gy = Math.random() * size;
+      const stoneTone = 70 + Math.floor(Math.random() * 50);
+      ctx.fillStyle = `rgb(${stoneTone}, ${stoneTone + 2}, ${stoneTone + 4})`;
+      ctx.fillRect(gx, gy, 2 + Math.floor(Math.random() * 3), 2 + Math.floor(Math.random() * 3));
+    }
+
+    // Excavator / Heavy equipment tire tread grooves
+    ctx.fillStyle = 'rgba(12, 10, 9, 0.55)';
+    for (let y = 10; y < size; y += 18) {
+      ctx.fillRect(20, y, 22, 6);
+      ctx.fillRect(80, y, 22, 6);
+    }
+
+    const t = new THREE.CanvasTexture(canvas);
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.RepeatWrapping;
+    return this.setPixelated(t);
+  }
 }

@@ -27,6 +27,16 @@ export class AudioManager {
   private isKuntiChaseActive: boolean = false;
   private lastYetiStepTime: number = 0;
 
+  // Rasengan & Kamehameha Anime Audio Assets
+  private rasenganAudioBuffer: AudioBuffer | null = null;
+  private isRasenganAudioLoading: boolean = false;
+  private activeRasenganSource: AudioBufferSourceNode | null = null;
+  private lastRasenganPlayTime: number = 0;
+  private kamehamehaAudioBuffer: AudioBuffer | null = null;
+  private isKamehamehaAudioLoading: boolean = false;
+  private activeKamehamehaSource: AudioBufferSourceNode | null = null;
+  private lastKamehamehaPlayTime: number = 0;
+
   private constructor() {}
 
   public static getInstance(): AudioManager {
@@ -54,6 +64,8 @@ export class AudioManager {
       this.isInitialized = true;
       this.loadPocongAudio();
       this.loadKuntiAudio();
+      this.loadRasenganAudio();
+      this.loadKamehamehaAudio();
     } catch (e) {
       console.warn('Web Audio not available:', e);
     }
@@ -285,11 +297,21 @@ export class AudioManager {
   }
 
   // Generic or weapon-specific impact sound
-  public playWeaponImpact(sound: 'bat' | 'metallic' | 'slap' | 'wooden' | 'boing' | 'fan' | 'explosion' | 'gunshot'): void {
+  public playWeaponImpact(sound: 'bat' | 'metallic' | 'slap' | 'wooden' | 'boing' | 'fan' | 'explosion' | 'gunshot' | 'energy_sphere' | 'beam'): void {
     if (!this.ctx || !this.sfxGain) return;
     const now = this.ctx.currentTime;
 
     switch (sound) {
+      case 'energy_sphere': {
+        this.playRasenganImpact();
+        break;
+      }
+
+      case 'beam': {
+        this.playKamehamehaImpact();
+        break;
+      }
+
       case 'gunshot': {
         this.playBulletFleshImpact();
         break;
@@ -464,6 +486,128 @@ export class AudioManager {
     }
   }
 
+  // Rasengan Impact: Synthetic chakra blast impact on monster (does NOT replay voice audio)
+  public playRasenganImpact(): void {
+    this.playSyntheticRasengan();
+  }
+
+  public playSyntheticRasengan(): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+    try {
+      // 1. High-frequency swirling chakra whistle & vibrato
+      const whistle = this.ctx.createOscillator();
+      const whistleGain = this.ctx.createGain();
+      whistle.type = 'sawtooth';
+      whistle.frequency.setValueAtTime(650, now);
+      whistle.frequency.exponentialRampToValueAtTime(1450, now + 0.12);
+      whistle.frequency.exponentialRampToValueAtTime(320, now + 0.38);
+
+      whistleGain.gain.setValueAtTime(0.7, now);
+      whistleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+      whistle.connect(whistleGain);
+      whistleGain.connect(this.sfxGain);
+      whistle.start(now);
+      whistle.stop(now + 0.44);
+
+      // 2. Heavy Sub-Bass Vortex Implosion & Shockwave
+      const sub = this.ctx.createOscillator();
+      const subGain = this.ctx.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(120, now);
+      sub.frequency.exponentialRampToValueAtTime(36, now + 0.35);
+
+      subGain.gain.setValueAtTime(0.9, now);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      sub.connect(subGain);
+      subGain.connect(this.sfxGain);
+      sub.start(now);
+      sub.stop(now + 0.42);
+
+      // 3. Rushing Chakra Wind Burst
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.35);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.25));
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1200, now);
+      filter.frequency.exponentialRampToValueAtTime(400, now + 0.35);
+      filter.Q.setValueAtTime(3.0, now);
+
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.8, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(this.sfxGain);
+      noise.start(now);
+    } catch (_) {}
+  }
+
+  // Kamehameha Impact & Beam Blast: Synthetic energy detonation on monster (does NOT replay voice audio)
+  public playKamehamehaImpact(): void {
+    this.playSyntheticKamehameha();
+  }
+
+  public playSyntheticKamehameha(): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+    try {
+      // 1. Roaring Ki Beam Laser Surge
+      const osc1 = this.ctx.createOscillator();
+      const osc2 = this.ctx.createOscillator();
+      const beamGain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(180, now);
+      osc1.frequency.linearRampToValueAtTime(95, now + 0.55);
+
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(120, now);
+      osc2.frequency.linearRampToValueAtTime(55, now + 0.55);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(950, now);
+      filter.frequency.exponentialRampToValueAtTime(280, now + 0.55);
+      filter.Q.setValueAtTime(4.0, now);
+
+      beamGain.gain.setValueAtTime(0.95, now);
+      beamGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(beamGain);
+      beamGain.connect(this.sfxGain);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.62);
+      osc2.stop(now + 0.62);
+
+      // 2. Deep Sub-Bass Detonation
+      const sub = this.ctx.createOscillator();
+      const subGain = this.ctx.createGain();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(95, now);
+      sub.frequency.exponentialRampToValueAtTime(28, now + 0.5);
+
+      subGain.gain.setValueAtTime(0.85, now);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.52);
+      sub.connect(subGain);
+      subGain.connect(this.sfxGain);
+      sub.start(now);
+      sub.stop(now + 0.54);
+    } catch (_) {}
+  }
+
   // Weapon Pickup Chime (Joyful ascending 3-note retro jingle)
   public playPickupWeapon(): void {
     if (!this.ctx || !this.sfxGain) return;
@@ -550,6 +694,172 @@ export class AudioManager {
 
     // Graceful fallback to synthesized monster scream if audio buffer is not ready or failed
     this.playSyntheticMonsterScream();
+  }
+
+  // Load Naruto Rasengan audio asset (naruto-rasengan.mp3)
+  public async loadRasenganAudio(): Promise<void> {
+    if (this.rasenganAudioBuffer || this.isRasenganAudioLoading) return;
+    this.isRasenganAudioLoading = true;
+
+    const candidateUrls = [
+      './audio/naruto-rasengan.mp3',
+      './naruto-rasengan.mp3',
+      '/audio/naruto-rasengan.mp3',
+      '/naruto-rasengan.mp3',
+    ];
+
+    for (const url of candidateUrls) {
+      try {
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const ab = await resp.arrayBuffer();
+          if (!this.ctx) this.init();
+          if (this.ctx) {
+            this.rasenganAudioBuffer = await this.ctx.decodeAudioData(ab);
+            this.isRasenganAudioLoading = false;
+            return;
+          }
+        }
+      } catch (_) {
+        // Fallback to next candidate path
+      }
+    }
+    this.isRasenganAudioLoading = false;
+  }
+
+  // Play Naruto Rasengan audio (naruto-rasengan.mp3)
+  public playRasenganAudio(): void {
+    if (!this.ctx || !this.sfxGain) {
+      this.init();
+      if (!this.ctx || !this.sfxGain) return;
+    }
+    this.resume();
+
+    const now = this.ctx.currentTime;
+    if (this.lastRasenganPlayTime > 0 && now - this.lastRasenganPlayTime < 1.8) {
+      return; // Debounce duplicate triggers
+    }
+    this.lastRasenganPlayTime = now;
+    this.stopRasenganAudio();
+
+    if (this.rasenganAudioBuffer) {
+      try {
+        const source = this.ctx.createBufferSource();
+        source.buffer = this.rasenganAudioBuffer;
+
+        const gainNode = this.ctx.createGain();
+        gainNode.gain.setValueAtTime(1.15, now);
+
+        source.connect(gainNode);
+        gainNode.connect(this.sfxGain);
+        source.onended = () => {
+          if (this.activeRasenganSource === source) {
+            this.activeRasenganSource = null;
+          }
+        };
+        this.activeRasenganSource = source;
+        source.start(now);
+        return;
+      } catch (err) {
+        console.warn('Error playing rasengan audio buffer:', err);
+      }
+    }
+
+    // Fallback procedural sound if buffer not ready
+    this.playSyntheticRasengan();
+  }
+
+  public stopRasenganAudio(): void {
+    if (this.activeRasenganSource) {
+      try {
+        this.activeRasenganSource.stop();
+        this.activeRasenganSource.disconnect();
+      } catch (_) {}
+      this.activeRasenganSource = null;
+    }
+  }
+
+  // Load Dragon Ball Kamehameha audio asset (kamehameha.mp3)
+  public async loadKamehamehaAudio(): Promise<void> {
+    if (this.kamehamehaAudioBuffer || this.isKamehamehaAudioLoading) return;
+    this.isKamehamehaAudioLoading = true;
+
+    const candidateUrls = [
+      './audio/kamehameha.mp3',
+      './kamehameha.mp3',
+      '/audio/kamehameha.mp3',
+      '/kamehameha.mp3',
+    ];
+
+    for (const url of candidateUrls) {
+      try {
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const ab = await resp.arrayBuffer();
+          if (!this.ctx) this.init();
+          if (this.ctx) {
+            this.kamehamehaAudioBuffer = await this.ctx.decodeAudioData(ab);
+            this.isKamehamehaAudioLoading = false;
+            return;
+          }
+        }
+      } catch (_) {
+        // Fallback to next candidate path
+      }
+    }
+    this.isKamehamehaAudioLoading = false;
+  }
+
+  // Play Dragon Ball Kamehameha audio (kamehameha.mp3)
+  public playKamehamehaAudio(): void {
+    if (!this.ctx || !this.sfxGain) {
+      this.init();
+      if (!this.ctx || !this.sfxGain) return;
+    }
+    this.resume();
+
+    const now = this.ctx.currentTime;
+    if (this.lastKamehamehaPlayTime > 0 && now - this.lastKamehamehaPlayTime < 3.5) {
+      return; // Debounce duplicate triggers
+    }
+    this.lastKamehamehaPlayTime = now;
+    this.stopKamehamehaAudio();
+
+    if (this.kamehamehaAudioBuffer) {
+      try {
+        const source = this.ctx.createBufferSource();
+        source.buffer = this.kamehamehaAudioBuffer;
+
+        const gainNode = this.ctx.createGain();
+        gainNode.gain.setValueAtTime(1.2, now);
+
+        source.connect(gainNode);
+        gainNode.connect(this.sfxGain);
+        source.onended = () => {
+          if (this.activeKamehamehaSource === source) {
+            this.activeKamehamehaSource = null;
+          }
+        };
+        this.activeKamehamehaSource = source;
+        source.start(now);
+        return;
+      } catch (err) {
+        console.warn('Error playing kamehameha audio buffer:', err);
+      }
+    }
+
+    // Fallback procedural sound if buffer not ready
+    this.playSyntheticKamehameha();
+  }
+
+  public stopKamehamehaAudio(): void {
+    if (this.activeKamehamehaSource) {
+      try {
+        this.activeKamehamehaSource.stop();
+        this.activeKamehamehaSource.disconnect();
+      } catch (_) {}
+      this.activeKamehamehaSource = null;
+    }
   }
 
   // Load supplied Kuntilanak audio asset (/Users/hanafidesar/.../kuntilanak (mp3cut.net).mp3)

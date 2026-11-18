@@ -1221,6 +1221,31 @@ html, body {
   }
 }
 
+/* Minimal Sentence Alert (Small, concise text notification) */
+.hud-mini-alert {
+  position: absolute;
+  top: 68px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(14, 17, 24, 0.88);
+  color: #fef08a;
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7);
+  padding: 5px 16px;
+  border-radius: 4px;
+  font-family: var(--font-retro);
+  font-size: 13px;
+  letter-spacing: 0.8px;
+  text-shadow: 1px 1px 2px #000;
+  pointer-events: none;
+  z-index: 55;
+  white-space: nowrap;
+}
+
+.hud-mini-alert.hidden {
+  display: none !important;
+}
+
 /* ==========================================================================
    DESKTOP & SCREEN ATTACK PROMPT BANNER
    ========================================================================== */
@@ -1238,6 +1263,17 @@ html, body {
   z-index: 22;
   box-shadow: 0 0 25px rgba(230, 57, 70, 0.8), inset 0 0 10px rgba(255, 255, 255, 0.3);
   animation: prompt-pulse 0.7s infinite alternate ease-in-out;
+}
+
+.attack-prompt-banner.warning-prompt {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 25px rgba(245, 158, 11, 0.85), inset 0 0 10px rgba(255, 255, 255, 0.3) !important;
+  animation: none !important;
+}
+
+.attack-prompt-banner.warning-prompt .prompt-title {
+  color: #fef08a !important;
+  text-shadow: 0 0 12px rgba(245, 158, 11, 0.9) !important;
 }
 
 .attack-prompt-banner .prompt-icon {
