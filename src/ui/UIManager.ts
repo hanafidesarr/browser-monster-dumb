@@ -219,8 +219,14 @@ export class UIManager {
     this.overviewLevelTitle.textContent = `LEVEL ${level.id} — ${lvlInfo.title}`;
     const missionDesc = document.getElementById('overview-mission-desc');
     if (missionDesc) {
-      const isKunti = level.monsterType === 'kunti' || level.id === 2;
-      const monsterName = isKunti ? loc.t('monster.kunti') : loc.t('monster.pocong');
+      let monsterName = loc.t('monster.pocong');
+      if (level.monsterTypes && level.monsterTypes.length > 0) {
+        monsterName = level.monsterTypes.map((t) => loc.t(`monster.${t}`)).join(' & ');
+      } else if (level.monsterType === 'kunti' || level.id === 2) {
+        monsterName = loc.t('monster.kunti');
+      } else if (level.monsterType === 'yeti') {
+        monsterName = loc.t('monster.yeti');
+      }
       missionDesc.innerHTML = loc.t('overview.mission', monsterName);
     }
     this.populateWeaponSelection();
@@ -887,8 +893,26 @@ export class UIManager {
       const isUnlocked = save.isLevelUnlocked(level.id);
       const isCompleted = save.isLevelCompleted(level.id);
       const monsterType = level.monsterType || (level.id === 2 ? 'kunti' : 'pocong');
-      const monsterName = monsterType === 'kunti' ? loc.t('monster.kunti') : loc.t('monster.pocong');
+      let monsterName = loc.t('monster.pocong');
+      let monsterBadgeText = '';
+      if (level.monsterTypes && level.monsterTypes.length > 0) {
+        monsterName = level.monsterTypes.map((t) => loc.t(`monster.${t}`)).join(' & ');
+        const counts: Record<string, number> = {};
+        for (const t of level.monsterTypes) {
+          counts[t] = (counts[t] || 0) + 1;
+        }
+        monsterBadgeText = Object.entries(counts)
+          .map(([t, cnt]) => `${cnt} ${loc.t(`monster.${t}`)}`)
+          .join(' & ');
+      } else if (monsterType === 'kunti') {
+        monsterName = loc.t('monster.kunti');
+      } else if (monsterType === 'yeti') {
+        monsterName = loc.t('monster.yeti');
+      }
       const monsterCount = level.monsterCount || 1;
+      if (!monsterBadgeText) {
+        monsterBadgeText = `${monsterCount} ${monsterName}`;
+      }
       const lvlInfo = loc.getLevelInfo(level.id);
       const floorLabel = lang === 'id' ? 'Lantai' : (level.floorCount && level.floorCount > 1 ? 'Floors' : 'Floor');
 
@@ -907,9 +931,9 @@ export class UIManager {
         <div class="level-number">LEVEL ${level.id.toString().padStart(2, '0')}</div>
         <div class="level-name">${lvlInfo.title}</div>
         <div class="level-meta-row">
-          <span class="level-monster-badge" title="${monsterCount} ${monsterName}">
+          <span class="level-monster-badge" title="${monsterBadgeText}">
             <span class="monster-icon">&#128123;</span>
-            <span class="monster-count-text">${monsterCount} ${monsterName}</span>
+            <span class="monster-count-text">${monsterBadgeText}</span>
           </span>
           <span class="level-floor-badge">&#127970; ${level.floorCount || 1} ${floorLabel}</span>
         </div>

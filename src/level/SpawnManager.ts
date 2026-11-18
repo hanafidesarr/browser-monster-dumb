@@ -133,10 +133,10 @@ export class SpawnManager {
         { x: 3, z: 6, floor: 0, rotationY: Math.PI / 2 },
       ],
       monsterCandidates: [
-        { x: 13, z: 13, floor: 0, rotationY: 0 }, // Center sacred banyan tree
-        { x: 20, z: 9, floor: 0, rotationY: -Math.PI / 2 }, // East kijing grave cluster
-        { x: 9, z: 19, floor: 0, rotationY: Math.PI / 2 }, // South earthen grave cluster
-        { x: 19, z: 19, floor: 0, rotationY: 0 }, // South-east cemetery sector
+        { x: 13, z: 13, floor: 0, rotationY: 0 }, // Center sacred banyan tree (Kuntilanak banyan tree)
+        { x: 12, z: 8, floor: 0, rotationY: -Math.PI / 4 }, // Central cemetery avenue (Genderwo prominent stance)
+        { x: 15, z: 16, floor: 0, rotationY: -Math.PI / 2 }, // South-east grave avenue
+        { x: 10, z: 15, floor: 0, rotationY: Math.PI / 3 }, // Caretaker path approach
       ],
       exitCandidates: [
         { x: 24, z: 24, floor: 0, rotationY: 0 }, // North-east rusty cemetery exit gate
@@ -427,7 +427,11 @@ export class SpawnManager {
       const maxAttempts = 35;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const pCandidates = shuffle(config.playerCandidates);
-        const mCandidates = shuffle(config.monsterCandidates);
+        // For Level 4: Candidate 0 (banyan tree) is reserved for Kuntilanak (monster 0),
+        // while remaining candidates are shuffled for Genderwo (monster 1)
+        const mCandidates = level.id === 4 && config.monsterCandidates.length > 1
+          ? [config.monsterCandidates[0], ...shuffle(config.monsterCandidates.slice(1))]
+          : shuffle(config.monsterCandidates);
         const eCandidates = shuffle(config.exitCandidates);
 
         // Pick player candidate

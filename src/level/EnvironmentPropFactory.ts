@@ -1473,7 +1473,8 @@ export class EnvironmentPropFactory {
   public static createDirectionalArrowDecal(
     dir: 'right' | 'left' | 'up',
     label: string = 'TANGGA / STAIRS',
-    colorType: 'stairs' | 'exit' = 'stairs'
+    colorType: 'stairs' | 'exit' = 'stairs',
+    subLabel?: string
   ): THREE.Group {
     const group = new THREE.Group();
     group.name = 'DirectionalArrowDecal';
@@ -1486,84 +1487,114 @@ export class EnvironmentPropFactory {
     }
 
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 128;
+    canvas.width = 512;
+    canvas.height = 256;
     const ctx = canvas.getContext('2d')!;
 
     // Transparent background
-    ctx.clearRect(0, 0, 256, 128);
+    ctx.clearRect(0, 0, 512, 256);
 
     // Grunge stencil spray background
     const isExit = colorType === 'exit';
-    const haloGrad = ctx.createRadialGradient(128, 64, 10, 128, 64, 120);
+    const haloGrad = ctx.createRadialGradient(256, 128, 20, 256, 128, 240);
     if (isExit) {
-      haloGrad.addColorStop(0, 'rgba(5, 35, 15, 0.88)');
-      haloGrad.addColorStop(0.7, 'rgba(5, 30, 15, 0.45)');
+      haloGrad.addColorStop(0, 'rgba(5, 38, 18, 0.92)');
+      haloGrad.addColorStop(0.65, 'rgba(5, 30, 15, 0.5)');
       haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     } else {
-      haloGrad.addColorStop(0, 'rgba(15, 20, 25, 0.8)');
-      haloGrad.addColorStop(0.7, 'rgba(15, 20, 25, 0.4)');
+      haloGrad.addColorStop(0, 'rgba(15, 20, 25, 0.88)');
+      haloGrad.addColorStop(0.65, 'rgba(15, 20, 25, 0.45)');
       haloGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     }
     ctx.fillStyle = haloGrad;
-    ctx.fillRect(0, 0, 256, 128);
+    ctx.fillRect(0, 0, 512, 256);
+
+    // Parse primary (Indonesian) & secondary (English) labels
+    let primaryText = label;
+    let secondaryText = subLabel || '';
+    if (!secondaryText) {
+      if (label.includes('\n')) {
+        const parts = label.split('\n');
+        primaryText = parts[0].trim();
+        secondaryText = parts[1].trim();
+      } else if (label.includes(' / ')) {
+        const parts = label.split(' / ');
+        primaryText = parts[0].trim();
+        secondaryText = parts[1].trim();
+      }
+    }
 
     // Phosphorescent paint color (Stairs: pale warm chalk | Exit: vivid emergency emerald phosphor)
     const arrowColor = isExit ? '#4ade80' : '#fffae0';
-    const textColor = isExit ? '#86efac' : '#fff4b8';
+    const primaryColor = isExit ? '#86efac' : '#fff4b8';
+    const secondaryColor = isExit ? '#bbf7d0' : '#fde68a';
 
     ctx.fillStyle = arrowColor;
     ctx.strokeStyle = arrowColor;
-    ctx.lineWidth = 11;
+    ctx.lineWidth = 14;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // Draw arrow
+    // Draw directional arrow
     if (dir === 'right') {
       ctx.beginPath();
-      ctx.moveTo(35, 54);
-      ctx.lineTo(205, 54);
+      ctx.moveTo(70, 75);
+      ctx.lineTo(410, 75);
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(155, 24);
-      ctx.lineTo(215, 54);
-      ctx.lineTo(155, 84);
+      ctx.moveTo(330, 25);
+      ctx.lineTo(430, 75);
+      ctx.lineTo(330, 125);
       ctx.stroke();
     } else if (dir === 'left') {
       ctx.beginPath();
-      ctx.moveTo(221, 54);
-      ctx.lineTo(51, 54);
+      ctx.moveTo(442, 75);
+      ctx.lineTo(102, 75);
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(101, 24);
-      ctx.lineTo(41, 54);
-      ctx.lineTo(101, 84);
+      ctx.moveTo(182, 25);
+      ctx.lineTo(82, 75);
+      ctx.lineTo(182, 125);
       ctx.stroke();
     } else {
       // UP
       ctx.beginPath();
-      ctx.moveTo(128, 92);
-      ctx.lineTo(128, 26);
+      ctx.moveTo(256, 115);
+      ctx.lineTo(256, 25);
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(85, 58);
-      ctx.lineTo(128, 20);
-      ctx.lineTo(171, 58);
+      ctx.moveTo(195, 65);
+      ctx.lineTo(256, 20);
+      ctx.lineTo(317, 65);
       ctx.stroke();
     }
 
-    // Label text
-    ctx.font = 'bold 21px "Share Tech Mono", monospace, sans-serif';
+    // Text rendering helper with adaptive font sizing to prevent truncation
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = textColor;
-    if (dir === 'up') {
-      ctx.fillText(label, 128, 112);
+
+    const getFitFont = (text: string, baseSize: number, maxLen: number = 22) => {
+      const size = text.length > maxLen ? Math.max(16, Math.floor(baseSize * (maxLen / text.length))) : baseSize;
+      return `bold ${size}px "Share Tech Mono", monospace, sans-serif`;
+    };
+
+    if (secondaryText) {
+      // Bilingual 2-Line Layout (Indonesian on line 1, English on line 2)
+      ctx.font = getFitFont(primaryText, 28, 22);
+      ctx.fillStyle = primaryColor;
+      ctx.fillText(primaryText, 256, 172);
+
+      ctx.font = getFitFont(secondaryText, 22, 24);
+      ctx.fillStyle = secondaryColor;
+      ctx.fillText(secondaryText, 256, 214);
     } else {
-      ctx.fillText(label, 128, 104);
+      // Single line layout
+      ctx.font = getFitFont(primaryText, 32, 20);
+      ctx.fillStyle = primaryColor;
+      ctx.fillText(primaryText, 256, 185);
     }
 
     const tex = new THREE.CanvasTexture(canvas);
@@ -2156,6 +2187,7 @@ export class EnvironmentPropFactory {
     // Point Light
     const light = new THREE.PointLight(colorHex, 1.8, 9.5, 1.3);
     light.position.set(0, 0, 0.3);
+    if (isRed) light.name = 'BunkerRedPointLight';
     group.add(light);
 
     return group;

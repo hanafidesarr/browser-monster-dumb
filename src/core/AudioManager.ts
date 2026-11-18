@@ -25,6 +25,7 @@ export class AudioManager {
   private kuntiChaseSource: AudioBufferSourceNode | null = null;
   private kuntiChaseGain: GainNode | null = null;
   private isKuntiChaseActive: boolean = false;
+  private lastYetiStepTime: number = 0;
 
   private constructor() {}
 
@@ -656,6 +657,130 @@ export class AudioManager {
       filter.connect(gain);
       gain.connect(this.sfxGain);
       noise.start(now);
+    } catch (_) {}
+  }
+
+  // Yeti heavy bass footstep impact (lumbering stride)
+  public playYetiStep(distance: number): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+    // Heavy lumbering footstep cadence (~0.42s)
+    if (now - this.lastYetiStepTime < 0.42) return;
+    this.lastYetiStepTime = now;
+
+    // Distance attenuation
+    const maxAudibleDist = 32.0;
+    const clampedDist = Math.max(0, Math.min(distance, maxAudibleDist));
+    const distFactor = Math.max(0, 1.0 - clampedDist / maxAudibleDist);
+    if (distFactor <= 0.01) return;
+
+    try {
+      // 1. Deep sub bass footfall thud
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(80, now);
+      osc.frequency.exponentialRampToValueAtTime(32, now + 0.18);
+
+      const stepVol = 0.55 * distFactor;
+      gain.gain.setValueAtTime(stepVol, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+      osc.start(now);
+      osc.stop(now + 0.23);
+
+      // 2. Gravel / dirt crunch impact
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+      const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(260, now);
+
+      const noiseGain = this.ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.35 * distFactor, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+      noise.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(this.sfxGain);
+      noise.start(now);
+    } catch (_) {}
+  }
+
+  // Yeti terrifying monstrous roar (scream / catch)
+  public playYetiRoar(): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+    try {
+      const osc1 = this.ctx.createOscillator();
+      const osc2 = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(140, now);
+      osc1.frequency.exponentialRampToValueAtTime(65, now + 0.8);
+
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(95, now);
+      osc2.frequency.exponentialRampToValueAtTime(45, now + 0.85);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(650, now);
+      filter.frequency.linearRampToValueAtTime(320, now + 0.8);
+      filter.Q.setValueAtTime(4.0, now);
+
+      gain.gain.setValueAtTime(0.7, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.9);
+
+      osc1.connect(filter);
+      osc2.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + 0.92);
+      osc2.stop(now + 0.92);
+    } catch (_) {}
+  }
+
+  // Military Bunker Emergency Klaxon Warning Siren (synthesized with WebAudio)
+  public playBunkerKlaxon(): void {
+    if (!this.ctx || !this.sfxGain || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      // Two-tone military warning klaxon: 520Hz down to 380Hz repeating twice
+      const tones = [
+        { start: 0.0, dur: 0.42, freq1: 520, freq2: 380 },
+        { start: 0.52, dur: 0.55, freq1: 520, freq2: 360 },
+      ];
+      tones.forEach(({ start, dur, freq1, freq2 }) => {
+        const osc = this.ctx!.createOscillator();
+        const gain = this.ctx!.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq1, now + start);
+        osc.frequency.exponentialRampToValueAtTime(freq2, now + start + dur * 0.9);
+
+        gain.gain.setValueAtTime(0.001, now + start);
+        gain.gain.linearRampToValueAtTime(0.38, now + start + 0.04);
+        gain.gain.linearRampToValueAtTime(0.32, now + start + dur * 0.8);
+        gain.gain.linearRampToValueAtTime(0.001, now + start + dur);
+
+        osc.connect(gain);
+        gain.connect(this.sfxGain!);
+        osc.start(now + start);
+        osc.stop(now + start + dur + 0.05);
+      });
     } catch (_) {}
   }
 

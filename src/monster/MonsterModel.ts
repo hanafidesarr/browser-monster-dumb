@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FBXLoader } from '../loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MonsterType } from '../level/LevelData.ts';
 
 export class MonsterModel {
@@ -13,12 +14,16 @@ export class MonsterModel {
   private eyeLight: THREE.PointLight;
   private leftEyeGlow: THREE.Mesh;
   private rightEyeGlow: THREE.Mesh;
+  private headBone: THREE.Object3D | null = null;
+  private kuntiEyeMeshes: THREE.Mesh[] = [];
 
-  // Animation mixer for skinned / animated models (Kunti)
+  // Animation mixer for skinned / animated models (Kunti & Genderwo)
   private mixer: THREE.AnimationMixer | null = null;
   private crawlAction: THREE.AnimationAction | null = null;
+  private walkAction: THREE.AnimationAction | null = null;
   private isSittingEvaluated: boolean = false;
   private crawlAnimAccumulator: number = 0;
+  private walkAnimAccumulator: number = 0;
 
   // Animation states
   public isLoaded: boolean = false;
@@ -27,10 +32,10 @@ export class MonsterModel {
   constructor(monsterType: MonsterType = 'pocong') {
     this.monsterType = monsterType;
     this.group = new THREE.Group();
-    this.group.name = monsterType === 'kunti' ? 'KuntiRoot' : 'PocongRoot';
+    this.group.name = monsterType === 'kunti' ? 'KuntiRoot' : (monsterType === 'yeti' ? 'YetiRoot' : 'PocongRoot');
 
     this.innerGroup = new THREE.Group();
-    this.innerGroup.name = monsterType === 'kunti' ? 'KuntiBody' : 'PocongBody';
+    this.innerGroup.name = monsterType === 'kunti' ? 'KuntiBody' : (monsterType === 'yeti' ? 'YetiBody' : 'PocongBody');
     this.group.add(this.innerGroup);
 
     if (this.monsterType === 'kunti') {
@@ -38,25 +43,48 @@ export class MonsterModel {
       this.placeholderMesh = this.createKuntiPlaceholder();
       this.innerGroup.add(this.placeholderMesh);
 
-      // 2. Sinister Red Eyes (Positioned at head height ~0.48m for crawling posture)
-      const eyeGeo = new THREE.SphereGeometry(0.025, 6, 6);
+      // 2. Sinister Red Eyes (Positioned at head height ~0.48m for crawling placeholder)
+      const eyeGeo = new THREE.SphereGeometry(0.016, 8, 8);
       const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2222 });
 
       this.leftEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
       this.leftEyeGlow.position.set(-0.08, 0.48, 0.58);
-      this.innerGroup.add(this.leftEyeGlow);
+      this.placeholderMesh.add(this.leftEyeGlow);
 
       this.rightEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
       this.rightEyeGlow.position.set(0.08, 0.48, 0.58);
-      this.innerGroup.add(this.rightEyeGlow);
+      this.placeholderMesh.add(this.rightEyeGlow);
 
       // Lightweight soft point light (localized, does not tax surrounding geometry)
       this.eyeLight = new THREE.PointLight(0xff0000, 0.4, 1.8, 2.0);
       this.eyeLight.position.set(0, 0.48, 0.65);
-      this.innerGroup.add(this.eyeLight);
+      this.placeholderMesh.add(this.eyeLight);
 
       // 3. Load KuntiMerangkak.fbx
       this.loadKuntiFBX();
+    } else if (this.monsterType === 'yeti') {
+      // 1. Temporary immediate placeholder for towering Genderwo while GLB is streaming
+      this.placeholderMesh = this.createYetiPlaceholder();
+      this.innerGroup.add(this.placeholderMesh);
+
+      // 2. Menacing Red Eyes (Positioned at Genderwo face/eyes ~2.48m height, 0.78m forward)
+      const eyeGeo = new THREE.SphereGeometry(0.035, 8, 8);
+      const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff1111 });
+
+      this.leftEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
+      this.leftEyeGlow.position.set(-0.14, 2.48, 0.78);
+      this.innerGroup.add(this.leftEyeGlow);
+
+      this.rightEyeGlow = new THREE.Mesh(eyeGeo, eyeMat);
+      this.rightEyeGlow.position.set(0.14, 2.48, 0.78);
+      this.innerGroup.add(this.rightEyeGlow);
+
+      this.eyeLight = new THREE.PointLight(0xff0000, 1.4, 4.5, 1.8);
+      this.eyeLight.position.set(0, 2.48, 0.88);
+      this.innerGroup.add(this.eyeLight);
+
+      // 3. Load genderwo-walking.fbx with Mixamo walk animation
+      this.loadYetiFBX();
     } else {
       // Standard Pocong setup
       this.placeholderMesh = this.createPocongPlaceholder();
@@ -169,8 +197,12 @@ export class MonsterModel {
         fbxLoader.load(
           candidateUrls[idx],
           (fbx: THREE.Group) => {
+            this.kuntiEyeMeshes = [];
             fbx.traverse((child: THREE.Object3D) => {
               if (child instanceof THREE.Mesh) {
+                if (child.name === 'Mesh40' || child.name === 'Mesh41') {
+                  this.kuntiEyeMeshes.push(child);
+                }
                 child.castShadow = true;
                 // Disable shadow reception on mobile skinned mesh to eliminate shadow map sampling overhead
                 child.receiveShadow = false;
@@ -195,12 +227,14 @@ export class MonsterModel {
                     // Only double-side hair/thin planes; body & clothing use hardware FrontSide culling
                     const isThinPart = child.name.toLowerCase().includes('hair') || child.name.toLowerCase().includes('eyelash');
                     const side = isThinPart ? THREE.DoubleSide : THREE.FrontSide;
+                    const isEyeMesh = child.name === 'Mesh40' || child.name === 'Mesh41';
 
                     // Lightweight MeshLambertMaterial replaces expensive Phong/PBR specular shaders
                     return new THREE.MeshLambertMaterial({
                       color: m.color || 0xd0d0d0,
                       map: m.map || null,
                       side: side,
+                      emissive: isEyeMesh ? new THREE.Color(0xff1111) : new THREE.Color(0x000000),
                     });
                   });
                   child.material = Array.isArray(child.material) ? optimizedMats : optimizedMats[0];
@@ -223,6 +257,39 @@ export class MonsterModel {
             fbx.scale.set(1.0, 1.0, 1.0);
             fbx.position.set(0, 0, 0);
 
+            // Re-parent red eye glows and eye light directly to Kuntilanak head bone
+            let headBone: THREE.Object3D | null = null;
+            const m40 = fbx.getObjectByName('Mesh40') as THREE.SkinnedMesh | undefined;
+            if (m40 && m40.skeleton && m40.skeleton.bones) {
+              headBone = m40.skeleton.bones.find((b) => b.name === 'mixamorigHead') || null;
+            }
+            if (!headBone) {
+              fbx.traverse((c) => {
+                if (!headBone && c.name === 'mixamorigHead' && (c as THREE.Bone).isBone) {
+                  headBone = c;
+                }
+              });
+            }
+            this.headBone = headBone;
+
+            if (headBone) {
+              headBone.add(this.leftEyeGlow);
+              headBone.add(this.rightEyeGlow);
+              headBone.add(this.eyeLight);
+
+              // Accurately aligned to Kuntilanak's eye sockets / pupil centers in head bone local space
+              this.leftEyeGlow.position.set(-0.031, 0.102, 0.082);
+              this.rightEyeGlow.position.set(0.022, 0.101, 0.083);
+              this.eyeLight.position.set(-0.005, 0.102, 0.100);
+            } else {
+              this.innerGroup.add(this.leftEyeGlow);
+              this.innerGroup.add(this.rightEyeGlow);
+              this.innerGroup.add(this.eyeLight);
+              this.leftEyeGlow.position.set(-0.08, 0.48, 0.58);
+              this.rightEyeGlow.position.set(0.08, 0.48, 0.58);
+              this.eyeLight.position.set(0, 0.48, 0.65);
+            }
+
             // Remove placeholder and insert FBX model
             if (this.placeholderMesh && this.placeholderMesh.parent) {
               this.innerGroup.remove(this.placeholderMesh);
@@ -231,6 +298,199 @@ export class MonsterModel {
 
             this.fbxRoot = fbx;
             this.innerGroup.add(fbx);
+            this.isSittingEvaluated = false;
+            this.isLoaded = true;
+          },
+          undefined,
+          () => {
+            tryLoad(idx + 1);
+          }
+        );
+      } catch (_) {
+        tryLoad(idx + 1);
+      }
+    };
+
+    tryLoad(0);
+  }
+
+  // Fallback / immediate procedural lumbering Genderwo mesh
+  private createYetiPlaceholder(): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'YetiPlaceholder';
+
+    const furMat = new THREE.MeshLambertMaterial({ color: 0xd8e4ee });
+    const faceMat = new THREE.MeshLambertMaterial({ color: 0x4a5568 });
+    const hornMat = new THREE.MeshLambertMaterial({ color: 0x2d3748 });
+
+    // Massive hunched upper torso
+    const chestGeo = new THREE.BoxGeometry(1.4, 0.9, 0.9);
+    const chest = new THREE.Mesh(chestGeo, furMat);
+    chest.position.set(0, 1.6, 0.15);
+    chest.castShadow = true;
+    group.add(chest);
+
+    // Abdomen & hips
+    const absGeo = new THREE.BoxGeometry(1.1, 0.7, 0.75);
+    const abs = new THREE.Mesh(absGeo, furMat);
+    abs.position.set(0, 0.95, 0.05);
+    abs.castShadow = true;
+    group.add(abs);
+
+    // Head
+    const headGeo = new THREE.BoxGeometry(0.65, 0.55, 0.6);
+    const head = new THREE.Mesh(headGeo, furMat);
+    head.position.set(0, 2.35, 0.45);
+    head.castShadow = true;
+    group.add(head);
+
+    // Dark snout / face plate
+    const snoutGeo = new THREE.BoxGeometry(0.38, 0.28, 0.25);
+    const snout = new THREE.Mesh(snoutGeo, faceMat);
+    snout.position.set(0, 2.35, 0.75);
+    group.add(snout);
+
+    // Horns / beast ears
+    const hornGeo = new THREE.ConeGeometry(0.1, 0.35, 5);
+    const leftHorn = new THREE.Mesh(hornGeo, hornMat);
+    leftHorn.position.set(-0.35, 2.68, 0.45);
+    leftHorn.rotation.z = Math.PI / 6;
+    group.add(leftHorn);
+
+    const rightHorn = new THREE.Mesh(hornGeo, hornMat);
+    rightHorn.position.set(0.35, 2.68, 0.45);
+    rightHorn.rotation.z = -Math.PI / 6;
+    group.add(rightHorn);
+
+    // Heavy arms hanging low
+    const armGeo = new THREE.BoxGeometry(0.35, 1.1, 0.4);
+    const leftArm = new THREE.Mesh(armGeo, furMat);
+    leftArm.position.set(-0.9, 1.35, 0.2);
+    leftArm.rotation.z = Math.PI / 16;
+    group.add(leftArm);
+
+    const rightArm = new THREE.Mesh(armGeo, furMat);
+    rightArm.position.set(0.9, 1.35, 0.2);
+    rightArm.rotation.z = -Math.PI / 16;
+    group.add(rightArm);
+
+    // Sturdy legs
+    const legGeo = new THREE.BoxGeometry(0.42, 0.75, 0.45);
+    const leftLeg = new THREE.Mesh(legGeo, furMat);
+    leftLeg.position.set(-0.4, 0.38, 0);
+    group.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(legGeo, furMat);
+    rightLeg.position.set(0.4, 0.38, 0);
+    group.add(rightLeg);
+
+    return group;
+  }
+
+  // Load genderwo-walking.fbx with FBXLoader and assign textures & embedded Mixamo walk animation
+  private loadYetiFBX(): void {
+    const fbxLoader = new FBXLoader();
+    const texLoader = new THREE.TextureLoader();
+    const yetiTex = texLoader.load('./textures/Yeti2_0.png');
+    // Crucial fix: FBX UV coordinates expect un-flipped texture upload (flipY = false)
+    // Three.js TextureLoader defaults to flipY = true, which caused the texture on Genderwo to map upside down (0.22% match vs 99.93% match).
+    yetiTex.flipY = false;
+    yetiTex.colorSpace = THREE.SRGBColorSpace;
+    yetiTex.minFilter = THREE.NearestFilter;
+    yetiTex.magFilter = THREE.NearestFilter;
+    yetiTex.generateMipmaps = false;
+
+    const candidateUrls = [
+      './models/genderwo-walking.fbx',
+      '/models/genderwo-walking.fbx',
+      './genderwo-walking.fbx',
+      '/genderwo-walking.fbx',
+      'genderwo-walking.fbx',
+      './models/yeti.glb',
+      '/models/yeti.glb',
+    ];
+
+    const tryLoad = (idx: number) => {
+      if (idx >= candidateUrls.length) {
+        console.warn('Could not load genderwo-walking.fbx, retaining procedural genderwo placeholder');
+        return;
+      }
+
+      try {
+        fbxLoader.load(
+          candidateUrls[idx],
+          (fbx: THREE.Group) => {
+            fbx.traverse((child: THREE.Object3D) => {
+              if (child instanceof THREE.Mesh) {
+                child.castShadow = true;
+                child.receiveShadow = false;
+                child.frustumCulled = false;
+                if (child.geometry) {
+                  child.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 1.4, 0), 25);
+                }
+
+                child.material = new THREE.MeshLambertMaterial({
+                  color: 0xffffff,
+                  map: yetiTex,
+                  side: THREE.DoubleSide,
+                });
+              }
+            });
+
+            // Embedded Mixamo walking animation
+            if (fbx.animations && fbx.animations.length > 0) {
+              this.mixer = new THREE.AnimationMixer(fbx);
+              const clip = fbx.animations[0];
+
+              // Convert Root-Motion to In-Place Walk:
+              // Lock mixamorigHips.position Z travel to initial value
+              const hipsTrack = clip.tracks.find((t) => t.name === 'mixamorigHips.position');
+              if (hipsTrack) {
+                const baseZ = hipsTrack.values[2];
+                for (let i = 2; i < hipsTrack.values.length; i += 3) {
+                  hipsTrack.values[i] = baseZ;
+                }
+              }
+
+              this.walkAction = this.mixer.clipAction(clip);
+              this.walkAction.setLoop(THREE.LoopRepeat, Infinity);
+              this.walkAction.play();
+              this.mixer.setTime(0.04);
+            }
+
+            // Scale factor 0.92 gives height ~2.65m, width ~1.76m (large & intimidating, fits through 4m cemetery passages)
+            fbx.scale.set(0.92, 0.92, 0.92);
+            fbx.position.set(0, 0, 0);
+
+            // Re-parent red eye glows and eye light directly into Genderwo mixamorigHead bone
+            let headBone: THREE.Object3D | null = null;
+            fbx.traverse((c) => {
+              if (!headBone && c.name === 'mixamorigHead' && (c as THREE.Bone).isBone) {
+                headBone = c;
+              }
+            });
+            this.headBone = headBone;
+
+            if (headBone) {
+              headBone.add(this.leftEyeGlow);
+              headBone.add(this.rightEyeGlow);
+              headBone.add(this.eyeLight);
+
+              // Accurately aligned to Genderwo eye sockets in head bone local space
+              this.leftEyeGlow.position.set(-0.12, 0.02, 0.28);
+              this.rightEyeGlow.position.set(0.12, 0.02, 0.28);
+              this.eyeLight.position.set(0, 0.02, 0.38);
+            }
+
+            // Remove placeholder and insert FBX model
+            if (this.placeholderMesh && this.placeholderMesh.parent) {
+              this.innerGroup.remove(this.placeholderMesh);
+              this.placeholderMesh = null;
+            }
+
+            this.fbxRoot = fbx;
+            this.innerGroup.add(fbx);
+            this.isSittingEvaluated = false;
             this.isLoaded = true;
           },
           undefined,
@@ -378,6 +638,27 @@ export class MonsterModel {
       this.eyeLight.intensity = eyeIntensity;
       (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff1111);
       (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff1111);
+      for (const m of this.kuntiEyeMeshes) {
+        if (m.material && (m.material as THREE.MeshLambertMaterial).emissive) {
+          (m.material as THREE.MeshLambertMaterial).emissive.setHex(0xbb0000);
+        }
+      }
+      return;
+    }
+
+    if (this.monsterType === 'yeti') {
+      if (this.mixer && !this.isSittingEvaluated) {
+        this.mixer.setTime(0.04);
+        this.isSittingEvaluated = true;
+      }
+      const breathe = Math.sin(time * 1.5) * 0.02;
+      this.innerGroup.position.set(0, breathe, 0);
+      this.innerGroup.rotation.set(0.04, 0, Math.sin(time * 1.0) * 0.015);
+      this.innerGroup.scale.set(1.0 + breathe * 0.15, 1.0 + breathe * 0.35, 1.0 + breathe * 0.15);
+      const eyeIntensity = 0.9 + Math.sin(time * 2.5) * 0.4;
+      this.eyeLight.intensity = eyeIntensity;
+      (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xcc0000);
+      (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xcc0000);
       return;
     }
 
@@ -412,6 +693,13 @@ export class MonsterModel {
       this.innerGroup.rotation.set(rotX - flinch * 0.35, 0, rotZ + (Math.random() - 0.5) * flinch * 0.25);
       this.innerGroup.position.set(0, flinch * 0.1, posZ + flinch * 0.25);
       this.eyeLight.intensity = 3.0;
+      return;
+    }
+
+    if (this.monsterType === 'yeti') {
+      this.innerGroup.position.set((Math.random() - 0.5) * 0.08 * flinch, flinch * 0.08, -flinch * 0.42);
+      this.innerGroup.rotation.set(-flinch * 0.38, (Math.random() - 0.5) * 0.15, 0);
+      this.eyeLight.intensity = 3.2;
       return;
     }
 
@@ -477,6 +765,17 @@ export class MonsterModel {
       return;
     }
 
+    if (this.monsterType === 'yeti') {
+      const shake = (Math.random() - 0.5) * 0.14;
+      this.innerGroup.position.set(shake, 0.06 * Math.sin(p * Math.PI), shake);
+      this.innerGroup.rotation.set(-0.32, (Math.random() - 0.5) * 0.12, 0);
+      const flare = 3.0 + Math.sin(time * 25) * 1.8;
+      this.eyeLight.intensity = flare;
+      (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+      (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+      return;
+    }
+
     this.innerGroup.position.set(jitterX, 0.08 * Math.sin(p * Math.PI), jitterZ);
     this.innerGroup.rotation.set(-0.45, (Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.15);
 
@@ -497,6 +796,14 @@ export class MonsterModel {
       this.innerGroup.rotation.set(0, 0, 0);
       this.innerGroup.scale.set(1.0, 1.0, 1.0);
       this.eyeLight.intensity = 2.2;
+      return;
+    }
+
+    if (this.monsterType === 'yeti') {
+      this.innerGroup.position.set(0, 0, 0);
+      this.innerGroup.rotation.set(0.08, 0, 0);
+      this.innerGroup.scale.set(1.0, 1.0, 1.0);
+      this.eyeLight.intensity = 2.4;
       return;
     }
 
@@ -533,6 +840,36 @@ export class MonsterModel {
     this.eyeLight.intensity = 1.0;
     (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
     (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+    for (const m of this.kuntiEyeMeshes) {
+      if (m.material && (m.material as THREE.MeshLambertMaterial).emissive) {
+        (m.material as THREE.MeshLambertMaterial).emissive.setHex(0xff0000);
+      }
+    }
+  }
+
+  // 5b. WALK (MELANGKAH) — Genderwo Mixamo Walk Animation Loop
+  public applyWalk(dt: number, speed: number): void {
+    this.isSittingEvaluated = false;
+    if (this.mixer) {
+      // mixamo.com clip duration is ~1.167s
+      // Match walking limb cadence to movement speed
+      const animRate = Math.max(0.6, speed / 2.6);
+      this.walkAnimAccumulator += dt;
+      // Throttled skeletal animation update (~33 FPS) to eliminate mobile CPU/GPU bottleneck while maintaining smooth motion
+      if (this.walkAnimAccumulator >= 0.03) {
+        this.mixer.update(this.walkAnimAccumulator * animRate);
+        this.walkAnimAccumulator = 0;
+      }
+    }
+
+    // Heavy menacing predator posture
+    this.innerGroup.position.set(0, 0, 0);
+    this.innerGroup.rotation.set(0.06, 0, 0);
+    this.innerGroup.scale.set(1.0, 1.0, 1.0);
+
+    this.eyeLight.intensity = 1.6;
+    (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+    (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
   }
 
   // 6. HOP (MELONCAT): Pocong Airborne jump animation
@@ -562,6 +899,8 @@ export class MonsterModel {
   public applyRun(time: number, speed: number): void {
     if (this.monsterType === 'kunti') {
       this.applyCrawl(0.016, speed);
+    } else if (this.monsterType === 'yeti') {
+      this.applyWalk(0.016, speed);
     } else {
       const cycle = (time * (speed / 2.8)) % 1.0;
       this.applyHopAnimation(cycle, cycle < 0.7);
@@ -575,6 +914,21 @@ export class MonsterModel {
       this.innerGroup.rotation.set(-0.25, Math.sin(time * 30) * 0.12, 0);
       this.innerGroup.scale.set(1.35, 1.35, 1.35);
       this.eyeLight.intensity = 4.5;
+      (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+      (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
+      for (const m of this.kuntiEyeMeshes) {
+        if (m.material && (m.material as THREE.MeshLambertMaterial).emissive) {
+          (m.material as THREE.MeshLambertMaterial).emissive.setHex(0xff0000);
+        }
+      }
+      return;
+    }
+
+    if (this.monsterType === 'yeti') {
+      this.innerGroup.position.set(0, 0.05, 0.35);
+      this.innerGroup.rotation.set(-0.14, Math.sin(time * 25) * 0.08, 0);
+      this.innerGroup.scale.set(1.15, 1.15, 1.15);
+      this.eyeLight.intensity = 4.8;
       (this.leftEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
       (this.rightEyeGlow.material as THREE.MeshBasicMaterial).color.setHex(0xff0000);
       return;

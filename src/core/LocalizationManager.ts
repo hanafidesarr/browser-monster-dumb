@@ -120,6 +120,7 @@ const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     // Monster names
     'monster.pocong': 'Pocong',
     'monster.kunti': 'Kuntilanak',
+    'monster.yeti': 'Genderwo',
   },
 
   en: {
@@ -235,6 +236,7 @@ const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     // Monster names
     'monster.pocong': 'Pocong',
     'monster.kunti': 'Kuntilanak',
+    'monster.yeti': 'Genderwo',
   },
 };
 
@@ -265,12 +267,12 @@ const LEVEL_LOCALIZATION: Record<Language, Record<number, LevelLocalization>> = 
     4: {
       title: 'PEMAKAMAN BERINGIN KERAMAT',
       subtitle: 'SEKTOR 04 — KUBURAN TUA BERINGIN LEBAT (AREA LUAS)',
-      description: 'Kompleks pemakaman tua yang sangat luas dinaungi pohon beringin raksasa berakar gantung dan nisan kuburan berlumut. Temukan Sapu Ijuk di gubuk kuncen!',
+      description: 'Kompleks pemakaman tua yang sangat luas dinaungi pohon beringin raksasa berakar gantung dan nisan kuburan berlumut. Temukan Sapu Ijuk di gubuk kuncen untuk memukul 1 Kuntilanak & 1 Genderwo!',
     },
     5: {
       title: 'BUNKER MILITER',
       subtitle: 'SEKTOR 05 — BUNKER MILITER BAWAH TANAH (2 LANTAI)',
-      description: 'Bunker militer 2 lantai yang sangat luas. Dinding beton di lantai 1 dan labirin pelat baja lapis baja di lantai 2. Masuki gerbang baja dari parit luar, temukan tangga darurat untuk mencapai pintu evakuasi di lantai 2!',
+      description: 'Bunker militer 2 lantai yang sangat luas. Masuki gerbang baja dari parit luar, ambil Spatula, dan serang 2 Kuntilanak & 1 Pocong sebelum lari ke pintu evakuasi di lantai 2!',
     },
     6: {
       title: 'PABRIK TERBENGKALAI',
@@ -317,12 +319,12 @@ const LEVEL_LOCALIZATION: Record<Language, Record<number, LevelLocalization>> = 
     4: {
       title: 'THE SACRED CEMETERY',
       subtitle: 'SECTOR 04 — BANYAN GRAVEYARD (EXPANSIVE OUTDOOR)',
-      description: 'A vast ancient Indonesian cemetery shaded by towering banyan trees with hanging aerial roots and mossy tombstones. Find the Broom at the caretaker shack!',
+      description: 'A vast ancient Indonesian cemetery shaded by towering banyan trees with hanging aerial roots and mossy tombstones. Find the Broom at the caretaker shack to strike 1 Kuntilanak & 1 Genderwo!',
     },
     5: {
       title: 'THE MILITARY BUNKER',
       subtitle: 'SECTOR 05 — REINFORCED UNDERGROUND BUNKER (2 FLOORS)',
-      description: 'A massive 2-floor underground military bunker. Reinforced concrete on floor 1 and an armored steel labyrinth on floor 2. Enter from the outdoor trench, find emergency stairwells, and reach the exit vault on floor 2!',
+      description: 'A massive 2-floor underground military bunker. Enter from the outdoor trench, grab the Spatula, and strike 2 Kuntilanaks & 1 Pocong before escaping to the exit vault on floor 2!',
     },
     6: {
       title: 'THE FACTORY',

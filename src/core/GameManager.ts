@@ -302,7 +302,7 @@ export class GameManager {
 
   private setupMonsterCallbacks(m: MonsterController): void {
     const ui = UIManager.getInstance();
-    const monsterName = m.monsterType === 'kunti' ? 'Kuntilanak' : 'Pocong';
+    const monsterName = m.monsterType === 'kunti' ? 'Kuntilanak' : (m.monsterType === 'yeti' ? 'Genderwo' : 'Pocong');
 
     m.onPlayerDetected = () => {
       if (this.state === 'STEALTH') {
@@ -325,7 +325,7 @@ export class GameManager {
       if (this.state !== 'CHASE') {
         this.state = 'CHASE';
         ui.switchToChaseControls();
-        const actionVerb = m.monsterType === 'kunti' ? 'MERANGKAK' : 'MELONCAT';
+        const actionVerb = m.monsterType === 'kunti' ? 'MERANGKAK' : (m.monsterType === 'yeti' ? 'BERLARI' : 'MELONCAT');
         ui.setStatusText(
           `${monsterName.toUpperCase()} ${actionVerb} MENGEJAR! CEPAT LARI KE PINTU KELUAR!`,
           `${monsterName.toUpperCase()} IS CHASING YOU! SPRINT TO THE EXIT DOOR!`
@@ -396,20 +396,27 @@ export class GameManager {
 
     // Setup Monsters with isolated level-specific collision configuration
     const isLevel2 = this.currentLevelDef.id === 2;
-    const monsterType = this.currentLevelDef.monsterType || (isLevel2 ? 'kunti' : 'pocong');
-    if (monsterType === 'kunti') {
-      AudioManager.getInstance().loadKuntiAudio();
-    }
+    const defaultMonsterType = this.currentLevelDef.monsterType || (isLevel2 ? 'kunti' : 'pocong');
     const monsterSpawns = this.levelBuild.monsterWorldSpawns || [this.levelBuild.monsterWorldSpawn];
     for (let i = 0; i < monsterSpawns.length; i++) {
-      const m = new MonsterController(monsterType);
-      m.id = `${monsterType}_${i + 1}`;
+      const mType = (this.currentLevelDef.monsterTypes && this.currentLevelDef.monsterTypes[i])
+        ? this.currentLevelDef.monsterTypes[i]
+        : defaultMonsterType;
+      if (mType === 'kunti') {
+        AudioManager.getInstance().loadKuntiAudio();
+      }
+      const m = new MonsterController(mType);
+      m.id = `${mType}_${i + 1}`;
       this.scene.add(m.group);
       m.setLevel(
         this.currentLevelDef,
         this.pathfinding,
         monsterSpawns[i],
-        this.levelBuild.collisionConfig
+        this.levelBuild.collisionConfig,
+        undefined,
+        undefined,
+        undefined,
+        mType
       );
       this.setupMonsterCallbacks(m);
       this.monsters.push(m);
@@ -422,13 +429,13 @@ export class GameManager {
       this.fpController.setMonsterObstacle(this.monsters[0].position);
     }
 
-    // Ensure exit door is visible in 3D world (with amber warning light until monster is struck)
+    // Exit door stays completely hidden until player strikes/attacks a ghost
     if (this.levelBuild?.exitDoorMesh) {
-      this.levelBuild.exitDoorMesh.visible = true;
+      this.levelBuild.exitDoorMesh.visible = false;
       const doorPointLight = this.levelBuild.exitDoorMesh.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
       if (doorPointLight) {
-        doorPointLight.color.setHex(0xf59e0b); // Amber locked light initially
-        doorPointLight.intensity = 2.4;
+        doorPointLight.color.setHex(0x22c55e); // Green light ready for when it appears
+        doorPointLight.intensity = 3.8;
       }
     }
     if (this.levelBuild?.exitMarker) {
@@ -458,6 +465,22 @@ export class GameManager {
     }
   }
 
+  private getLevelMonsterDisplayName(): string {
+    if (!this.currentLevelDef) return 'POCONG';
+    if (this.currentLevelDef.monsterTypes && this.currentLevelDef.monsterTypes.length > 0) {
+      return this.currentLevelDef.monsterTypes
+        .map((t) => (t === 'kunti' ? 'KUNTILANAK' : t === 'yeti' ? 'GENDERWO' : 'POCONG'))
+        .join(' & ');
+    }
+    if (this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2) {
+      return 'KUNTILANAK';
+    }
+    if (this.currentLevelDef.monsterType === 'yeti') {
+      return 'GENDERWO';
+    }
+    return 'POCONG';
+  }
+
   private getThemeFogColor(): number {
     switch (this.currentLevelDef.theme) {
       case 'banana_garden': return 0x242e29; // Matched to school (Level 2)
@@ -474,6 +497,20 @@ export class GameManager {
       case 'research_facility': return 0x242c33; // Bright cool tone matching Level 2
       case 'nightmare': return 0x382c32; // Bright visible tone matching Level 2
       default: return 0x242e29;
+    }
+  }
+
+  private getThemeFog(fogColor: number): THREE.Fog {
+    switch (this.currentLevelDef?.theme) {
+      case 'cemetery':
+        return new THREE.Fog(fogColor, 20, 75); // Eerie atmospheric graveyard mist
+      case 'labyrinth':
+        return new THREE.Fog(fogColor, 25, 80); // Concrete underground tension
+      case 'school':
+        return new THREE.Fog(fogColor, 30, 95);
+      case 'banana_garden':
+      default:
+        return new THREE.Fog(fogColor, 40, 125);
     }
   }
 
@@ -543,7 +580,7 @@ export class GameManager {
     // Direct instant handover to First Person Controller!
     const fogColor = this.getThemeFogColor();
     this.scene.background = new THREE.Color(fogColor);
-    this.scene.fog = new THREE.Fog(fogColor, 40, 130);
+    this.scene.fog = this.getThemeFog(fogColor);
     this.activeCamera = this.fpController.camera;
     this.fpController.setEnabled(true);
     InputManager.getInstance().setOverviewMode(false);
@@ -559,8 +596,7 @@ export class GameManager {
     const actionVerb = isGrenade ? 'LEMPAR' : (isMachineGun ? 'TEMBAK' : 'PUKUL');
     UIManager.getInstance().showGameplayHUD(actionVerb);
 
-    const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
-    const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
+    const monsterName = this.getLevelMonsterDisplayName();
     const weaponDef = this.fpController.weapon.getWeaponDef();
     const weaponName = weaponDef ? weaponDef.name.toUpperCase() : 'SENJATA';
     if (this.currentLevelDef.exitLockedInitially) {
@@ -686,8 +722,16 @@ export class GameManager {
         }
       }
       this.triggerScreenShake(0.4);
-      const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
-      if (this.currentLevelDef.exitLockedInitially) {
+      if (this.currentLevelDef.theme === 'bunker') {
+        AudioManager.getInstance().playBunkerKlaxon();
+      }
+      const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : (hitMonster.monsterType === 'yeti' ? 'GENDERWO' : 'POCONG');
+      if (this.currentLevelDef.theme === 'bunker') {
+        UIManager.getInstance().setStatusText(
+          `BUNKER CODE RED LOCKDOWN! SEMUA HANTU MENGEJAR! CEPAT LARI KE PINTU EVAKUASI LANTAI 2!`,
+          `BUNKER CODE RED LOCKDOWN! ALL GHOSTS CHASING! SPRINT TO THE FLOOR 2 EXIT VAULT!`
+        );
+      } else if (this.currentLevelDef.exitLockedInitially) {
         UIManager.getInstance().setStatusText(
           `${monsterName} TERSTUN! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`,
           `${monsterName} IS STUNNED! ACTIVATE ALL TERMINALS TO UNLOCK THE EXIT DOOR!`
@@ -704,8 +748,7 @@ export class GameManager {
     // Swung into air or obstructed/different floor - allow swinging again
     const swung = this.fpController.weapon.swing(() => {});
     if (swung) {
-      const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
-      const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
+      const monsterName = this.getLevelMonsterDisplayName();
       UIManager.getInstance().setStatusText(
         `DEKATI ${monsterName} DAN PUKUL TUBUHNYA!`,
         `APPROACH ${monsterName} AND STRIKE IT!`
@@ -751,7 +794,7 @@ export class GameManager {
       const verticalDist = Math.abs(playerFeetY - m.position.y);
       if (verticalDist > 2.2) continue;
 
-      const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : 0.9;
+      const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : (m.monsterType === 'yeti' ? 1.4 : 0.9);
       const monsterCenter = new THREE.Vector3(m.position.x, m.position.y + monsterCenterY, m.position.z);
       const distFromPlayer = this.fpController.position.distanceTo(monsterCenter);
 
@@ -818,9 +861,17 @@ export class GameManager {
         }
       }
       this.triggerScreenShake(0.5);
+      if (this.currentLevelDef.theme === 'bunker') {
+        AudioManager.getInstance().playBunkerKlaxon();
+      }
 
-      const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
-      if (this.currentLevelDef.exitLockedInitially) {
+      const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : (hitMonster.monsterType === 'yeti' ? 'GENDERWO' : 'POCONG');
+      if (this.currentLevelDef.theme === 'bunker') {
+        UIManager.getInstance().setStatusText(
+          `BUNKER CODE RED LOCKDOWN! SEMUA HANTU MENGEJAR! CEPAT LARI KE PINTU EVAKUASI LANTAI 2!`,
+          `BUNKER CODE RED LOCKDOWN! ALL GHOSTS CHASING! SPRINT TO THE FLOOR 2 EXIT VAULT!`
+        );
+      } else if (this.currentLevelDef.exitLockedInitially) {
         UIManager.getInstance().setStatusText(
           `${monsterName} TERKENA TEMBAKAN! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`,
           `${monsterName} WAS SHOT! ACTIVATE ALL TERMINALS TO UNLOCK THE EXIT DOOR!`
@@ -867,7 +918,7 @@ export class GameManager {
     // Check if any sleeping monster is within blast radius (4.6m horizontal, 3.2m vertical for wall-clinging height)
     let hitMonster: MonsterController | null = null;
     for (const m of this.monsters) {
-      const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : 0.9;
+      const monsterCenterY = m.monsterType === 'kunti' ? 0.45 : (m.monsterType === 'yeti' ? 1.4 : 0.9);
       const monsterCenter = new THREE.Vector3(m.position.x, m.position.y + monsterCenterY, m.position.z);
       const hDist = Math.hypot(impactPos.x - monsterCenter.x, impactPos.z - monsterCenter.z);
       const vDist = Math.abs(impactPos.y - monsterCenter.y);
@@ -910,9 +961,17 @@ export class GameManager {
         }
       }
       this.triggerScreenShake(0.65);
+      if (this.currentLevelDef.theme === 'bunker') {
+        AudioManager.getInstance().playBunkerKlaxon();
+      }
 
-      const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
-      if (this.currentLevelDef.exitLockedInitially) {
+      const monsterName = hitMonster.monsterType === 'kunti' ? 'KUNTILANAK' : (hitMonster.monsterType === 'yeti' ? 'GENDERWO' : 'POCONG');
+      if (this.currentLevelDef.theme === 'bunker') {
+        UIManager.getInstance().setStatusText(
+          `BUNKER CODE RED LOCKDOWN! SEMUA HANTU MENGEJAR! CEPAT LARI KE PINTU EVAKUASI LANTAI 2!`,
+          `BUNKER CODE RED LOCKDOWN! ALL GHOSTS CHASING! SPRINT TO THE FLOOR 2 EXIT VAULT!`
+        );
+      } else if (this.currentLevelDef.exitLockedInitially) {
         UIManager.getInstance().setStatusText(
           `${monsterName} TERKENA LEDAKAN GRANAT! AKTIFKAN SEMUA TERMINAL UNTUK MEMBUKA PINTU EXIT!`,
           `${monsterName} WAS HIT BY GRENADE! ACTIVATE ALL TERMINALS TO UNLOCK THE EXIT DOOR!`
@@ -929,8 +988,7 @@ export class GameManager {
       this.fpController.weapon.reset();
       this.triggerScreenShake(0.25);
 
-      const isKunti = this.currentLevelDef.monsterType === 'kunti' || this.currentLevelDef.id === 2;
-      const monsterName = isKunti ? 'KUNTILANAK' : 'POCONG';
+      const monsterName = this.getLevelMonsterDisplayName();
       UIManager.getInstance().setStatusText(
         `LEMPARAN MELESET! ARAHKAN KE DEKAT ${monsterName} DAN LEMPAR LAGI!`,
         `GRENADE MISSED! THROW NEAR ${monsterName} AND TRY AGAIN!`
@@ -954,7 +1012,9 @@ export class GameManager {
   private handlePlayerCaught(m?: MonsterController, reason: string = 'Monster berhasil menangkapmu!', enReason?: string): void {
     if (this.state === 'GAME_OVER' || this.state === 'JUMPSCARE' || this.isJumpscareActive) return;
 
-    const monsterName = (this.currentLevelDef?.id === 2 || m?.monsterType === 'kunti') ? 'Kuntilanak' : 'Pocong';
+    const monsterName = (this.currentLevelDef?.id === 2 || m?.monsterType === 'kunti')
+      ? 'Kuntilanak'
+      : (m?.monsterType === 'yeti' ? 'Genderwo' : 'Pocong');
     const effectiveReason = reason.includes('Pocong') || reason.includes('Monster')
       ? `${monsterName} berhasil menangkapmu!`
       : reason;
@@ -995,6 +1055,8 @@ export class GameManager {
     // 2. Play monster scream audio & stinger
     if (isKunti) {
       AudioManager.getInstance().playKuntiSound(true);
+    } else if (catchingMonster?.monsterType === 'yeti') {
+      AudioManager.getInstance().playYetiRoar();
     } else {
       AudioManager.getInstance().playPocongScream(true);
     }
@@ -1022,8 +1084,10 @@ export class GameManager {
       catchingMonster.position.copy(camPos).addScaledVector(forward, 0.68);
 
       // Vertical offset so eyes and face are precisely at camPos.y
-      if (isKunti) {
+      if (catchingMonster.monsterType === 'kunti') {
         catchingMonster.position.y = camPos.y - 0.55;
+      } else if (catchingMonster.monsterType === 'yeti') {
+        catchingMonster.position.y = camPos.y - 2.15;
       } else {
         catchingMonster.position.y = camPos.y - 1.62;
       }
@@ -1258,7 +1322,7 @@ export class GameManager {
         }
 
         const targetMonster = nearestAttackableMonster || nearestMonster;
-        const targetMonsterName = targetMonster?.monsterType === 'kunti' ? 'Kuntilanak' : 'Pocong';
+        const targetMonsterName = targetMonster?.monsterType === 'kunti' ? 'Kuntilanak' : (targetMonster?.monsterType === 'yeti' ? 'Genderwo' : 'Pocong');
         UIManager.getInstance().setAttackPromptVisible(canAttackAny, targetMonsterName, actionVerb);
         UIManager.getInstance().setDetectionMeter(0);
 
@@ -1283,7 +1347,7 @@ export class GameManager {
           );
           const verticalDiff = Math.abs(m.position.y - (this.fpController.position.y - 1.65));
           if (m.stateTime > MonsterController.CATCH_GRACE_PERIOD && horizontalDist <= 1.5 && verticalDiff <= 1.5) {
-            const mName = m.monsterType === 'kunti' ? 'Kuntilanak' : 'Pocong';
+            const mName = m.monsterType === 'kunti' ? 'Kuntilanak' : (m.monsterType === 'yeti' ? 'Genderwo' : 'Pocong');
             this.handlePlayerCaught(m, `${mName} berhasil menangkapmu!`);
             return;
           }
@@ -1309,7 +1373,7 @@ export class GameManager {
           this.levelBuild.exitDoorMesh?.visible &&
           this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)
         ) {
-          const mName = this.currentLevelDef.monsterType === 'kunti' ? 'KUNTILANAK' : 'POCONG';
+          const mName = this.getLevelMonsterDisplayName();
           const fName = this.currentLevelDef.id === 3 ? 'LANTAI 1' : 'ARENA';
           UIManager.getInstance().setStatusText(
             `PINTU EXIT TERKUNCI! TEMUKAN & SERANG ${mName} DI ${fName} DULU!`,
@@ -1326,6 +1390,8 @@ export class GameManager {
         this.fpController.camera.position.y += shakeY;
         this.shakeIntensity = Math.max(0, this.shakeIntensity - this.shakeDecay * dt);
       }
+
+
     } else if (this.state === 'MAIN_MENU') {
       // Gentle background rotation in main menu
       this.overviewCam.update(dt);

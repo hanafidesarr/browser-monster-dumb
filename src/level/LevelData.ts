@@ -1,6 +1,6 @@
 import { WeaponId } from '../weapon/WeaponData.ts';
 
-export type MonsterType = 'pocong' | 'kunti';
+export type MonsterType = 'pocong' | 'kunti' | 'yeti';
 
 export type LevelTheme =
   | 'banana_garden'
@@ -67,7 +67,8 @@ export interface LevelDefinition {
   floorCount?: number;          // Multi-floor: 1 up to 10 floors
   floorHeight?: number;         // Height separation between floors
   monsterCount?: number;        // Total monsters for this level (Part 3.6)
-  monsterType?: MonsterType;    // Level monster archetype ('pocong' or 'kunti')
+  monsterType?: MonsterType;    // Level monster archetype ('pocong', 'kunti', or 'yeti')
+  monsterTypes?: MonsterType[]; // Multi-monster specific types (e.g. ['kunti', 'yeti'])
   ramps?: FloorRamp[];          // Stairs / Ramps connecting floors
   bridges?: WoodenBridge[];     // Wooden bridges across gaps
   monsterConfig: {
@@ -290,11 +291,11 @@ export const ALL_LEVELS: LevelDefinition[] = [
     ],
     monsterConfig: {
       detectionFovDeg: 90,
-      detectionDistance: 9.0,
-      reactionDelaySeconds: 0.85,
-      rearAttackAngleDeg: 200,
+      detectionDistance: 8.5,
+      reactionDelaySeconds: 0.90,
+      rearAttackAngleDeg: 205,
       attackDistance: 2.4,
-      chaseSpeed: 5.10, // 85% of player sprint (6.0)
+      chaseSpeed: 5.00, // 83.3% of player sprint (6.0) - Gentle beginner-friendly introduction
       catchDistance: 1.6,
     },
     playerConfig: {
@@ -336,7 +337,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       reactionDelaySeconds: 0.80,
       rearAttackAngleDeg: 195,
       attackDistance: 2.4,
-      chaseSpeed: 5.16, // 86% of player sprint (6.0)
+      chaseSpeed: 5.20, // 86.7% of player sprint (6.0) - Agile crawling Kuntilanak
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
@@ -371,11 +372,11 @@ export const ALL_LEVELS: LevelDefinition[] = [
     ],
     monsterConfig: {
       detectionFovDeg: 90,
-      detectionDistance: 10.0,
-      reactionDelaySeconds: 0.75,
+      detectionDistance: 10.5,
+      reactionDelaySeconds: 0.70,
       rearAttackAngleDeg: 190,
       attackDistance: 2.8,
-      chaseSpeed: 5.22, // 87% of player sprint (6.0)
+      chaseSpeed: 5.38, // 89.7% of player sprint (6.0) - High-pressure underground chase
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
@@ -386,10 +387,11 @@ export const ALL_LEVELS: LevelDefinition[] = [
     id: 4,
     title: 'THE SACRED CEMETERY',
     subtitle: 'SECTOR 04 — BANYAN GRAVEYARD (EXPANSIVE OUTDOOR)',
-    description: 'Kompleks pemakaman tua yang sangat luas dinaungi pohon beringin lebat berakar gantung dan nisan berlumut. Temukan Sapu Ijuk di gubuk kuncen!',
+    description: 'Kompleks pemakaman tua yang sangat luas dinaungi pohon beringin lebat berakar gantung dan nisan berlumut. Temukan Sapu Ijuk di gubuk kuncen untuk memukul 1 Kuntilanak & 1 Genderwo!',
     difficultyRating: 4,
     theme: 'cemetery',
     monsterType: 'kunti',
+    monsterTypes: ['kunti', 'yeti'],
     gridWidth: 27,
     gridHeight: 27,
     cellSize: 4.0,
@@ -408,11 +410,11 @@ export const ALL_LEVELS: LevelDefinition[] = [
     ],
     monsterConfig: {
       detectionFovDeg: 92,
-      detectionDistance: 11.0,
-      reactionDelaySeconds: 0.75,
+      detectionDistance: 11.5,
+      reactionDelaySeconds: 0.65,
       rearAttackAngleDeg: 185,
       attackDistance: 2.4,
-      chaseSpeed: 5.25, // 87.5% of player sprint (6.0)
+      chaseSpeed: 5.55, // 92.5% of player sprint (6.0) - Fast tandem chase (Kuntilanak & Genderwo)
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
@@ -423,10 +425,11 @@ export const ALL_LEVELS: LevelDefinition[] = [
     id: 5,
     title: 'THE MILITARY BUNKER',
     subtitle: 'SECTOR 05 — REINFORCED UNDERGROUND BUNKER (2 FLOORS)',
-    description: 'Kompleks bunker pertahanan militer bawah tanah 2 lantai yang sangat luas. Dinding beton di lantai 1 dan labirin pelat baja lapis baja di lantai 2. Masuki gerbang baja dari parit luar, temukan tangga darurat untuk mencapai pintu evakuasi di lantai 2!',
+    description: 'Kompleks bunker pertahanan militer bawah tanah 2 lantai yang sangat luas. Masuki gerbang baja dari parit luar, ambil Spatula untuk menyerang 2 Kuntilanak & 1 Pocong, lalu evakuasi ke lantai 2!',
     difficultyRating: 5,
     theme: 'bunker',
     monsterType: 'kunti',
+    monsterTypes: ['kunti', 'kunti', 'pocong'],
     gridWidth: 27,
     gridHeight: 27,
     cellSize: 4.0,
@@ -452,7 +455,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       reactionDelaySeconds: 0.60,
       rearAttackAngleDeg: 180,
       attackDistance: 2.4,
-      chaseSpeed: 5.4, // 90% of player sprint (6.0)
+      chaseSpeed: 5.58, // 93.0% of player sprint (6.0)
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
@@ -493,7 +496,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       reactionDelaySeconds: 0.60,
       rearAttackAngleDeg: 175,
       attackDistance: 2.4,
-      chaseSpeed: 5.46, // 91% of player sprint (6.0)
+      chaseSpeed: 5.62, // 93.7% of player sprint (6.0)
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
@@ -537,7 +540,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       reactionDelaySeconds: 0.55,
       rearAttackAngleDeg: 170,
       attackDistance: 2.4,
-      chaseSpeed: 5.52, // 92% of player sprint (6.0)
+      chaseSpeed: 5.66, // 94.3% of player sprint (6.0)
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
@@ -579,7 +582,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       reactionDelaySeconds: 0.50,
       rearAttackAngleDeg: 165,
       attackDistance: 2.4,
-      chaseSpeed: 5.58, // 93% of player sprint (6.0)
+      chaseSpeed: 5.70, // 95.0% of player sprint (6.0)
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
@@ -628,7 +631,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       reactionDelaySeconds: 0.45,
       rearAttackAngleDeg: 160,
       attackDistance: 2.4,
-      chaseSpeed: 5.64, // 94% of player sprint (6.0)
+      chaseSpeed: 5.74, // 95.7% of player sprint (6.0)
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },
@@ -678,7 +681,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       reactionDelaySeconds: 0.40,
       rearAttackAngleDeg: 150,
       attackDistance: 2.4,
-      chaseSpeed: 5.70, // 95% of player sprint (6.0)
+      chaseSpeed: 5.78, // 96.3% of player sprint (6.0) - Apex abyss chase
       catchDistance: 1.6,
     },
     playerConfig: { walkSpeed: 3.8, sprintSpeed: 6.0 },

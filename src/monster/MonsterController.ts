@@ -99,15 +99,20 @@ export class MonsterController {
     collisionConfigOrGrid?: LevelCollisionConfig | number[][],
     ramps: WorldRamp[] = [],
     bridges: WorldBridge[] = [],
-    floorHeight: number = 3.8
+    floorHeight: number = 3.8,
+    overrideMonsterType?: MonsterType
   ): void {
     this.levelDef = level;
     this.pathfinding = pathfinding;
 
-    if (level.monsterType) {
-      this.monsterType = level.monsterType;
-    } else if (level.id === 2) {
-      this.monsterType = 'kunti';
+    if (overrideMonsterType) {
+      this.monsterType = overrideMonsterType;
+    } else if (!this.monsterType) {
+      if (level.monsterType) {
+        this.monsterType = level.monsterType;
+      } else if (level.id === 2) {
+        this.monsterType = 'kunti';
+      }
     }
 
     // Recreate model if monsterType changed
@@ -362,7 +367,7 @@ export class MonsterController {
 
     // 3. True 3D & 2D Distance check (must be closer to monster to strike)
     const maxAttackDist = this.levelDef?.monsterConfig?.attackDistance || MonsterController.MELEE_ATTACK_DISTANCE;
-    const monsterCenterY = this.monsterType === 'kunti' ? 0.45 : 0.9;
+    const monsterCenterY = this.monsterType === 'kunti' ? 0.45 : (this.monsterType === 'yeti' ? 1.4 : 0.9);
     const monsterCenter = new THREE.Vector3(this.position.x, this.position.y + monsterCenterY, this.position.z);
     const dist3D = playerPos.distanceTo(monsterCenter);
     const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
@@ -432,7 +437,7 @@ export class MonsterController {
     }
 
     // 2. Proximity strike (within close striking distance and facing monster)
-    const monsterCenterY = this.monsterType === 'kunti' ? 0.45 : 0.9;
+    const monsterCenterY = this.monsterType === 'kunti' ? 0.45 : (this.monsterType === 'yeti' ? 1.4 : 0.9);
     const monsterCenter = new THREE.Vector3(this.position.x, this.position.y + monsterCenterY, this.position.z);
     const dirToMonster = new THREE.Vector3().subVectors(monsterCenter, playerPos).normalize();
 
@@ -868,6 +873,18 @@ export class MonsterController {
       this.model.applyCrawl(dt, cfg.chaseSpeed * sprintBoost);
       AudioManager.getInstance().playKuntiCrawl(horizontalDist);
       AudioManager.getInstance().updateKuntiChaseAudio(horizontalDist);
+    } else if (this.monsterType === 'yeti') {
+      // Genderwo: mengejar dengan langkah raksasa beranimasi (Mixamo walk animation)
+      this.position.y = this.baseGroundY;
+      this.model.applyWalk(dt, cfg.chaseSpeed * sprintBoost);
+
+      // Footstep audio: trigger precisely on footfall contact downbeats (clip is 1.167s)
+      const strideFreq = (cfg.chaseSpeed * sprintBoost) / (2.6 * 1.167);
+      const prevPhase = ((totalTime - dt) * strideFreq) % 1.0;
+      const curPhase = (totalTime * strideFreq) % 1.0;
+      if ((prevPhase < 0.25 && curPhase >= 0.25) || (prevPhase < 0.75 && curPhase >= 0.75) || (curPhase < prevPhase)) {
+        AudioManager.getInstance().playYetiStep(horizontalDist);
+      }
     } else {
       // Pocong: Hopping Rhythm Cycle (parabolic airborne leaping)
       const hopDuration = 0.52 / Math.min(1.35, sprintBoost); // each jump cycle takes ~0.52s, quickened during sprint
@@ -898,10 +915,12 @@ export class MonsterController {
     const verticalDist = Math.abs((playerPos.y - 1.65) - this.baseGroundY);
     if (this.stateTime > MonsterController.CATCH_GRACE_PERIOD && horizontalDist <= catchDist && verticalDist <= 1.8) {
       this.state = 'CATCH_PLAYER';
-      this.position.y = this.baseGroundY + (this.monsterType === 'kunti' ? 0.05 : 0.15);
+      this.position.y = this.baseGroundY + (this.monsterType === 'kunti' ? 0.05 : (this.monsterType === 'yeti' ? 0.0 : 0.15));
       if (this.monsterType === 'kunti') {
         AudioManager.getInstance().stopKuntiChaseAudio();
         AudioManager.getInstance().playKuntiSound(true);
+      } else if (this.monsterType === 'yeti') {
+        AudioManager.getInstance().playYetiRoar();
       } else {
         AudioManager.getInstance().playCaughtStinger();
       }
@@ -1097,7 +1116,7 @@ export class MonsterController {
       const accel = this.isRangedTriggered
         ? 1.0
         : Math.min(1.0, 0.45 + (this.stateTime / 1.2) * 0.55);
-      const baseSpeedMultiplier = (this.monsterType === 'kunti'
+      const baseSpeedMultiplier = (this.monsterType === 'kunti' || this.monsterType === 'yeti'
         ? 1.0
         : (isAirborne ? Math.sin((cycle / 0.70) * Math.PI) * 1.85 : 0.15));
       const speedMultiplier = baseSpeedMultiplier * accel * sprintBoost;

@@ -58,6 +58,7 @@ export interface LevelBuildResult {
   collisionConfig: LevelCollisionConfig;
   weaponPickups: WorldWeaponPickup[];
   interactiveSwitches?: WorldInteractiveSwitch[];
+  bunkerRedLights?: THREE.PointLight[];
   floorCount: number;
   floorHeight: number;
   ramps: WorldRamp[];
@@ -1351,6 +1352,8 @@ export class LabyrinthBuilder {
     }
 
     // 10. Bunker Warning Cage Lights (Floor 0 & Floor 1)
+    const bunkerRedLights: THREE.PointLight[] = [];
+
     // Floor 0 Lights (amber/red at y = 2.4m)
     const lightCoords = [
       { gx: 13, gz: 6, red: false },
@@ -1372,6 +1375,10 @@ export class LabyrinthBuilder {
       const lWz = (lc.gz + 0.5) * cellSize - halfHeight;
       const lamp = EnvironmentPropFactory.createBunkerCageLight(lc.red);
       lamp.position.set(lWx, 2.4, lWz);
+      if (lc.red) {
+        const pt = lamp.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
+        if (pt) bunkerRedLights.push(pt);
+      }
       rootGroup.add(lamp);
     }
 
@@ -1389,8 +1396,80 @@ export class LabyrinthBuilder {
       const lWz = (flc.gz + 0.5) * cellSize - halfHeight;
       const lamp = EnvironmentPropFactory.createBunkerCageLight(flc.red);
       lamp.position.set(lWx, floorHeight + 2.4, lWz);
+      if (flc.red) {
+        const pt = lamp.children.find((c) => c instanceof THREE.PointLight) as THREE.PointLight;
+        if (pt) bunkerRedLights.push(pt);
+      }
       rootGroup.add(lamp);
     }
+
+    // 10B. Tactical Military Bunker Signage & Evacuation Stencils (Bilingual: ID & EN)
+    const addBunkerStencil = (
+      wallGx: number,
+      wallGz: number,
+      face: 'north' | 'south' | 'east' | 'west',
+      dir: 'right' | 'left' | 'up',
+      label: string,
+      floor: number = 0,
+      colorType: 'stairs' | 'exit' = 'stairs',
+      subLabel?: string
+    ) => {
+      const decal = EnvironmentPropFactory.createDirectionalArrowDecal(dir, label, colorType, subLabel);
+      const wy = floor * floorHeight;
+
+      let wx = (wallGx + 0.5) * cellSize - halfWidth;
+      let wz = (wallGz + 0.5) * cellSize - halfHeight;
+      let rotY = 0;
+
+      if (face === 'west') {
+        wx = wallGx * cellSize - halfWidth - 0.06;
+        rotY = -Math.PI / 2;
+      } else if (face === 'east') {
+        wx = (wallGx + 1) * cellSize - halfWidth + 0.06;
+        rotY = Math.PI / 2;
+      } else if (face === 'north') {
+        wz = wallGz * cellSize - halfHeight - 0.06;
+        rotY = Math.PI;
+      } else if (face === 'south') {
+        wz = (wallGz + 1) * cellSize - halfHeight + 0.06;
+        rotY = 0;
+      }
+
+      decal.position.set(wx, wy, wz);
+      decal.rotation.y = rotY;
+      rootGroup.add(decal);
+    };
+
+    // Stencils on Floor 0 (Lantai 1) - Bilingual Indonesian & English:
+    // 1. Foyer entering central corridor (guiding player South down main corridor)
+    addBunkerStencil(10, 9, 'north', 'up', 'KORIDOR UTAMA', 0, 'stairs', 'MAIN CORRIDOR');
+    addBunkerStencil(16, 9, 'north', 'up', 'KORIDOR UTAMA', 0, 'stairs', 'MAIN CORRIDOR');
+
+    // 2. Central Corridor walls flanking Row 14 Junction
+    addBunkerStencil(11, 13, 'east', 'left', 'TANGGA BARAT', 0, 'stairs', 'WEST STAIRS');
+    addBunkerStencil(15, 13, 'west', 'right', 'TANGGA TIMUR', 0, 'stairs', 'EAST STAIRS');
+
+    // 3. Main Cross-Corridor T-Junction at Row 14
+    addBunkerStencil(11, 13, 'south', 'left', 'TANGGA BARAT (BARAK)', 0, 'stairs', 'WEST STAIRS (BARRACKS)');
+    addBunkerStencil(15, 13, 'south', 'right', 'TANGGA TIMUR (KOMANDO)', 0, 'stairs', 'EAST STAIRS (COMMAND)');
+
+    // 4. West Stair base entrance (x = 4, z = 14 looking North into stairs)
+    addBunkerStencil(3, 13, 'south', 'right', 'TANGGA KE LANTAI 2', 0, 'stairs', 'STAIRS TO FLOOR 2');
+    addBunkerStencil(5, 13, 'south', 'left', 'TANGGA KE LANTAI 2', 0, 'stairs', 'STAIRS TO FLOOR 2');
+    addBunkerStencil(3, 13, 'east', 'right', 'NAIK KE LANTAI 2', 0, 'stairs', 'UP TO FLOOR 2');
+    addBunkerStencil(3, 17, 'north', 'up', 'TANGGA DARURAT LT. 2', 0, 'stairs', 'EMERGENCY STAIRS FL. 2');
+
+    // 5. East Stair base entrance (x = 22, z = 14 looking North into stairs)
+    addBunkerStencil(21, 13, 'south', 'right', 'TANGGA KE LANTAI 2', 0, 'stairs', 'STAIRS TO FLOOR 2');
+    addBunkerStencil(23, 13, 'south', 'left', 'TANGGA KE LANTAI 2', 0, 'stairs', 'STAIRS TO FLOOR 2');
+    addBunkerStencil(21, 13, 'east', 'right', 'NAIK KE LANTAI 2', 0, 'stairs', 'UP TO FLOOR 2');
+    addBunkerStencil(21, 17, 'north', 'up', 'TANGGA DARURAT LT. 2', 0, 'stairs', 'EMERGENCY STAIRS FL. 2');
+
+    // Stencils on Floor 1 (Lantai 2 Mezzanine leading to Exit Vault) - Bilingual Indonesian & English:
+    addBunkerStencil(4, 5, 'south', 'right', 'PINTU EVAKUASI', 1, 'exit', 'EXIT VAULT DOOR');
+    addBunkerStencil(22, 5, 'south', 'right', 'PINTU EVAKUASI (SEKTOR 5)', 1, 'exit', 'EXIT VAULT (SECTOR 5)');
+    addBunkerStencil(18, 24, 'east', 'right', 'PINTU EVAKUASI', 1, 'exit', 'EXIT VAULT');
+    addBunkerStencil(24, 26, 'north', 'up', 'PINTU EVAKUASI DARURAT', 1, 'exit', 'EMERGENCY EVACUATION VAULT');
 
     // 11. Sektor 5: Emergency Vault Exit Door (On Floor 1 at exitWx, exitWy, exitWz)
     const exitVaultGroup = new THREE.Group();
@@ -1414,6 +1493,14 @@ export class LabyrinthBuilder {
 
     // 13. World Weapon Pickups (Spatula di pos parit luar!)
     const weaponPickups = this.spawnWorldPickups(level, halfWidth, halfHeight, cellSize, rootGroup);
+
+    // 13B. Tactical Outpost Highlight Beacon for Spatula in Outdoor Trench
+    const spatulaWx = (8 + 0.5) * cellSize - halfWidth;
+    const spatulaWz = (3 + 0.5) * cellSize - halfHeight;
+    const spatulaBeacon = new THREE.PointLight(0xf59e0b, 2.8, 8.5, 1.2);
+    spatulaBeacon.position.set(spatulaWx, 1.8, spatulaWz);
+    rootGroup.add(spatulaBeacon);
+    addBunkerStencil(8, 5, 'north', 'up', 'SENJATA: SPATULA', 0, 'exit', 'WEAPON: FRYING SPATULA');
 
     // 14. Level Collision Configuration (Isolated Multi-Floor Military Bunker Collision)
     const collisionConfig: LevelCollisionConfig = {
@@ -1485,6 +1572,7 @@ export class LabyrinthBuilder {
       navigationGrid: updatedGrid,
       collisionConfig,
       weaponPickups,
+      bunkerRedLights,
       floorCount: 2,
       floorHeight: 4.8,
       ramps: worldRamps,
@@ -2817,9 +2905,10 @@ export class LabyrinthBuilder {
       dir: 'right' | 'left' | 'up',
       label: string,
       floor: number = 0,
-      colorType: 'stairs' | 'exit' = 'stairs'
+      colorType: 'stairs' | 'exit' = 'stairs',
+      subLabel?: string
     ) => {
-      const decal = EnvironmentPropFactory.createDirectionalArrowDecal(dir, label, colorType);
+      const decal = EnvironmentPropFactory.createDirectionalArrowDecal(dir, label, colorType, subLabel);
       const wy = floor * (level.floorHeight || 3.8);
 
       let wx = (wallGx + 0.5) * cellSize - halfWidth;
@@ -2846,25 +2935,25 @@ export class LabyrinthBuilder {
     };
 
     // 1. Near spawn: Wall at (4, 1), West face (in front of player coming east from (1, 1) -> (3, 1))
-    addArrow(4, 1, 'west', 'right', 'TANGGA / STAIRS ➔', 0);
+    addArrow(4, 1, 'west', 'right', 'TANGGA', 0, 'stairs', 'STAIRS');
 
     // 2. Turn at (7, 3): Wall at (8, 3), West face (in front of player coming east along row 3)
-    addArrow(8, 3, 'west', 'right', 'TANGGA / STAIRS ➔', 0);
+    addArrow(8, 3, 'west', 'right', 'TANGGA', 0, 'stairs', 'STAIRS');
 
     // 3. Turn at (7, 7): Wall at (7, 8), North face (in front of player coming south)
-    addArrow(7, 8, 'north', 'right', 'TANGGA / STAIRS ➔', 0);
+    addArrow(7, 8, 'north', 'right', 'TANGGA', 0, 'stairs', 'STAIRS');
 
     // 4. Turn at (5, 9): Wall at (5, 10), North face (in front of player coming south)
-    addArrow(5, 10, 'north', 'left', '⬅ TANGGA / STAIRS', 0);
+    addArrow(5, 10, 'north', 'left', 'TANGGA', 0, 'stairs', 'STAIRS');
 
     // 5. Turn at (7, 9): Wall at (8, 9), West face (in front of player coming east)
-    addArrow(8, 9, 'west', 'right', 'TANGGA / STAIRS ➔', 0);
+    addArrow(8, 9, 'west', 'right', 'TANGGA', 0, 'stairs', 'STAIRS');
 
     // 6. Major intersection at (7, 13): Wall at (7, 14), North face (in front of player coming south)
-    addArrow(7, 14, 'north', 'left', '⬅ TANGGA / STAIRS ⬅', 0);
+    addArrow(7, 14, 'north', 'left', 'TANGGA', 0, 'stairs', 'STAIRS');
 
     // 7. Base of the stairs at (17, 13): Wall at (17, 14), North face (facing the stairs at (17, 12))
-    addArrow(17, 14, 'north', 'up', '⬆ LANTAI 2 / 2ND FLOOR', 0);
+    addArrow(17, 14, 'north', 'up', 'LANTAI 2', 0, 'stairs', '2ND FLOOR');
 
     // =======================================================================
     // FLOOR 2 EXIT SIGNS — HANYA DI AREA DEKAT PINTU MASUK & KORIDOR EXIT (7, 15)
