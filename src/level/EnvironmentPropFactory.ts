@@ -12,6 +12,74 @@ export class EnvironmentPropFactory {
   private static _directionalArrowMatMap = new Map<string, THREE.MeshBasicMaterial>();
   private static _floorExitArrowMatMap = new Map<string, THREE.MeshBasicMaterial>();
   private static _pocongTrailMatMap = new Map<string, THREE.MeshBasicMaterial>();
+
+  // Level 4 Cemetery static caches
+  private static _kijingStoneTex: THREE.CanvasTexture | null = null;
+  private static _kijingMats = new Map<string, THREE.MeshLambertMaterial>();
+  private static _kijingFlowerMat: THREE.MeshBasicMaterial | null = null;
+  private static _kijingBodyGeo: THREE.BufferGeometry | null = null;
+  private static _kijingPetalsGeo: THREE.BufferGeometry | null = null;
+
+  private static _earthenSoilMat: THREE.MeshLambertMaterial | null = null;
+  private static _earthenWoodMat: THREE.MeshLambertMaterial | null = null;
+  private static _earthenGrassMat: THREE.MeshLambertMaterial | null = null;
+  private static _earthenBodyGeo: THREE.BufferGeometry | null = null;
+  private static _earthenStakesGeo: THREE.BufferGeometry | null = null;
+  private static _earthenTuftsGeo: THREE.BufferGeometry | null = null;
+
+  private static _bambooLanternMat: THREE.MeshLambertMaterial | null = null;
+  private static _flameLanternMat: THREE.MeshBasicMaterial | null = null;
+
+  private static mergeGeometries(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
+    if (geos.length === 0) return new THREE.BufferGeometry();
+    let totalPos = 0;
+    let totalNorm = 0;
+    let totalUv = 0;
+    let totalIndices = 0;
+
+    geos.forEach((g) => {
+      totalPos += g.attributes.position.array.length;
+      if (g.attributes.normal) totalNorm += g.attributes.normal.array.length;
+      if (g.attributes.uv) totalUv += g.attributes.uv.array.length;
+      if (g.index) totalIndices += g.index.array.length;
+    });
+
+    const posArr = new Float32Array(totalPos);
+    const normArr = new Float32Array(totalNorm);
+    const uvArr = new Float32Array(totalUv);
+    const indexArr = new Uint32Array(totalIndices);
+
+    let posOffset = 0;
+    let normOffset = 0;
+    let uvOffset = 0;
+    let indexOffset = 0;
+    let vertexOffset = 0;
+
+    geos.forEach((g) => {
+      posArr.set(g.attributes.position.array, posOffset);
+      if (g.attributes.normal) normArr.set(g.attributes.normal.array, normOffset);
+      if (g.attributes.uv) uvArr.set(g.attributes.uv.array, uvOffset);
+
+      if (g.index) {
+        for (let i = 0; i < g.index.array.length; i++) {
+          indexArr[indexOffset + i] = g.index.array[i] + vertexOffset;
+        }
+        indexOffset += g.index.array.length;
+      }
+
+      posOffset += g.attributes.position.array.length;
+      if (g.attributes.normal) normOffset += g.attributes.normal.array.length;
+      if (g.attributes.uv) uvOffset += g.attributes.uv.array.length;
+      vertexOffset += g.attributes.position.count;
+    });
+
+    const merged = new THREE.BufferGeometry();
+    merged.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+    if (totalNorm > 0) merged.setAttribute('normal', new THREE.BufferAttribute(normArr, 3));
+    if (totalUv > 0) merged.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+    if (totalIndices > 0) merged.setIndex(new THREE.BufferAttribute(indexArr, 1));
+    return merged;
+  }
   // =========================================================================
   // LEVEL 2 — ABANDONED SCHOOL PROPS
   // =========================================================================
@@ -1644,102 +1712,126 @@ export class EnvironmentPropFactory {
 
   /**
    * Traditional Indonesian Kijing Tombstone (Makam Semen Kijing Tradisional)
-   * Two-tiered concrete plinth with head and foot tombstones and plumeria petals.
+   * High performance: single merged stone geometry and shared materials.
    */
   public static createIndonesianGraveKijing(variant: 'stone' | 'mossy' | 'whitewash' = 'stone'): THREE.Group {
     const group = new THREE.Group();
     group.name = 'IndonesianGraveKijing';
 
-    const stoneTex = typeof document !== 'undefined'
-      ? TextureGenerator.createTombstoneTexture()
-      : undefined;
-
-    const stoneColor = variant === 'mossy' ? 0x4a5445 : (variant === 'whitewash' ? 0x9e9e9a : 0x55585d);
-    const graveMat = new THREE.MeshLambertMaterial({
-      color: stoneColor,
-      map: stoneTex,
-    });
-
-    const flowerMat = new THREE.MeshBasicMaterial({ color: 0xfffae0 });
-
-    // Lower plinth base
-    const baseGeo = new THREE.BoxGeometry(1.85, 0.28, 0.85);
-    const base = new THREE.Mesh(baseGeo, graveMat);
-    base.position.y = 0.14;
-    group.add(base);
-
-    // Upper stepped plinth
-    const stepGeo = new THREE.BoxGeometry(1.55, 0.18, 0.62);
-    const step = new THREE.Mesh(stepGeo, graveMat);
-    step.position.y = 0.37;
-    group.add(step);
-
-    // Head and Foot Tombstones (Nisan Kepala & Nisan Kaki)
-    for (const xOffset of [-0.62, 0.62]) {
-      // Cylindrical nisan body with dome top
-      const nisanGeo = new THREE.CylinderGeometry(0.08, 0.10, 0.48, 6);
-      const nisan = new THREE.Mesh(nisanGeo, graveMat);
-      nisan.position.set(xOffset, 0.70, 0);
-      nisan.rotation.z = (Math.random() - 0.5) * 0.08;
-      group.add(nisan);
-
-      const domeGeo = new THREE.SphereGeometry(0.09, 5, 5);
-      const dome = new THREE.Mesh(domeGeo, graveMat);
-      dome.position.set(xOffset, 0.94, 0);
-      group.add(dome);
+    if (!this._kijingStoneTex && typeof document !== 'undefined') {
+      this._kijingStoneTex = TextureGenerator.createTombstoneTexture();
     }
 
-    // Scattered Kamboja petals on top of grave
-    for (let i = 0; i < 4; i++) {
-      const petal = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.08), flowerMat);
-      petal.position.set(
-        (Math.random() - 0.5) * 0.9,
-        0.47,
-        (Math.random() - 0.5) * 0.4
-      );
-      petal.rotation.x = -Math.PI / 2;
-      group.add(petal);
+    let graveMat = this._kijingMats.get(variant);
+    if (!graveMat) {
+      const stoneColor = variant === 'mossy' ? 0x4a5445 : (variant === 'whitewash' ? 0x9e9e9a : 0x55585d);
+      graveMat = new THREE.MeshLambertMaterial({
+        color: stoneColor,
+        map: this._kijingStoneTex || undefined,
+      });
+      this._kijingMats.set(variant, graveMat);
     }
+
+    if (!this._kijingFlowerMat) {
+      this._kijingFlowerMat = new THREE.MeshBasicMaterial({ color: 0xfffae0 });
+    }
+
+    if (!this._kijingBodyGeo) {
+      const geos: THREE.BufferGeometry[] = [];
+      const baseGeo = new THREE.BoxGeometry(1.85, 0.28, 0.85);
+      baseGeo.translate(0, 0.14, 0);
+      geos.push(baseGeo);
+
+      const stepGeo = new THREE.BoxGeometry(1.55, 0.18, 0.62);
+      stepGeo.translate(0, 0.37, 0);
+      geos.push(stepGeo);
+
+      for (const xOffset of [-0.62, 0.62]) {
+        const nisanGeo = new THREE.CylinderGeometry(0.08, 0.10, 0.48, 6);
+        nisanGeo.translate(xOffset, 0.70, 0);
+        geos.push(nisanGeo);
+
+        const domeGeo = new THREE.SphereGeometry(0.09, 5, 5);
+        domeGeo.translate(xOffset, 0.94, 0);
+        geos.push(domeGeo);
+      }
+      this._kijingBodyGeo = this.mergeGeometries(geos);
+    }
+
+    if (!this._kijingPetalsGeo) {
+      const petalGeos: THREE.BufferGeometry[] = [];
+      const offsets = [
+        [-0.35, 0.12],
+        [0.25, -0.08],
+        [-0.1, -0.15],
+        [0.4, 0.1],
+      ];
+      for (let i = 0; i < 4; i++) {
+        const pGeo = new THREE.PlaneGeometry(0.08, 0.08);
+        pGeo.rotateX(-Math.PI / 2);
+        pGeo.translate(offsets[i][0], 0.47, offsets[i][1]);
+        petalGeos.push(pGeo);
+      }
+      this._kijingPetalsGeo = this.mergeGeometries(petalGeos);
+    }
+
+    const bodyMesh = new THREE.Mesh(this._kijingBodyGeo, graveMat);
+    group.add(bodyMesh);
+
+    const petalsMesh = new THREE.Mesh(this._kijingPetalsGeo, this._kijingFlowerMat);
+    group.add(petalsMesh);
 
     return group;
   }
 
   /**
    * Traditional Earthen Mound Grave (Makam Gundukan Tanah Desa)
-   * Red dirt soil mound with simple wooden stakes (patok nisan kayu).
+   * High performance: single merged earth mound and shared stakes.
    */
   public static createIndonesianGraveEarthen(): THREE.Group {
     const group = new THREE.Group();
     group.name = 'IndonesianGraveEarthen';
 
-    const soilMat = new THREE.MeshLambertMaterial({ color: 0x3d281a });
-    const woodMat = new THREE.MeshLambertMaterial({ color: 0x2e2216 });
-    const grassMat = new THREE.MeshLambertMaterial({ color: 0x364822 });
+    if (!this._earthenSoilMat) this._earthenSoilMat = new THREE.MeshLambertMaterial({ color: 0x3d281a });
+    if (!this._earthenWoodMat) this._earthenWoodMat = new THREE.MeshLambertMaterial({ color: 0x2e2216 });
+    if (!this._earthenGrassMat) this._earthenGrassMat = new THREE.MeshLambertMaterial({ color: 0x364822 });
 
-    // Curved soil mound
-    const moundGeo = new THREE.CylinderGeometry(0.38, 0.48, 1.7, 6);
-    moundGeo.rotateZ(Math.PI / 2);
-    const mound = new THREE.Mesh(moundGeo, soilMat);
-    mound.position.set(0, 0.22, 0);
-    mound.scale.set(1.0, 0.65, 1.0);
-    group.add(mound);
-
-    // Weathered wooden grave stakes (patok kayu)
-    for (const xOffset of [-0.68, 0.68]) {
-      const stakeGeo = new THREE.BoxGeometry(0.09, 0.55, 0.04);
-      const stake = new THREE.Mesh(stakeGeo, woodMat);
-      stake.position.set(xOffset, 0.42, 0);
-      stake.rotation.z = (Math.random() - 0.5) * 0.16;
-      stake.rotation.y = (Math.random() - 0.5) * 0.2;
-      group.add(stake);
+    if (!this._earthenBodyGeo) {
+      const moundGeo = new THREE.CylinderGeometry(0.38, 0.48, 1.7, 6);
+      moundGeo.rotateZ(Math.PI / 2);
+      moundGeo.scale(1.0, 0.65, 1.0);
+      moundGeo.translate(0, 0.22, 0);
+      this._earthenBodyGeo = moundGeo;
     }
 
-    // Small tufts of grass on edge
-    for (let i = 0; i < 3; i++) {
-      const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.25, 4), grassMat);
-      tuft.position.set((Math.random() - 0.5) * 1.2, 0.25, (Math.random() - 0.5) * 0.5);
-      group.add(tuft);
+    if (!this._earthenStakesGeo) {
+      const stakeGeos: THREE.BufferGeometry[] = [];
+      for (const xOffset of [-0.68, 0.68]) {
+        const stakeGeo = new THREE.BoxGeometry(0.09, 0.55, 0.04);
+        stakeGeo.translate(xOffset, 0.42, 0);
+        stakeGeos.push(stakeGeo);
+      }
+      this._earthenStakesGeo = this.mergeGeometries(stakeGeos);
     }
+
+    if (!this._earthenTuftsGeo) {
+      const tuftGeos: THREE.BufferGeometry[] = [];
+      const tuftOffsets = [
+        [-0.45, 0.2],
+        [0.35, -0.15],
+        [0.05, 0.18],
+      ];
+      for (let i = 0; i < 3; i++) {
+        const tuft = new THREE.ConeGeometry(0.12, 0.25, 4);
+        tuft.translate(tuftOffsets[i][0], 0.25, tuftOffsets[i][1]);
+        tuftGeos.push(tuft);
+      }
+      this._earthenTuftsGeo = this.mergeGeometries(tuftGeos);
+    }
+
+    group.add(new THREE.Mesh(this._earthenBodyGeo, this._earthenSoilMat));
+    group.add(new THREE.Mesh(this._earthenStakesGeo, this._earthenWoodMat));
+    group.add(new THREE.Mesh(this._earthenTuftsGeo, this._earthenGrassMat));
 
     return group;
   }
@@ -1846,28 +1938,31 @@ export class EnvironmentPropFactory {
 
   /**
    * Graveyard Bamboo Torch / Lantern Post
+   * Optimized: Shared materials and optional PointLight
    */
-  public static createCemeteryLanternPost(): THREE.Group {
+  public static createCemeteryLanternPost(hasLight: boolean = false): THREE.Group {
     const group = new THREE.Group();
     group.name = 'CemeteryLanternPost';
 
-    const bambooMat = new THREE.MeshLambertMaterial({ color: 0x4a4428 });
-    const flameMat = new THREE.MeshBasicMaterial({ color: 0xff8822 });
+    if (!this._bambooLanternMat) this._bambooLanternMat = new THREE.MeshLambertMaterial({ color: 0x4a4428 });
+    if (!this._flameLanternMat) this._flameLanternMat = new THREE.MeshBasicMaterial({ color: 0xff8822 });
 
     // Bamboo stake in ground
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.1, 5), bambooMat);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 2.1, 5), this._bambooLanternMat);
     pole.position.y = 1.05;
     group.add(pole);
 
     // Flame head
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 5), flameMat);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.22, 5), this._flameLanternMat);
     flame.position.y = 2.15;
     group.add(flame);
 
-    // Warm eerie flickering light
-    const torchLight = new THREE.PointLight(0xff8822, 0.9, 7.5);
-    torchLight.position.y = 2.2;
-    group.add(torchLight);
+    if (hasLight) {
+      // Warm eerie flickering light with wide reach for strategic lighting
+      const torchLight = new THREE.PointLight(0xff8822, 1.8, 18.0, 1.1);
+      torchLight.position.y = 2.2;
+      group.add(torchLight);
+    }
 
     return group;
   }

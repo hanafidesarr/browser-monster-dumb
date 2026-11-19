@@ -17,7 +17,7 @@ export class BanyanTreeFactory {
   private static frangipaniBarkMat: THREE.MeshLambertMaterial | null = null;
   private static plumeriaFlowerMat: THREE.MeshBasicMaterial | null = null;
 
-  private static getMaterials() {
+  public static getMaterials() {
     if (typeof document === 'undefined') {
       const dummy = new THREE.MeshBasicMaterial();
       return {
@@ -64,18 +64,74 @@ export class BanyanTreeFactory {
   }
 
   /**
-   * Creates an authentic Indonesian Banyan Tree (Pohon Beringin) with sprawling
-   * branches, hanging aerial prop roots, and dense dark canopy in PS1 retro aesthetic.
+   * Helper to merge buffer geometries for high-performance batched rendering
    */
-  public static createBanyanTree(options: BanyanTreeOptions = {}): THREE.Group {
-    const group = new THREE.Group();
-    group.name = 'BanyanTree';
+  public static mergeGeometries(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
+    if (geos.length === 0) return new THREE.BufferGeometry();
+    let totalPos = 0;
+    let totalNorm = 0;
+    let totalUv = 0;
+    let totalIndices = 0;
 
+    geos.forEach((g) => {
+      totalPos += g.attributes.position.array.length;
+      if (g.attributes.normal) totalNorm += g.attributes.normal.array.length;
+      if (g.attributes.uv) totalUv += g.attributes.uv.array.length;
+      if (g.index) totalIndices += g.index.array.length;
+    });
+
+    const posArr = new Float32Array(totalPos);
+    const normArr = new Float32Array(totalNorm);
+    const uvArr = new Float32Array(totalUv);
+    const indexArr = new Uint32Array(totalIndices);
+
+    let posOffset = 0;
+    let normOffset = 0;
+    let uvOffset = 0;
+    let indexOffset = 0;
+    let vertexOffset = 0;
+
+    geos.forEach((g) => {
+      posArr.set(g.attributes.position.array, posOffset);
+      if (g.attributes.normal) normArr.set(g.attributes.normal.array, normOffset);
+      if (g.attributes.uv) uvArr.set(g.attributes.uv.array, uvOffset);
+
+      if (g.index) {
+        for (let i = 0; i < g.index.array.length; i++) {
+          indexArr[indexOffset + i] = g.index.array[i] + vertexOffset;
+        }
+        indexOffset += g.index.array.length;
+      }
+
+      posOffset += g.attributes.position.array.length;
+      if (g.attributes.normal) normOffset += g.attributes.normal.array.length;
+      if (g.attributes.uv) uvOffset += g.attributes.uv.array.length;
+      vertexOffset += g.attributes.position.count;
+    });
+
+    const merged = new THREE.BufferGeometry();
+    merged.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+    if (totalNorm > 0) merged.setAttribute('normal', new THREE.BufferAttribute(normArr, 3));
+    if (totalUv > 0) merged.setAttribute('uv', new THREE.BufferAttribute(uvArr, 2));
+    if (totalIndices > 0) merged.setIndex(new THREE.BufferAttribute(indexArr, 1));
+    return merged;
+  }
+
+  /**
+   * Generates transformed geometries for a banyan tree, separated into wood/bark and canopy/leaves.
+   */
+  public static generateBanyanGeometries(options: BanyanTreeOptions = {}): {
+    woodGeo: THREE.BufferGeometry;
+    canopyGeo: THREE.BufferGeometry;
+  } {
     const height = options.height ?? 8.2;
     const trunkRadius = options.trunkRadius ?? 0.85;
     const canopyRadius = options.canopyRadius ?? 4.8;
     const isSacred = !!options.isSacredCenterpiece;
-    const mats = this.getMaterials();
+
+    const woodGeos: THREE.BufferGeometry[] = [];
+    const canopyGeos: THREE.BufferGeometry[] = [];
+    const dummy = new THREE.Object3D();
 
     // 1. Central Girthy Knotted Trunk
     const trunkGeo = new THREE.CylinderGeometry(
@@ -84,25 +140,26 @@ export class BanyanTreeFactory {
       height * 0.65,
       8
     );
-    const trunkMesh = new THREE.Mesh(trunkGeo, mats.bark);
-    trunkMesh.position.y = (height * 0.65) / 2;
-    group.add(trunkMesh);
+    trunkGeo.translate(0, (height * 0.65) / 2, 0);
+    woodGeos.push(trunkGeo);
 
-    // 2. Surrounding Fused Buttress Columns (gives the signature banyan grooved look)
+    // 2. Surrounding Fused Buttress Columns
     const buttressCount = isSacred ? 6 : 4;
     for (let i = 0; i < buttressCount; i++) {
       const angle = (i / buttressCount) * Math.PI * 2 + 0.2;
       const bRad = trunkRadius * 0.32;
       const bDist = trunkRadius * 0.82;
       const bGeo = new THREE.CylinderGeometry(bRad * 0.7, bRad * 1.3, height * 0.6, 6);
-      const bMesh = new THREE.Mesh(bGeo, mats.bark);
-      bMesh.position.set(
+      dummy.position.set(
         Math.cos(angle) * bDist,
         (height * 0.6) / 2,
         Math.sin(angle) * bDist
       );
-      bMesh.rotation.z = (Math.random() - 0.5) * 0.08;
-      group.add(bMesh);
+      dummy.rotation.set(0, 0, (Math.random() - 0.5) * 0.08);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      bGeo.applyMatrix4(dummy.matrix);
+      woodGeos.push(bGeo);
     }
 
     // 3. Sprawling Lateral Branches & Hanging Aerial Roots
@@ -116,18 +173,16 @@ export class BanyanTreeFactory {
 
       // Diagonal / horizontal limb
       const branchGeo = new THREE.CylinderGeometry(bThickness * 0.5, bThickness, bLength, 6);
-      const branchMesh = new THREE.Mesh(branchGeo, mats.bark);
-
-      // Position branch angled outward
       const reachX = Math.cos(angle) * (bLength * 0.45);
       const reachZ = Math.sin(angle) * (bLength * 0.45);
-      branchMesh.position.set(reachX, branchBaseY + 0.6, reachZ);
+      dummy.position.set(reachX, branchBaseY + 0.6, reachZ);
+      dummy.rotation.set(0, -angle + Math.PI / 2, Math.PI / 3.2);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      branchGeo.applyMatrix4(dummy.matrix);
+      woodGeos.push(branchGeo);
 
-      branchMesh.rotation.y = -angle + Math.PI / 2;
-      branchMesh.rotation.z = Math.PI / 3.2; // angled outward and upward
-      group.add(branchMesh);
-
-      // Aerial Prop Roots (Sulur Akar Gantung menjuntai dari dahan ke tanah)
+      // Aerial Prop Roots
       const rootCount = isSacred ? 3 : 2;
       for (let r = 0; r < rootCount; r++) {
         const rootFrac = 0.45 + r * 0.35;
@@ -136,10 +191,12 @@ export class BanyanTreeFactory {
         const rootTopY = branchBaseY + 1.2 - r * 0.3;
 
         const rootGeo = new THREE.CylinderGeometry(0.045, 0.065, rootTopY, 5);
-        const rootMesh = new THREE.Mesh(rootGeo, mats.root);
-        rootMesh.position.set(rootX, rootTopY / 2, rootZ);
-        rootMesh.rotation.z = (Math.random() - 0.5) * 0.04;
-        group.add(rootMesh);
+        dummy.position.set(rootX, rootTopY / 2, rootZ);
+        dummy.rotation.set(0, 0, (Math.random() - 0.5) * 0.04);
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        rootGeo.applyMatrix4(dummy.matrix);
+        woodGeos.push(rootGeo);
       }
 
       // Clustered Canopy Dome on branch tip
@@ -147,20 +204,53 @@ export class BanyanTreeFactory {
       const tipZ = Math.sin(angle) * (bLength * 0.9);
       const domeRadius = canopyRadius * 0.45;
       const domeGeo = new THREE.DodecahedronGeometry(domeRadius, 1);
-      const domeMesh = new THREE.Mesh(domeGeo, mats.canopy);
-      domeMesh.scale.set(1.2, 0.75, 1.2);
-      domeMesh.position.set(tipX, branchBaseY + 1.6, tipZ);
-      group.add(domeMesh);
+      dummy.position.set(tipX, branchBaseY + 1.6, tipZ);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(1.2, 0.75, 1.2);
+      dummy.updateMatrix();
+      domeGeo.applyMatrix4(dummy.matrix);
+      canopyGeos.push(domeGeo);
     }
 
     // 4. Massive Upper Central Canopy Crown
     const centerCrownGeo = new THREE.DodecahedronGeometry(canopyRadius * 0.65, 1);
-    const centerCrown = new THREE.Mesh(centerCrownGeo, mats.canopy);
-    centerCrown.scale.set(1.4, 0.85, 1.4);
-    centerCrown.position.set(0, height * 0.82, 0);
-    group.add(centerCrown);
+    dummy.position.set(0, height * 0.82, 0);
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.set(1.4, 0.85, 1.4);
+    dummy.updateMatrix();
+    centerCrownGeo.applyMatrix4(dummy.matrix);
+    canopyGeos.push(centerCrownGeo);
 
-    // 5. Sacred Centerpiece Trim (Kain Poleng + Sesajen + Dupa Mistis)
+    return {
+      woodGeo: this.mergeGeometries(woodGeos),
+      canopyGeo: this.mergeGeometries(canopyGeos),
+    };
+  }
+
+  /**
+   * Creates an authentic Indonesian Banyan Tree (Pohon Beringin) with merged
+   * geometry meshes for maximum rendering performance.
+   */
+  public static createBanyanTree(options: BanyanTreeOptions = {}): THREE.Group {
+    const group = new THREE.Group();
+    group.name = 'BanyanTree';
+
+    const height = options.height ?? 8.2;
+    const trunkRadius = options.trunkRadius ?? 0.85;
+    const isSacred = !!options.isSacredCenterpiece;
+    const mats = this.getMaterials();
+
+    const { woodGeo, canopyGeo } = this.generateBanyanGeometries(options);
+
+    const woodMesh = new THREE.Mesh(woodGeo, mats.bark);
+    woodMesh.name = 'BanyanWood';
+    group.add(woodMesh);
+
+    const canopyMesh = new THREE.Mesh(canopyGeo, mats.canopy);
+    canopyMesh.name = 'BanyanCanopy';
+    group.add(canopyMesh);
+
+    // Sacred Centerpiece Trim (Kain Poleng + Sesajen + Dupa Mistis)
     if (isSacred) {
       // Sacred checkered cloth band wrapped tightly around banyan trunk
       const polengGeo = new THREE.CylinderGeometry(

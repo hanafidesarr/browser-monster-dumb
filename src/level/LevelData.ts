@@ -419,7 +419,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     ramps: [],
     bridges: [],
     weaponPickups: [
-      { weaponId: 'rasengan', x: 7, z: 13 },
+      { weaponId: 'rasengan', x: 8, z: 13 },
     ],
     monsterConfig: {
       detectionFovDeg: 92,

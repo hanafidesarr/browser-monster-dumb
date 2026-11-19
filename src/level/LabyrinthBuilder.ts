@@ -525,21 +525,30 @@ export class LabyrinthBuilder {
       }
     }
 
-    // Boundary Perimeter Trees (Pohon Beringin Pembatas Luar — No walls, natural tree boundary like Level 1)
+    // Boundary Perimeter Trees (Pohon Beringin Pembatas Luar — Merged geometries for maximum performance)
+    const perimeterWoodGeos: THREE.BufferGeometry[] = [];
+    const perimeterCanopyGeos: THREE.BufferGeometry[] = [];
+
+    const addPerimeterBanyan = (wx: number, wz: number, h: number, tr: number, cr: number) => {
+      const { woodGeo, canopyGeo } = BanyanTreeFactory.generateBanyanGeometries({
+        height: h,
+        trunkRadius: tr,
+        canopyRadius: cr,
+      });
+      woodGeo.translate(wx, 0, wz);
+      canopyGeo.translate(wx, 0, wz);
+      perimeterWoodGeos.push(woodGeo);
+      perimeterCanopyGeos.push(canopyGeo);
+      treeColliders.push({ x: wx, z: wz, radius: 1.25, label: 'perimeter_banyan' });
+    };
+
     for (let gx = 0; gx < gridWidth; gx++) {
       const nWx = (gx + 0.5) * cellSize - halfWidth;
       const nWz = 0.5 * cellSize - halfHeight;
       const sWz = (gridHeight - 0.5) * cellSize - halfHeight;
 
-      const nBanyan = BanyanTreeFactory.createBanyanTree({ height: 8.5, trunkRadius: 1.1, canopyRadius: 4.8 });
-      nBanyan.position.set(nWx, 0, nWz);
-      rootGroup.add(nBanyan);
-      treeColliders.push({ x: nWx, z: nWz, radius: 1.25, label: 'perimeter_banyan' });
-
-      const sBanyan = BanyanTreeFactory.createBanyanTree({ height: 8.8, trunkRadius: 1.15, canopyRadius: 5.0 });
-      sBanyan.position.set(nWx, 0, sWz);
-      rootGroup.add(sBanyan);
-      treeColliders.push({ x: nWx, z: sWz, radius: 1.25, label: 'perimeter_banyan' });
+      addPerimeterBanyan(nWx, nWz, 8.5, 1.1, 4.8);
+      addPerimeterBanyan(nWx, sWz, 8.8, 1.15, 5.0);
     }
 
     for (let gz = 1; gz < gridHeight - 1; gz++) {
@@ -547,16 +556,24 @@ export class LabyrinthBuilder {
       const eWx = (gridWidth - 0.5) * cellSize - halfWidth;
       const wWz = (gz + 0.5) * cellSize - halfHeight;
 
-      const wBanyan = BanyanTreeFactory.createBanyanTree({ height: 8.4, trunkRadius: 1.1, canopyRadius: 4.8 });
-      wBanyan.position.set(wWx, 0, wWz);
-      rootGroup.add(wBanyan);
-      treeColliders.push({ x: wWx, z: wWz, radius: 1.25, label: 'perimeter_banyan' });
-
-      const eBanyan = BanyanTreeFactory.createBanyanTree({ height: 8.6, trunkRadius: 1.12, canopyRadius: 4.9 });
-      eBanyan.position.set(eWx, 0, wWz);
-      rootGroup.add(eBanyan);
-      treeColliders.push({ x: eWx, z: wWz, radius: 1.25, label: 'perimeter_banyan' });
+      addPerimeterBanyan(wWx, wWz, 8.4, 1.1, 4.8);
+      addPerimeterBanyan(eWx, wWz, 8.6, 1.12, 4.9);
     }
+
+    const banyanMats = BanyanTreeFactory.getMaterials();
+    const perimeterWoodMesh = new THREE.Mesh(
+      BanyanTreeFactory.mergeGeometries(perimeterWoodGeos),
+      banyanMats.bark
+    );
+    perimeterWoodMesh.name = 'PerimeterBanyan_Wood';
+    rootGroup.add(perimeterWoodMesh);
+
+    const perimeterCanopyMesh = new THREE.Mesh(
+      BanyanTreeFactory.mergeGeometries(perimeterCanopyGeos),
+      banyanMats.canopy
+    );
+    perimeterCanopyMesh.name = 'PerimeterBanyan_Canopy';
+    rootGroup.add(perimeterCanopyMesh);
 
     // Invisible dummy wall mesh so LabyrinthBuild interface has wallsMesh (just like Level 1)
     const wallMat = new THREE.MeshBasicMaterial({ visible: false });
@@ -609,8 +626,8 @@ export class LabyrinthBuilder {
       return false;
     };
 
-    const minTreeSpacing = 6.2;
-    const candidateAttempts = 450;
+    const minTreeSpacing = 9.5;
+    const candidateAttempts = 220;
 
     for (let i = 0; i < candidateAttempts; i++) {
       const tx = (rnd() * 2 - 1) * (halfWidth - 5.5);
@@ -742,24 +759,24 @@ export class LabyrinthBuilder {
       spawnGrave('kijing_mossy', gWx, gWz, eg.rot);
     }
 
-    // 11. Cemetery Bamboo Torches & Lantern Posts (Obor Bambu Kuburan)
+    // 11. Cemetery Bamboo Torches & Lantern Posts (Strategic lighting with 4 key PointLights)
     const torchCoords = [
-      { gx: 3, gz: 5 },
-      { gx: 7, gz: 11 },
-      { gx: 13, gz: 11 },
-      { gx: 13, gz: 15 },
-      { gx: 15, gz: 8 },
-      { gx: 19, gz: 12 },
-      { gx: 8, gz: 17 },
-      { gx: 12, gz: 17 },
-      { gx: 21, gz: 19 },
-      { gx: 23, gz: 22 },
+      { gx: 3, gz: 5, light: true },   // Near player spawn
+      { gx: 7, gz: 11, light: true },  // Near kuncen shack
+      { gx: 13, gz: 11, light: false },
+      { gx: 13, gz: 15, light: true }, // Near central sacred tree
+      { gx: 15, gz: 8, light: false },
+      { gx: 19, gz: 12, light: false },
+      { gx: 8, gz: 17, light: false },
+      { gx: 12, gz: 17, light: false },
+      { gx: 21, gz: 19, light: false },
+      { gx: 23, gz: 22, light: true }, // Near exit gate
     ];
 
     torchCoords.forEach((tc) => {
       const tWx = (tc.gx + 0.5) * cellSize - halfWidth;
       const tWz = (tc.gz + 0.5) * cellSize - halfHeight;
-      const torch = EnvironmentPropFactory.createCemeteryLanternPost();
+      const torch = EnvironmentPropFactory.createCemeteryLanternPost(tc.light);
       torch.position.set(tWx, 0, tWz);
       rootGroup.add(torch);
     });
@@ -784,8 +801,24 @@ export class LabyrinthBuilder {
     markers.monsterMarkers.forEach((m) => rootGroup.add(m));
     rootGroup.add(markers.exitMarker);
 
-    // 14. World Weapon Pickups (Sapu Ijuk di depan Gubuk Kuncen)
+    // 14. World Weapon Pickups (Rasengan di depan teras pelataran Gubuk Kuncen)
     const weaponPickups = this.spawnWorldPickups(level, halfWidth, halfHeight, cellSize, rootGroup);
+
+    // Cyan Rasengan Beacon Light & Pedestal di pelataran depan Gubuk Kuncen (gx: 8, gz: 13)
+    if (!SaveManager.getInstance().isWeaponUnlocked('rasengan')) {
+      const rasenganWx = (8 + 0.5) * cellSize - halfWidth;
+      const rasenganWz = (13 + 0.5) * cellSize - halfHeight;
+      const rasenganBeacon = new THREE.PointLight(0x06b6d4, 2.8, 10.0, 1.2);
+      rasenganBeacon.position.set(rasenganWx, 1.6, rasenganWz);
+      rootGroup.add(rasenganBeacon);
+
+      // Meja sesajen kayu tempat Rasengan mengapung
+      const tableGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.45, 8);
+      const tableMat = new THREE.MeshLambertMaterial({ color: 0x4a3420 });
+      const tableMesh = new THREE.Mesh(tableGeo, tableMat);
+      tableMesh.position.set(rasenganWx, 0.225, rasenganWz);
+      rootGroup.add(tableMesh);
+    }
 
     // 15. Level Collision Configuration (Pure Open Cemetery Ground with Cylinder Colliders)
     const collisionConfig: LevelCollisionConfig = {
