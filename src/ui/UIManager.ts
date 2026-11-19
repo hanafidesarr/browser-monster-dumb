@@ -277,10 +277,10 @@ export class UIManager {
 
     const weaponIcons: Record<string, string> = {
       baseball_bat: '&#9876;',
-      grenade: '&#128163;',
-      signboard: '&#128163;',
       machine_gun: '&#128299;',
       slipper: '&#128299;',
+      grenade: '&#128163;',
+      signboard: '&#128163;',
       rasengan: '&#127744;',
       kamehameha: '&#9889;',
       toy_hammer: '&#127744;',
@@ -496,29 +496,10 @@ export class UIManager {
     const loc = LocalizationManager.getInstance();
     const isEn = loc.getLanguage() === 'en';
 
-    // 1. Center Screen Attack Prompt Banner
+    // 1. Center Screen Attack Prompt Banner is completely removed across all levels per user request
     if (this.desktopAttackPrompt) {
-      if (visible) {
-        const titleEl = document.getElementById('desktop-attack-prompt-title');
-        const keyEl = this.desktopAttackPrompt.querySelector('.prompt-key') as HTMLElement;
-        const iconEl = this.desktopAttackPrompt.querySelector('.prompt-icon') as HTMLElement;
-
-        if (titleEl) {
-          titleEl.textContent = isEn
-            ? (customTitleEn || 'ATTACK NOW!')
-            : (customTitleId || 'SERANG SEKARANG!');
-        }
-        if (keyEl) {
-          keyEl.textContent = isEn ? '[SPACE / LEFT CLICK / ENTER]' : '[SPASI / KLIK KIRI / ENTER]';
-        }
-        if (iconEl) {
-          iconEl.innerHTML = '&#9876;';
-        }
-        this.desktopAttackPrompt.classList.remove('hidden', 'warning-prompt');
-      } else if (!this.warningTimeout) {
-        this.desktopAttackPrompt.classList.add('hidden');
-        this.desktopAttackPrompt.classList.remove('warning-prompt');
-      }
+      this.desktopAttackPrompt.classList.add('hidden');
+      this.desktopAttackPrompt.classList.remove('warning-prompt');
     }
 
     // 2. Duplicate proximity alert wrapper remains hidden
@@ -1072,6 +1053,30 @@ export class UIManager {
 
       card.className = `level-card ${isUnlocked ? 'unlocked' : 'locked'}`;
 
+      const monsterType = level.monsterType || (level.id === 2 ? 'kunti' : 'pocong');
+      let monsterName = loc.t('monster.pocong');
+      let monsterBadgeText = '';
+      if (level.monsterTypes && level.monsterTypes.length > 0) {
+        monsterName = level.monsterTypes.map((t) => loc.t(`monster.${t}`)).join(' & ');
+        const counts: Record<string, number> = {};
+        for (const t of level.monsterTypes) {
+          counts[t] = (counts[t] || 0) + 1;
+        }
+        monsterBadgeText = Object.entries(counts)
+          .map(([t, cnt]) => `${cnt} ${loc.t(`monster.${t}`)}`)
+          .join(' & ');
+      } else if (monsterType === 'kunti') {
+        monsterName = loc.t('monster.kunti');
+      } else if (monsterType === 'yeti') {
+        monsterName = loc.t('monster.yeti');
+      }
+      const monsterCount = level.monsterCount || 1;
+      if (!monsterBadgeText) {
+        monsterBadgeText = `${monsterCount} ${monsterName}`;
+      }
+      const lvlInfo = loc.getLevelInfo(level.id);
+      const floorLabel = lang === 'id' ? 'Lantai' : (level.floorCount && level.floorCount > 1 ? 'Floors' : 'Floor');
+
       const statusText = isCompleted
         ? loc.t('levelSelect.completed')
         : (isUnlocked ? (lang === 'id' ? 'TERSEDIA' : 'AVAILABLE') : loc.t('levelSelect.locked'));
@@ -1082,6 +1087,14 @@ export class UIManager {
 
       card.innerHTML = `
         <div class="level-number">LEVEL ${level.id.toString().padStart(2, '0')}</div>
+        <div class="level-name">${lvlInfo.title}</div>
+        <div class="level-meta-row">
+          <span class="level-monster-badge" title="${monsterBadgeText}">
+            <span class="monster-icon">&#128123;</span>
+            <span class="monster-count-text">${monsterBadgeText}</span>
+          </span>
+          <span class="level-floor-badge">&#127970; ${level.floorCount || 1} ${floorLabel}</span>
+        </div>
         <div class="level-status-row">
           <span>${statusText}</span>
           <span class="${isCompleted ? 'badge-completed' : (isUnlocked ? 'badge-unlocked' : 'badge-locked')}">
@@ -1097,6 +1110,17 @@ export class UIManager {
           if (this.onPlayRequested) {
             this.onPlayRequested(level.id);
           }
+        });
+      } else {
+        card.addEventListener('click', () => {
+          audio.playUiClick();
+          card.classList.add('shake');
+          setTimeout(() => card.classList.remove('shake'), 400);
+          this.showTemporaryWarning(
+            `Selesaikan Level ${(level.id - 1).toString().padStart(2, '0')} terlebih dahulu!`,
+            `Complete Level ${(level.id - 1).toString().padStart(2, '0')} first!`,
+            1800
+          );
         });
       }
 

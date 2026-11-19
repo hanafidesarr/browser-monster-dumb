@@ -281,27 +281,27 @@ const LEVEL_LOCALIZATION: Record<Language, Record<number, LevelLocalization>> = 
     2: {
       title: 'SEKOLAH TERBENGKALAI',
       subtitle: 'SEKTOR 02 — LORONG KOSONG (2 LANTAI)',
-      description: 'Sekolah tua berdebu 2 lantai dengan tangga. Carilah Wajan Penggorengan untuk memukul Kuntilanak!',
+      description: 'Sekolah tua berdebu 2 lantai dengan tangga. Carilah Senapan Mesin untuk menembak Kuntilanak dari kejauhan!',
     },
     3: {
       title: 'LABIRIN BETON',
       subtitle: 'SEKTOR 03 — RUANG BAWAH TANAH (2 LANTAI)',
-      description: 'Labirin beton bertingkat 2 lantai dengan tangga dan lorong jebakan. Ikuti petunjuk panah di dinding untuk menemukan tangga ke lantai 2!',
+      description: 'Labirin beton bertingkat 2 lantai dengan lorong jebakan. Temukan Granat Nanas untuk meledakkan Pocong dan cari tangga ke lantai 2!',
     },
     4: {
       title: 'PEMAKAMAN BERINGIN KERAMAT',
       subtitle: 'SEKTOR 04 — KUBURAN TUA BERINGIN LEBAT (AREA LUAS)',
-      description: 'Kompleks pemakaman tua yang sangat luas dinaungi pohon beringin raksasa berakar gantung dan nisan kuburan berlumut. Temukan Sapu Ijuk di gubuk kuncen untuk memukul 1 Kuntilanak & 1 Genderwo!',
+      description: 'Kompleks pemakaman tua yang sangat luas dinaungi pohon beringin raksasa berakar gantung dan nisan kuburan berlumut. Temukan Rasengan di gubuk kuncen untuk menghantam 1 Kuntilanak & 1 Genderwo!',
     },
     5: {
       title: 'BUNKER MILITER',
       subtitle: 'SEKTOR 05 — BUNKER MILITER BAWAH TANAH (2 LANTAI)',
-      description: 'Bunker militer 2 lantai yang sangat luas. Masuki gerbang baja dari parit luar, ambil Spatula, dan serang 2 Kuntilanak & 1 Pocong sebelum lari ke pintu evakuasi di lantai 2!',
+      description: 'Bunker militer 2 lantai yang sangat luas. Masuki gerbang baja dari parit luar, temukan Kamehameha, dan musnahkan 2 Kuntilanak & 1 Pocong sebelum lari ke pintu evakuasi di lantai 2!',
     },
     6: {
       title: 'PROYEK BANGUNAN ANGKER',
       subtitle: 'SEKTOR 06 — PROYEK TOWER & CRANE BERGERAK (3 LANTAI)',
-      description: 'Area proyek gedung bertingkat 3 lantai dengan crane raksasa berputar dan jembatan penghubung antar menara. Temukan Rasengan di lantai dasar & Kamehameha di lantai 2 untuk mengalahkan trio Genderwo, Pocong, & Kuntilanak!',
+      description: 'Area proyek gedung bertingkat 3 lantai dengan crane raksasa berputar dan jembatan penghubung antar menara. Gunakan seluruh senjatamu untuk mengalahkan trio Genderwo, Pocong, & Kuntilanak!',
     },
     7: {
       title: 'HOTEL BERHANTU',
@@ -333,27 +333,27 @@ const LEVEL_LOCALIZATION: Record<Language, Record<number, LevelLocalization>> = 
     2: {
       title: 'ABANDONED SCHOOL',
       subtitle: 'SECTOR 02 — DESERTED HALLWAYS (2 FLOORS)',
-      description: 'A dusty 2-floor old school with stairs. Find the Frying Pan to strike the Kuntilanak!',
+      description: 'A dusty 2-floor old school with stairs. Find the Machine Gun to shoot the Kuntilanak from a distance!',
     },
     3: {
       title: 'THE LABYRINTH',
       subtitle: 'SECTOR 03 — CONCRETE UNDERGROUND (2 FLOORS)',
-      description: 'A 2-floor concrete labyrinth with stairs and tricky dead-ends. Follow arrow markings on walls to find the stairs to the 2nd floor!',
+      description: 'A 2-floor concrete labyrinth with tricky dead-ends. Find the Hand Grenade to blast the Pocong and find the stairs to floor 2!',
     },
     4: {
       title: 'THE SACRED CEMETERY',
       subtitle: 'SECTOR 04 — BANYAN GRAVEYARD (EXPANSIVE OUTDOOR)',
-      description: 'A vast ancient Indonesian cemetery shaded by towering banyan trees with hanging aerial roots and mossy tombstones. Find the Broom at the caretaker shack to strike 1 Kuntilanak & 1 Genderwo!',
+      description: 'A vast ancient Indonesian cemetery shaded by towering banyan trees with hanging aerial roots and mossy tombstones. Find the Rasengan at the caretaker shack to strike 1 Kuntilanak & 1 Genderwo!',
     },
     5: {
       title: 'THE MILITARY BUNKER',
       subtitle: 'SECTOR 05 — REINFORCED UNDERGROUND BUNKER (2 FLOORS)',
-      description: 'A massive 2-floor underground military bunker. Enter from the outdoor trench, grab the Spatula, and strike 2 Kuntilanaks & 1 Pocong before escaping to the exit vault on floor 2!',
+      description: 'A massive 2-floor underground military bunker. Enter from the outdoor trench, grab the Kamehameha, and blast 2 Kuntilanaks & 1 Pocong before escaping to the exit vault on floor 2!',
     },
     6: {
       title: 'THE CONSTRUCTION SITE',
       subtitle: 'SECTOR 06 — HIGH-RISE SITE & MOVING CRANE (3 FLOORS)',
-      description: 'A 3-floor high-rise construction site with a moving tower crane and skybridge connecting twin towers. Discover Rasengan on the ground yard & Kamehameha on the 2nd floor to defeat Genderwo, Pocong, & Kuntilanak!',
+      description: 'A 3-floor high-rise construction site with a moving tower crane and skybridge connecting twin towers. Use your full arsenal to defeat Genderwo, Pocong, & Kuntilanak!',
     },
     7: {
       title: 'HAUNTED HOTEL',

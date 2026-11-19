@@ -59,16 +59,6 @@ export const ALL_WEAPONS: WeaponDefinition[] = [
     defaultUnlocked: true,
   },
   {
-    id: 'grenade',
-    name: 'Hand Grenade',
-    nameId: 'Granat Nanas',
-    description: 'Granat militer berdaya ledak tinggi. Dapat dilempar dari jauh ke arah monster!',
-    swingDuration: 0.55,
-    swingType: 'throw',
-    impactSound: 'explosion',
-    monsterReaction: 'stagger',
-  },
-  {
     id: 'machine_gun',
     name: 'Machine Gun',
     nameId: 'Senapan Mesin',
@@ -76,6 +66,16 @@ export const ALL_WEAPONS: WeaponDefinition[] = [
     swingDuration: 0.46,
     swingType: 'shoot',
     impactSound: 'gunshot',
+    monsterReaction: 'stagger',
+  },
+  {
+    id: 'grenade',
+    name: 'Hand Grenade',
+    nameId: 'Granat Nanas',
+    description: 'Granat militer berdaya ledak tinggi. Dapat dilempar dari jauh ke arah monster!',
+    swingDuration: 0.55,
+    swingType: 'throw',
+    impactSound: 'explosion',
     monsterReaction: 'stagger',
   },
   {

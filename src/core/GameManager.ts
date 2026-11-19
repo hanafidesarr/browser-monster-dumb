@@ -269,7 +269,9 @@ export class GameManager {
     const audio = AudioManager.getInstance();
 
     ui.onPlayRequested = (levelId: number) => {
-      this.loadLevel(levelId, true);
+      const save = SaveManager.getInstance();
+      const targetId = save.isLevelUnlocked(levelId) ? levelId : save.getCurrentLevel();
+      this.loadLevel(targetId, true);
     };
 
     ui.onStartLevelRequested = () => {
@@ -290,7 +292,9 @@ export class GameManager {
 
     ui.onNextLevelRequested = () => {
       const nextId = this.currentLevelDef.id + 1;
-      if (nextId <= ALL_LEVELS.length) {
+      const save = SaveManager.getInstance();
+      const maxPlayableLevel = save.isDevModeEnabled() ? ALL_LEVELS.length : 6;
+      if (nextId <= maxPlayableLevel && save.isLevelUnlocked(nextId)) {
         this.loadLevel(nextId, true);
       } else {
         this.exitToMainMenu();
@@ -1912,7 +1916,7 @@ export class GameManager {
     SaveManager.getInstance().recordCompletion(this.currentLevelDef.id, this.gameplayTimer);
 
     const maxPlayableLevel = SaveManager.getInstance().isDevModeEnabled() ? ALL_LEVELS.length : 6;
-    const hasNext = this.currentLevelDef.id + 1 <= maxPlayableLevel;
+    const hasNext = this.currentLevelDef.id + 1 <= maxPlayableLevel && SaveManager.getInstance().isLevelUnlocked(this.currentLevelDef.id + 1);
     UIManager.getInstance().showLevelComplete(this.currentLevelDef, this.gameplayTimer, hasNext);
   }
 
@@ -2099,7 +2103,7 @@ export class GameManager {
           canAttackAny = inSpecialArea;
           if (inSpecialArea) {
             this.fpController.weapon.setVisible(true);
-            // Hilangkan alert banner ketika bisa menggunakan senjata (sesuai instruksi user)
+            // Hilangkan alert banner di screen ketika mendekati hantu di semua level (sesuai instruksi user)
             UIManager.getInstance().setAttackPromptVisible(false);
             UIManager.getInstance().setMobileAttackReady(true);
           } else {
@@ -2117,10 +2121,14 @@ export class GameManager {
             : false;
           canAttackAny = nearestDist <= alertDist && sameFloor;
           this.fpController.weapon.setVisible(true);
-          UIManager.getInstance().setAttackPromptVisible(canAttackAny, targetMonsterName, actionVerb);
+          // Hapus alert di screen ketika player mendekati hantu di semua level
+          UIManager.getInstance().setAttackPromptVisible(false);
+          UIManager.getInstance().setMobileAttackReady(canAttackAny);
         } else {
           this.fpController.weapon.setVisible(true);
-          UIManager.getInstance().setAttackPromptVisible(canAttackAny, targetMonsterName, actionVerb);
+          // Hapus alert di screen ketika player mendekati hantu di semua level
+          UIManager.getInstance().setAttackPromptVisible(false);
+          UIManager.getInstance().setMobileAttackReady(canAttackAny);
         }
 
         UIManager.getInstance().setDetectionMeter(0);
@@ -2142,8 +2150,8 @@ export class GameManager {
         UIManager.getInstance().hidePickupPrompt();
       }
 
-      // 4. Escape Door Trigger Check & Catch Check (during CHASE phase!)
-      if (this.state === 'CHASE' || (this.isAttackSuccessful && (this.state === 'ATTACK' || this.state === 'CHASE'))) {
+      // 4. Escape Door Trigger Check & Catch Check (during CHASE / ATTACK phase or after attack)
+      if (this.isAttackSuccessful || this.state === 'CHASE' || this.state === 'ATTACK') {
         for (const m of this.monsters) {
           const horizontalDist = Math.hypot(
             m.position.x - this.fpController.position.x,
@@ -2158,12 +2166,16 @@ export class GameManager {
           }
         }
 
-        if (
-          this.isAttackSuccessful &&
-          this.levelBuild &&
-          this.levelBuild.exitDoorMesh?.visible &&
-          this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)
-        ) {
+        const doorMesh = this.levelBuild?.exitDoorMesh;
+        const doorPos = doorMesh ? doorMesh.position : null;
+        const hDistToDoor = doorPos ? Math.hypot(this.fpController.position.x - doorPos.x, this.fpController.position.z - doorPos.z) : 999;
+        const playerFeetY = this.fpController.position.y - 1.65;
+        const vDistToDoor = doorPos ? Math.abs(playerFeetY - doorPos.y) : 999;
+        const isNearExitDoor = (this.levelBuild?.exitTriggerBox && this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)) ||
+                               (hDistToDoor <= 3.8 && vDistToDoor <= 2.8);
+
+        if (this.isAttackSuccessful && isNearExitDoor) {
+          if (doorMesh) doorMesh.visible = true;
           if (this.currentLevelDef.exitLockedInitially && !this.isExitUnlocked) {
             UIManager.getInstance().setStatusText(
               'PINTU EXIT MASIH TERKUNCI! AKTIFKAN SEMUA TERMINAL!',
@@ -2172,12 +2184,7 @@ export class GameManager {
           } else {
             this.triggerLevelComplete();
           }
-        } else if (
-          !this.isAttackSuccessful &&
-          this.levelBuild &&
-          this.levelBuild.exitDoorMesh?.visible &&
-          this.levelBuild.exitTriggerBox.containsPoint(this.fpController.position)
-        ) {
+        } else if (!this.isAttackSuccessful && isNearExitDoor) {
           const mName = this.getLevelMonsterDisplayName();
           const fName = this.currentLevelDef.id === 3 ? 'LANTAI 1' : 'ARENA';
           UIManager.getInstance().setStatusText(

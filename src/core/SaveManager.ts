@@ -6,6 +6,7 @@ export interface SaveData {
   selectedWeapon: string;
   language?: 'id' | 'en';
   hasChosenLanguage?: boolean;
+  weaponsLockedV2Migration?: boolean;
   settings: {
     masterVolume: number;
     sfxVolume: number;
@@ -21,13 +22,14 @@ export interface SaveData {
 const STORAGE_KEY = 'monster_dumb_save_v1';
 
 const DEFAULT_SAVE: SaveData = {
-  unlockedLevel: 6,
+  unlockedLevel: 1,
   currentLevel: 1,
   completedLevels: {},
-  unlockedWeapons: ['baseball_bat', 'rasengan', 'kamehameha'],
+  unlockedWeapons: ['baseball_bat'],
   selectedWeapon: 'baseball_bat',
   language: 'id',
   hasChosenLanguage: false,
+  weaponsLockedV2Migration: true,
   settings: {
     masterVolume: 80,
     sfxVolume: 90,
@@ -46,6 +48,7 @@ export class SaveManager {
 
   private constructor() {
     this.data = this.load();
+    this.save();
   }
 
   public static getInstance(): SaveManager {
@@ -84,24 +87,69 @@ export class SaveManager {
           parsed.selectedWeapon = 'machine_gun';
         }
 
+        // Calculate unlocked level strictly from completed levels (must finish current level to unlock next level)
+        let maxCompleted = 0;
+        if (parsed.completedLevels && typeof parsed.completedLevels === 'object') {
+          for (const lvlStr of Object.keys(parsed.completedLevels)) {
+            const lvlNum = parseInt(lvlStr, 10);
+            if (!isNaN(lvlNum) && parsed.completedLevels[lvlNum]) {
+              maxCompleted = Math.max(maxCompleted, lvlNum);
+            }
+          }
+        }
+        // Player starts with Level 1 unlocked. Each completed level unlocks the next level (up to 6 for public players)
+        const unlockedLevel = Math.min(6, Math.max(1, maxCompleted + 1));
         const currentLevel = typeof parsed.currentLevel === 'number'
-          ? Math.min(Math.max(1, parsed.currentLevel), 10)
-          : (parsed.unlockedLevel || 1);
+          ? Math.min(Math.max(1, parsed.currentLevel), unlockedLevel)
+          : unlockedLevel;
 
-        const unlockedLevel = Math.max(6, parsed.unlockedLevel || 1);
-        const unlockedWeapons = parsed.unlockedWeapons && Array.isArray(parsed.unlockedWeapons)
-          ? parsed.unlockedWeapons
+        let unlockedWeapons = parsed.unlockedWeapons && Array.isArray(parsed.unlockedWeapons)
+          ? [...parsed.unlockedWeapons]
           : ['baseball_bat'];
-        if (!unlockedWeapons.includes('rasengan')) unlockedWeapons.push('rasengan');
-        if (!unlockedWeapons.includes('kamehameha')) unlockedWeapons.push('kamehameha');
+
+        // Strict weapon lock enforcement:
+        // Level 2 -> machine_gun (only unlocked if picked up or level 2 completed or level 3+ reached)
+        const hasCompletedLvl2 = !!(parsed.completedLevels && parsed.completedLevels[2]);
+        if (!hasCompletedLvl2 && unlockedLevel < 2) {
+          unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'machine_gun' && w !== 'slipper');
+        }
+
+        // Level 3 -> grenade (only unlocked if picked up or level 3 completed or level 4+ reached)
+        const hasCompletedLvl3 = !!(parsed.completedLevels && parsed.completedLevels[3]);
+        if (!hasCompletedLvl3 && unlockedLevel < 3) {
+          unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'grenade' && w !== 'signboard');
+        }
+
+        // Level 4 -> rasengan (strictly locked unless Level 4 has been completed)
+        const hasCompletedLvl4 = !!(parsed.completedLevels && parsed.completedLevels[4]);
+        if (!hasCompletedLvl4) {
+          unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'rasengan' && w !== 'toy_hammer');
+        }
+
+        // Level 5 -> kamehameha (strictly locked unless Level 5 has been completed)
+        const hasCompletedLvl5 = !!(parsed.completedLevels && parsed.completedLevels[5]);
+        if (!hasCompletedLvl5) {
+          unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'kamehameha' && w !== 'electric_fan');
+        }
+
+        if (!unlockedWeapons.includes('baseball_bat')) {
+          unlockedWeapons.unshift('baseball_bat');
+        }
+
+        let selectedWeapon = parsed.selectedWeapon || 'baseball_bat';
+        if (!unlockedWeapons.includes(selectedWeapon)) {
+          selectedWeapon = 'baseball_bat';
+        }
 
         return {
           ...DEFAULT_SAVE,
           ...parsed,
           unlockedLevel,
           unlockedWeapons,
+          selectedWeapon: parsed.selectedWeapon || 'baseball_bat',
           currentLevel,
           settings,
+          weaponsLockedV2Migration: true,
         };
       }
     } catch (e) {
@@ -165,7 +213,7 @@ export class SaveManager {
 
   public setCurrentLevel(levelNumber: number): void {
     const maxLevel = this.isDevModeEnabled() ? 10 : 6;
-    if (levelNumber >= 1 && levelNumber <= maxLevel) {
+    if (levelNumber >= 1 && levelNumber <= maxLevel && this.isLevelUnlocked(levelNumber)) {
       this.data.currentLevel = levelNumber;
       this.save();
     }
@@ -202,13 +250,15 @@ export class SaveManager {
   }
 
   public isLevelUnlocked(levelNumber: number): boolean {
+    // Level 1 is always unlocked by default
+    if (levelNumber === 1) return true;
     // Levels 7 to 10 are strictly disabled and on-progress unless dev=1 is enabled
     if (levelNumber >= 7 && levelNumber <= 10) {
       return this.isDevModeEnabled();
     }
     if (this.isDevModeEnabled()) return true;
-    if (levelNumber <= 6) return true;
-    return levelNumber <= this.data.unlockedLevel;
+    // Must complete previous levels: levelNumber must be <= unlockedLevel
+    return levelNumber <= (this.data.unlockedLevel || 1);
   }
 
   public isLevelCompleted(levelNumber: number): boolean {
@@ -217,7 +267,6 @@ export class SaveManager {
 
   public isWeaponUnlocked(weaponId: string): boolean {
     if (['frying_pan', 'chair', 'broom', 'spatula'].includes(weaponId)) return false;
-    if (this.isDevModeEnabled()) return true;
     const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : weaponId);
     if (!this.data.unlockedWeapons) {
       this.data.unlockedWeapons = ['baseball_bat'];
@@ -241,8 +290,8 @@ export class SaveManager {
 
   public getSelectedWeapon(): string {
     const w = this.data.selectedWeapon || 'baseball_bat';
-    const validWeapons = ['baseball_bat', 'grenade', 'machine_gun', 'rasengan', 'kamehameha'];
-    if (!validWeapons.includes(w)) {
+    const validWeapons = ['baseball_bat', 'machine_gun', 'grenade', 'rasengan', 'kamehameha'];
+    if (!validWeapons.includes(w) || !this.isWeaponUnlocked(w)) {
       this.data.selectedWeapon = 'baseball_bat';
       return 'baseball_bat';
     }

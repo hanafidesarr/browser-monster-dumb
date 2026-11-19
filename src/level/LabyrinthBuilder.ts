@@ -2853,18 +2853,23 @@ export class LabyrinthBuilder {
     rootGroup.add(exitDoorGroup);
 
     // Generous and precise exit trigger box encompassing the entire exit corridor cell
-    const exitTriggerBox = new THREE.Box3(
-      new THREE.Vector3(
-        (7 - 0.2) * cellSize - halfWidth,
-        exitWy - 0.5,
-        (15 - 0.4) * cellSize - halfHeight
-      ),
-      new THREE.Vector3(
-        (8 + 0.5) * cellSize - halfWidth,
-        exitWy + wallHeight + 1.0,
-        (15 + 1.4) * cellSize - halfHeight
-      )
-    );
+    const exitTriggerBox = (level.id === 3)
+      ? new THREE.Box3(
+          new THREE.Vector3(
+            (7 - 0.5) * cellSize - halfWidth,
+            finalExitWy - 0.5,
+            (15 - 0.5) * cellSize - halfHeight
+          ),
+          new THREE.Vector3(
+            (8 + 0.5) * cellSize - halfWidth,
+            finalExitWy + wallHeight + 1.5,
+            (15 + 1.5) * cellSize - halfHeight
+          )
+        )
+      : new THREE.Box3(
+          new THREE.Vector3(finalExitWx - cellSize * 1.5, finalExitWy - 0.5, finalExitWz - cellSize * 1.5),
+          new THREE.Vector3(finalExitWx + cellSize * 1.5, finalExitWy + wallHeight + 1.5, finalExitWz + cellSize * 1.5)
+        );
 
     // 8. Corridors Atmospheric Lights
     this.spawnCorridorLights(level, halfWidth, halfHeight, cellSize, wallHeight, rootGroup);
