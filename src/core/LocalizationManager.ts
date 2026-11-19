@@ -26,6 +26,9 @@ const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     'levelSelect.unlocked': 'TERBUKA',
     'levelSelect.completed': 'SELESAI',
     'levelSelect.bestTime': 'WAKTU TERBAIK',
+    'levelSelect.onProgress': 'DALAM PENGERJAAN',
+    'levelSelect.comingSoon': 'SEGERA HADIR',
+    'levelSelect.onProgressDesc': 'Level ini masih dalam tahap pengerjaan (On Progress)!',
 
     // Settings
     'settings.title': 'PENGATURAN SISTEM',
@@ -142,6 +145,9 @@ const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     'levelSelect.unlocked': 'UNLOCKED',
     'levelSelect.completed': 'COMPLETED',
     'levelSelect.bestTime': 'BEST TIME',
+    'levelSelect.onProgress': 'ON PROGRESS',
+    'levelSelect.comingSoon': 'COMING SOON',
+    'levelSelect.onProgressDesc': 'This level is currently on progress!',
 
     // Settings
     'settings.title': 'SYSTEM SETTINGS',

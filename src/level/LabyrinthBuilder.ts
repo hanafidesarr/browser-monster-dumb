@@ -1497,16 +1497,16 @@ export class LabyrinthBuilder {
     markers.monsterMarkers.forEach((m) => rootGroup.add(m));
     rootGroup.add(markers.exitMarker);
 
-    // 13. World Weapon Pickups (Spatula di pos parit luar!)
+    // 13. World Weapon Pickups (Senapan Mesin di pos parit luar!)
     const weaponPickups = this.spawnWorldPickups(level, halfWidth, halfHeight, cellSize, rootGroup);
 
-    // 13B. Tactical Outpost Highlight Beacon for Spatula in Outdoor Trench
-    const spatulaWx = (8 + 0.5) * cellSize - halfWidth;
-    const spatulaWz = (3 + 0.5) * cellSize - halfHeight;
-    const spatulaBeacon = new THREE.PointLight(0xf59e0b, 2.8, 8.5, 1.2);
-    spatulaBeacon.position.set(spatulaWx, 1.8, spatulaWz);
-    rootGroup.add(spatulaBeacon);
-    addBunkerStencil(8, 5, 'north', 'up', 'SENJATA: SPATULA', 0, 'exit', 'WEAPON: FRYING SPATULA');
+    // 13B. Tactical Outpost Highlight Beacon for Machine Gun in Outdoor Trench
+    const mgWx = (8 + 0.5) * cellSize - halfWidth;
+    const mgWz = (3 + 0.5) * cellSize - halfHeight;
+    const mgBeacon = new THREE.PointLight(0xf59e0b, 2.8, 8.5, 1.2);
+    mgBeacon.position.set(mgWx, 1.8, mgWz);
+    rootGroup.add(mgBeacon);
+    addBunkerStencil(8, 5, 'north', 'up', 'SENJATA: SENAPAN MESIN', 0, 'exit', 'WEAPON: MACHINE GUN');
 
     // 14. Level Collision Configuration (Isolated Multi-Floor Military Bunker Collision)
     const collisionConfig: LevelCollisionConfig = {

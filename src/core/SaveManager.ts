@@ -122,19 +122,30 @@ export class SaveManager {
     if (typeof window === 'undefined' || !window.location) return false;
     try {
       const search = window.location.search;
-      if (!search) return false;
-      const params = new URLSearchParams(search);
-      return (
-        params.has('dev') ||
-        params.has('test') ||
-        params.has('unlock') ||
-        params.has('all') ||
-        params.get('mode') === 'test' ||
-        params.get('mode') === 'dev'
-      );
-    } catch (_) {
-      return false;
-    }
+      if (search) {
+        const params = new URLSearchParams(search);
+        if (
+          params.get('dev') === '1' ||
+          params.get('dev') === 'true' ||
+          params.has('dev') ||
+          params.get('mode') === 'dev' ||
+          params.has('test') ||
+          params.has('unlock') ||
+          params.has('all')
+        ) {
+          return true;
+        }
+      }
+      if (typeof window.localStorage !== 'undefined') {
+        if (
+          window.localStorage.getItem('monster_dumb_dev') === '1' ||
+          window.localStorage.getItem('dev') === '1'
+        ) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
   }
 
   public getData(): SaveData {
@@ -153,7 +164,8 @@ export class SaveManager {
   }
 
   public setCurrentLevel(levelNumber: number): void {
-    if (levelNumber >= 1 && levelNumber <= 10) {
+    const maxLevel = this.isDevModeEnabled() ? 10 : 6;
+    if (levelNumber >= 1 && levelNumber <= maxLevel) {
       this.data.currentLevel = levelNumber;
       this.save();
     }
@@ -161,11 +173,12 @@ export class SaveManager {
 
   public getUnlockedLevel(): number {
     if (this.isDevModeEnabled()) return 10;
-    return this.data.unlockedLevel || 1;
+    return Math.min(6, this.data.unlockedLevel || 1);
   }
 
   public unlockLevel(levelNumber: number): void {
-    if (levelNumber > this.data.unlockedLevel) {
+    const maxLevel = this.isDevModeEnabled() ? 10 : 6;
+    if (levelNumber <= maxLevel && levelNumber > this.data.unlockedLevel) {
       this.data.unlockedLevel = levelNumber;
       this.data.currentLevel = levelNumber;
       this.save();
@@ -177,17 +190,22 @@ export class SaveManager {
       time: timeSeconds,
       date: new Date().toISOString(),
     };
-    // Unlock next level if applicable (up to 10)
-    if (levelNumber + 1 <= 10 && levelNumber + 1 > this.data.unlockedLevel) {
+    // Unlock next level if applicable (capped at Level 6 for public players)
+    const maxLevel = this.isDevModeEnabled() ? 10 : 6;
+    if (levelNumber + 1 <= maxLevel && levelNumber + 1 > this.data.unlockedLevel) {
       this.data.unlockedLevel = levelNumber + 1;
     }
-    if (levelNumber + 1 <= 10) {
+    if (levelNumber + 1 <= maxLevel) {
       this.data.currentLevel = levelNumber + 1;
     }
     this.save();
   }
 
   public isLevelUnlocked(levelNumber: number): boolean {
+    // Levels 7 to 10 are strictly disabled and on-progress unless dev=1 is enabled
+    if (levelNumber >= 7 && levelNumber <= 10) {
+      return this.isDevModeEnabled();
+    }
     if (this.isDevModeEnabled()) return true;
     if (levelNumber <= 6) return true;
     return levelNumber <= this.data.unlockedLevel;
@@ -198,6 +216,7 @@ export class SaveManager {
   }
 
   public isWeaponUnlocked(weaponId: string): boolean {
+    if (['frying_pan', 'chair', 'broom', 'spatula'].includes(weaponId)) return false;
     if (this.isDevModeEnabled()) return true;
     const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : weaponId);
     if (!this.data.unlockedWeapons) {
@@ -207,6 +226,7 @@ export class SaveManager {
   }
 
   public unlockWeapon(weaponId: string): boolean {
+    if (['frying_pan', 'chair', 'broom', 'spatula'].includes(weaponId)) return false;
     const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : weaponId);
     if (!this.data.unlockedWeapons) {
       this.data.unlockedWeapons = ['baseball_bat'];
@@ -220,7 +240,13 @@ export class SaveManager {
   }
 
   public getSelectedWeapon(): string {
-    return this.data.selectedWeapon || 'baseball_bat';
+    const w = this.data.selectedWeapon || 'baseball_bat';
+    const validWeapons = ['baseball_bat', 'grenade', 'machine_gun', 'rasengan', 'kamehameha'];
+    if (!validWeapons.includes(w)) {
+      this.data.selectedWeapon = 'baseball_bat';
+      return 'baseball_bat';
+    }
+    return w;
   }
 
   public setSelectedWeapon(weaponId: string): void {

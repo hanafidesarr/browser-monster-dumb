@@ -345,7 +345,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     ],
     bridges: [],
     weaponPickups: [
-      { weaponId: 'frying_pan', x: 17, z: 3 },
+      { weaponId: 'machine_gun', x: 17, z: 3 },
     ],
     monsterConfig: {
       detectionFovDeg: 90,
@@ -384,7 +384,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     ],
     bridges: [],
     weaponPickups: [
-      { weaponId: 'chair', x: 3, z: 5 },
+      { weaponId: 'grenade', x: 3, z: 5 },
     ],
     monsterConfig: {
       detectionFovDeg: 90,
@@ -403,7 +403,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     id: 4,
     title: 'THE SACRED CEMETERY',
     subtitle: 'SECTOR 04 — BANYAN GRAVEYARD (EXPANSIVE OUTDOOR)',
-    description: 'Kompleks pemakaman tua yang sangat luas dinaungi pohon beringin lebat berakar gantung dan nisan berlumut. Temukan Sapu Ijuk di gubuk kuncen untuk memukul 1 Kuntilanak & 1 Genderwo!',
+    description: 'Kompleks pemakaman tua yang sangat luas dinaungi pohon beringin lebat berakar gantung dan nisan berlumut. Temukan Rasengan di gubuk kuncen untuk memukul 1 Kuntilanak & 1 Genderwo!',
     difficultyRating: 4,
     theme: 'cemetery',
     monsterType: 'kunti',
@@ -422,7 +422,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     ramps: [],
     bridges: [],
     weaponPickups: [
-      { weaponId: 'broom', x: 7, z: 13 },
+      { weaponId: 'rasengan', x: 7, z: 13 },
     ],
     monsterConfig: {
       detectionFovDeg: 92,
@@ -441,7 +441,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     id: 5,
     title: 'THE MILITARY BUNKER',
     subtitle: 'SECTOR 05 — REINFORCED UNDERGROUND BUNKER (2 FLOORS)',
-    description: 'Kompleks bunker pertahanan militer bawah tanah 2 lantai yang sangat luas. Masuki gerbang baja dari parit luar, ambil Spatula untuk menyerang 2 Kuntilanak & 1 Pocong, lalu evakuasi ke lantai 2!',
+    description: 'Kompleks bunker pertahanan militer bawah tanah 2 lantai yang sangat luas. Masuki gerbang baja dari parit luar, ambil Senapan Mesin untuk menyerang 2 Kuntilanak & 1 Pocong, lalu evakuasi ke lantai 2!',
     difficultyRating: 5,
     theme: 'bunker',
     monsterType: 'kunti',
@@ -463,7 +463,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
     ],
     bridges: [],
     weaponPickups: [
-      { weaponId: 'spatula', x: 8, z: 3 },
+      { weaponId: 'machine_gun', x: 8, z: 3 },
     ],
     monsterConfig: {
       detectionFovDeg: 95,
@@ -692,7 +692,7 @@ export const ALL_LEVELS: LevelDefinition[] = [
       { id: 'l10_bridge_3', floor: 9, startCell: { x: 9, z: 17 }, endCell: { x: 12, z: 17 }, type: 'broken' },
     ],
     weaponPickups: [
-      { weaponId: 'frying_pan', x: 18, z: 2 },
+      { weaponId: 'kamehameha', x: 18, z: 2 },
     ],
     monsterConfig: {
       detectionFovDeg: 98,

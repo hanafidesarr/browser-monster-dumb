@@ -259,12 +259,8 @@ export class UIManager {
       baseball_bat: '&#9876;',
       grenade: '&#128163;',
       signboard: '&#128163;',
-      frying_pan: '&#127859;',
       machine_gun: '&#128299;',
       slipper: '&#128299;',
-      chair: '&#129681;',
-      broom: '&#129529;',
-      spatula: '&#127860;',
       rasengan: '&#127744;',
       kamehameha: '&#9889;',
       toy_hammer: '&#127744;',
@@ -971,33 +967,41 @@ export class UIManager {
     }
 
     ALL_LEVELS.forEach((level) => {
+      const isDev = save.isDevModeEnabled();
+      const isOnProgress = level.id >= 7 && !isDev;
       const isUnlocked = save.isLevelUnlocked(level.id);
       const isCompleted = save.isLevelCompleted(level.id);
-      const monsterType = level.monsterType || (level.id === 2 ? 'kunti' : 'pocong');
-      let monsterName = loc.t('monster.pocong');
-      let monsterBadgeText = '';
-      if (level.monsterTypes && level.monsterTypes.length > 0) {
-        monsterName = level.monsterTypes.map((t) => loc.t(`monster.${t}`)).join(' & ');
-        const counts: Record<string, number> = {};
-        for (const t of level.monsterTypes) {
-          counts[t] = (counts[t] || 0) + 1;
-        }
-        monsterBadgeText = Object.entries(counts)
-          .map(([t, cnt]) => `${cnt} ${loc.t(`monster.${t}`)}`)
-          .join(' & ');
-      } else if (monsterType === 'kunti') {
-        monsterName = loc.t('monster.kunti');
-      } else if (monsterType === 'yeti') {
-        monsterName = loc.t('monster.yeti');
-      }
-      const monsterCount = level.monsterCount || 1;
-      if (!monsterBadgeText) {
-        monsterBadgeText = `${monsterCount} ${monsterName}`;
-      }
-      const lvlInfo = loc.getLevelInfo(level.id);
-      const floorLabel = lang === 'id' ? 'Lantai' : (level.floorCount && level.floorCount > 1 ? 'Floors' : 'Floor');
 
       const card = document.createElement('div');
+
+      if (isOnProgress) {
+        card.className = 'level-card on-progress';
+        const onProgressStatus = lang === 'id' ? 'DALAM PENGERJAAN' : 'ON PROGRESS';
+        const onProgressAction = lang === 'id' ? '&#128295; SEGERA HADIR' : '&#128295; COMING SOON';
+
+        card.innerHTML = `
+          <div class="level-number">LEVEL ${level.id.toString().padStart(2, '0')}</div>
+          <div class="level-status-row">
+            <span class="status-on-progress">${onProgressStatus}</span>
+            <span class="badge-on-progress">${onProgressAction}</span>
+          </div>
+        `;
+
+        card.addEventListener('click', () => {
+          audio.playUiClick();
+          card.classList.add('shake');
+          setTimeout(() => card.classList.remove('shake'), 400);
+          this.showTemporaryWarning(
+            'Level ini masih dalam tahap pengerjaan (On Progress)!',
+            'This level is currently on progress!',
+            1800
+          );
+        });
+
+        this.levelsContainer.appendChild(card);
+        return;
+      }
+
       card.className = `level-card ${isUnlocked ? 'unlocked' : 'locked'}`;
 
       const statusText = isCompleted
@@ -1010,14 +1014,6 @@ export class UIManager {
 
       card.innerHTML = `
         <div class="level-number">LEVEL ${level.id.toString().padStart(2, '0')}</div>
-        <div class="level-name">${lvlInfo.title}</div>
-        <div class="level-meta-row">
-          <span class="level-monster-badge" title="${monsterBadgeText}">
-            <span class="monster-icon">&#128123;</span>
-            <span class="monster-count-text">${monsterBadgeText}</span>
-          </span>
-          <span class="level-floor-badge">&#127970; ${level.floorCount || 1} ${floorLabel}</span>
-        </div>
         <div class="level-status-row">
           <span>${statusText}</span>
           <span class="${isCompleted ? 'badge-completed' : (isUnlocked ? 'badge-unlocked' : 'badge-locked')}">

@@ -306,8 +306,9 @@ html, body {
 
 .level-number {
   font-family: var(--font-title);
-  font-size: 20px;
-  color: #8a96a4;
+  font-size: 22px;
+  color: #fff;
+  letter-spacing: 1px;
 }
 
 .level-name {
@@ -376,6 +377,46 @@ html, body {
 
 .badge-completed {
   color: #ffb703;
+}
+
+.level-card.on-progress {
+  opacity: 0.72;
+  cursor: not-allowed;
+  background: #14171d;
+  border: 2px dashed #4b5563;
+  transition: all 0.2s ease;
+}
+
+.level-card.on-progress:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.2);
+}
+
+.status-on-progress {
+  color: #f59e0b;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.badge-on-progress {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border: 1px solid #d97706;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+@keyframes cardShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
+}
+
+.level-card.shake {
+  animation: cardShake 0.35s ease;
 }
 
 /* ==========================================================================

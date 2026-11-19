@@ -1911,7 +1911,8 @@ export class GameManager {
     // Record progress
     SaveManager.getInstance().recordCompletion(this.currentLevelDef.id, this.gameplayTimer);
 
-    const hasNext = this.currentLevelDef.id + 1 <= ALL_LEVELS.length;
+    const maxPlayableLevel = SaveManager.getInstance().isDevModeEnabled() ? ALL_LEVELS.length : 6;
+    const hasNext = this.currentLevelDef.id + 1 <= maxPlayableLevel;
     UIManager.getInstance().showLevelComplete(this.currentLevelDef, this.gameplayTimer, hasNext);
   }
 
