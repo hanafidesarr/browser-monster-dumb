@@ -970,8 +970,9 @@ export class MonsterController {
         });
         const myRank = chasingMonsters.indexOf(this);
 
-        if (myRank === 0) {
-          // Rank 0 (Closest): Direct Chaser - drives the player to flee
+        const isGridLabyrinth = this.collisionConfig ? this.collisionConfig.useGridWalls : false;
+        if (myRank === 0 || isGridLabyrinth) {
+          // Rank 0 (Closest) or Labyrinth Corridors: Direct corridor pursuit prevents cutting off across solid labyrinth walls
           targetDestinationX = playerPos.x;
           targetDestinationZ = playerPos.z;
         } else if (myRank === 1) {
@@ -1060,9 +1061,10 @@ export class MonsterController {
         }
         if (path.length > 1) {
           this.currentPath = path.slice(1);
-        } else {
+        } else if (path.length === 1) {
           this.currentPath = path;
         }
+        // If path.length === 0, keep previous currentPath so monster doesn't freeze!
       }
     }
 
@@ -1071,13 +1073,16 @@ export class MonsterController {
     let targetZ = targetDestinationZ;
 
     if (this.currentPath.length > 0) {
-      const targetWp = this.currentPath[0];
-      const wpDist = Math.hypot(targetWp.x - this.position.x, targetWp.z - this.position.z);
-      if (wpDist < 0.4) {
-        this.currentPath.shift();
-      } else {
-        targetX = targetWp.x;
-        targetZ = targetWp.z;
+      while (this.currentPath.length > 0) {
+        const targetWp = this.currentPath[0];
+        const wpDist = Math.hypot(targetWp.x - this.position.x, targetWp.z - this.position.z);
+        if (wpDist < 0.55 && this.currentPath.length > 1) {
+          this.currentPath.shift();
+        } else {
+          targetX = targetWp.x;
+          targetZ = targetWp.z;
+          break;
+        }
       }
     }
 

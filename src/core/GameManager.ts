@@ -278,6 +278,10 @@ export class GameManager {
       this.startLevelTransition();
     };
 
+    ui.onPauseRequested = () => {
+      this.pauseGame();
+    };
+
     ui.onResumeRequested = () => {
       this.resumeGame();
     };
@@ -1925,8 +1929,10 @@ export class GameManager {
     if (this.state === 'STEALTH' || this.state === 'CHASE' || this.state === 'ATTACK') {
       this.previousState = this.state;
       this.state = 'PAUSED';
+      this.isTimerRunning = false;
       this.fpController.setEnabled(false);
       InputManager.getInstance().exitPointerLock();
+      AudioManager.getInstance().stopKuntiChaseAudio();
       UIManager.getInstance().showPauseMenu();
     }
   }
@@ -1935,6 +1941,7 @@ export class GameManager {
   private resumeGame(): void {
     if (this.state === 'PAUSED') {
       this.state = this.previousState;
+      this.isTimerRunning = true;
       this.fpController.setEnabled(true);
       InputManager.getInstance().requestPointerLock(this.canvas);
       UIManager.getInstance().showGameplayHUD();
@@ -1987,6 +1994,11 @@ export class GameManager {
       } else {
         this.pauseGame();
       }
+    }
+
+    if (this.state === 'PAUSED') {
+      this.renderer.render(this.scene, this.activeCamera);
+      return;
     }
 
     // State Updates

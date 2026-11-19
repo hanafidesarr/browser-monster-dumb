@@ -38,7 +38,9 @@ export class GridPathfinding {
   }
 
   public isWalkable(gx: number, gz: number): boolean {
+    if (typeof gx !== 'number' || typeof gz !== 'number' || isNaN(gx) || isNaN(gz)) return false;
     if (gx < 0 || gx >= this.width || gz < 0 || gz >= this.height) return false;
+    if (!this.grid || !this.grid[gz]) return false;
     return this.grid[gz][gx] === 0;
   }
 
@@ -88,10 +90,50 @@ export class GridPathfinding {
     return true;
   }
 
+  // Find the nearest walkable cell in grid coordinates to given (gx, gz)
+  public findNearestWalkableCell(gx: number, gz: number, maxRadius: number = 5): { gx: number; gz: number } | null {
+    if (this.isWalkable(gx, gz)) {
+      return { gx, gz };
+    }
+    for (let r = 1; r <= maxRadius; r++) {
+      for (let dz = -r; dz <= r; dz++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.abs(dx) === r || Math.abs(dz) === r) {
+            const ngx = gx + dx;
+            const ngz = gz + dz;
+            if (this.isWalkable(ngx, ngz)) {
+              return { gx: ngx, gz: ngz };
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   // A* Pathfinding from start world pos to goal world pos
-  public findPath(startW: Point2D, goalW: Point2D): Point2D[] {
-    const start = this.worldToGrid(startW.x, startW.z);
-    const goal = this.worldToGrid(goalW.x, goalW.z);
+  public findPath(startW: Point2D | { wx: number; wz: number }, goalW: Point2D | { wx: number; wz: number }): Point2D[] {
+    const sx = 'x' in startW ? startW.x : startW.wx;
+    const sz = 'z' in startW ? startW.z : startW.wz;
+    const gx = 'x' in goalW ? goalW.x : goalW.wx;
+    const gz = 'z' in goalW ? goalW.z : goalW.wz;
+
+    let start = this.worldToGrid(sx, sz);
+    let goal = this.worldToGrid(gx, gz);
+
+    if (!this.isWalkable(start.gx, start.gz)) {
+      const nearestStart = this.findNearestWalkableCell(start.gx, start.gz, 5);
+      if (nearestStart) {
+        start = nearestStart;
+      }
+    }
+
+    if (!this.isWalkable(goal.gx, goal.gz)) {
+      const nearestGoal = this.findNearestWalkableCell(goal.gx, goal.gz, 5);
+      if (nearestGoal) {
+        goal = nearestGoal;
+      }
+    }
 
     if (!this.isWalkable(start.gx, start.gz) || !this.isWalkable(goal.gx, goal.gz)) {
       return [];
@@ -128,6 +170,7 @@ export class GridPathfinding {
 
     openList.push(startNode);
     nodeMap.set(makeKey(start.gx, start.gz), startNode);
+    let closestNode: Node = startNode;
 
     const neighbors = [
       { dx: 0, dz: -1 },
@@ -148,6 +191,10 @@ export class GridPathfinding {
       const current = openList.splice(lowestIndex, 1)[0];
       const currentKey = makeKey(current.gx, current.gz);
       closedSet.add(currentKey);
+
+      if (current.h < closestNode.h) {
+        closestNode = current;
+      }
 
       // Reached goal?
       if (current.gx === goal.gx && current.gz === goal.gz) {
@@ -195,6 +242,18 @@ export class GridPathfinding {
           neighborNode.parent = current;
         }
       }
+    }
+
+    // Fallback: If openList exhausted without reaching exact goal, return path to closest reachable node
+    if (closestNode !== startNode) {
+      const path: Point2D[] = [];
+      let curr: Node | null = closestNode;
+      while (curr) {
+        const world = this.gridToWorld(curr.gx, curr.gz);
+        path.unshift({ x: world.wx, z: world.wz });
+        curr = curr.parent;
+      }
+      return path;
     }
 
     return []; // No path found

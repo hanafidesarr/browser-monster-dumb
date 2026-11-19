@@ -17,6 +17,7 @@ const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     'menu.settings': 'PENGATURAN',
     'menu.qris': 'DONASI QRIS',
     'menu.paypal': 'PAYPAL',
+    'menu.donationNote': 'Solo indie dev — Pendapatan murni dari donasi kalian 🙏',
     'menu.copyright': '© 2026 MONSTER DUMB — PS1 SURVIVAL HORROR',
     'menu.headphones': 'DISARANKAN MENGGUNAKAN HEADPHONE',
 
@@ -145,6 +146,7 @@ const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     'menu.settings': 'SETTINGS',
     'menu.qris': 'QRIS DONATE',
     'menu.paypal': 'PAYPAL',
+    'menu.donationNote': 'Solo indie dev — Purely funded by your donations 🙏',
     'menu.copyright': '© 2026 MONSTER DUMB — PS1 SURVIVAL HORROR',
     'menu.headphones': 'HEADPHONES RECOMMENDED',
 

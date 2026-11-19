@@ -81,6 +81,7 @@ export class UIManager {
   // Callbacks
   public onPlayRequested: ((levelId: number) => void) | null = null;
   public onStartLevelRequested: () => void = null as unknown as () => void;
+  public onPauseRequested: () => void = null as unknown as () => void;
   public onResumeRequested: () => void = null as unknown as () => void;
   public onRestartRequested: () => void = null as unknown as () => void;
   public onExitToMenuRequested: () => void = null as unknown as () => void;
@@ -810,7 +811,11 @@ export class UIManager {
     // Pause Buttons
     document.getElementById('btn-hud-pause')?.addEventListener('click', () => {
       audio.playUiClick();
-      this.showPauseMenu();
+      if (this.onPauseRequested) {
+        this.onPauseRequested();
+      } else {
+        this.showPauseMenu();
+      }
     });
 
     bindAction('btn-pause-resume', () => {
