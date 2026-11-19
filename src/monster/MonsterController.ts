@@ -44,6 +44,7 @@ export class MonsterController {
   private ramps: WorldRamp[] = [];
   private bridges: WorldBridge[] = [];
   private floorHeight: number = 3.8;
+  public currentFloor: number = 0;
   private baseGroundY: number = 0;
   public isWallClinging: boolean = false;
   public wallClingY: number = 0;
@@ -145,6 +146,8 @@ export class MonsterController {
 
     this.baseGroundY = spawn.y || 0;
     this.wallClingY = this.baseGroundY + 1.85;
+    const fh = this.floorHeight > 0 ? this.floorHeight : 3.8;
+    this.currentFloor = Math.round(this.baseGroundY / fh);
 
     if (this.monsterType === 'kunti') {
       this.attachKuntiToWall(spawn);
@@ -828,40 +831,52 @@ export class MonsterController {
     const horizontalDist = Math.hypot(this.position.x - playerPos.x, this.position.z - playerPos.z);
 
     // Update vertical elevation (Ramps, Bridges, Multi-Floor)
-    let groundY = 0;
+    let groundY = this.currentFloor * (this.floorHeight || 3.8);
     let onRamp = false;
-    const isLevel3 = this.levelDef?.id === 3;
 
-    if (!isLevel3) {
-      for (let i = 0; i < this.ramps.length; i++) {
-        const r = this.ramps[i];
-        if (r.box.containsPoint(this.position)) {
-          const dx = r.endWorld.x - r.startWorld.x;
-          const dz = r.endWorld.z - r.startWorld.z;
-          const lenSq = dx * dx + dz * dz;
-          const t = lenSq > 0.001
-            ? Math.max(0, Math.min(1, ((this.position.x - r.startWorld.x) * dx + (this.position.z - r.startWorld.z) * dz) / lenSq))
-            : 0;
-          groundY = r.startWorld.y + t * (r.endWorld.y - r.startWorld.y);
-          onRamp = true;
+    for (let i = 0; i < this.ramps.length; i++) {
+      const ramp = this.ramps[i];
+      const minY = Math.min(ramp.startWorld.y, ramp.endWorld.y) - 0.5;
+      const maxY = Math.max(ramp.startWorld.y, ramp.endWorld.y) + 3.5;
+
+      // Vertical range check
+      if (this.position.y < minY || this.position.y > maxY) continue;
+
+      const dx = this.position.x - ramp.startWorld.x;
+      const dz = this.position.z - ramp.startWorld.z;
+
+      // Projection along ramp length axis
+      const u = dx * ramp.dirX + dz * ramp.dirZ;
+      // Lateral distance from ramp center line
+      const v = dx * ramp.normX + dz * ramp.normZ;
+
+      const halfWidth = ramp.width / 2 + 0.6;
+      if (Math.abs(v) > halfWidth) continue;
+
+      // Longitudinal bounds with smooth approach landings at bottom and top
+      if (u >= -0.8 && u <= ramp.length + 0.8) {
+        const t = Math.max(0, Math.min(1, u / ramp.length));
+        groundY = ramp.startWorld.y + t * (ramp.endWorld.y - ramp.startWorld.y);
+        onRamp = true;
+        // Update monster's current floor based on ramp progression
+        if (t >= 0.5) {
+          this.currentFloor = ramp.toFloor;
+        } else {
+          this.currentFloor = ramp.fromFloor;
+        }
+        break;
+      }
+    }
+
+    if (!onRamp) {
+      for (let i = 0; i < this.bridges.length; i++) {
+        const b = this.bridges[i];
+        if (b.box.containsPoint(this.position)) {
+          groundY = b.height;
+          this.currentFloor = b.floor;
           break;
         }
       }
-      if (!onRamp) {
-        for (let i = 0; i < this.bridges.length; i++) {
-          const b = this.bridges[i];
-          if (b.box.containsPoint(this.position)) {
-            groundY = b.height;
-            break;
-          }
-        }
-        if (Math.abs(playerPos.y - this.baseGroundY) > 1.0) {
-          const targetFloorY = Math.round((playerPos.y - 1.65) / this.floorHeight) * this.floorHeight;
-          groundY = THREE.MathUtils.lerp(this.baseGroundY, targetFloorY, Math.min(1, 3.0 * dt));
-        }
-      }
-    } else {
-      groundY = 0; // In Level 3: Monster is strictly confined to Floor 0 (Lantai 1)
     }
     this.baseGroundY = groundY;
 
@@ -951,15 +966,7 @@ export class MonsterController {
     let targetDestinationX = playerPos.x;
     let targetDestinationZ = playerPos.z;
 
-    if (isLevel3 && playerPos.y > 2.5) {
-      // In Level 3: Monster is strictly confined to Floor 0 (Lantai 1)
-      // When player ascends to Floor 1 (Lantai 2), monster stays on Floor 0 and stalks near the base of the stairs (17, 13)
-      const cellSize = this.levelDef?.cellSize || 3.4;
-      const halfW = ((this.levelDef?.gridWidth || 21) * cellSize) / 2;
-      const halfH = ((this.levelDef?.gridHeight || 21) * cellSize) / 2;
-      targetDestinationX = (17 + 0.5) * cellSize - halfW;
-      targetDestinationZ = (13 + 0.5) * cellSize - halfH;
-    } else if (this.otherMonsters && this.otherMonsters.length > 1) {
+    if (this.otherMonsters && this.otherMonsters.length > 1) {
       const chasingMonsters = this.otherMonsters.filter(m => m.state === 'CHASE');
       if (chasingMonsters.length > 1) {
         // Sort chasing monsters by distance to player
