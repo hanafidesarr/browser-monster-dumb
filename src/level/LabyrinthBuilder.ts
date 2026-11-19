@@ -3644,8 +3644,8 @@ export class LabyrinthBuilder {
     nestDecal.rotation.y = Math.random() * Math.PI * 2;
     rootGroup.add(nestDecal);
 
-    // 2. BFS di koridor lantai 0 HANYA sampai radius 4 langkah koridor dari Pocong
-    const maxProximityDist = 4;
+    // 2. BFS di koridor lantai 0 HANYA sampai radius 2 langkah koridor dari Pocong (optimasi draw calls)
+    const maxProximityDist = 2;
     const { grid, gridWidth, gridHeight } = level;
     const dist: number[][] = Array.from({ length: gridHeight }, () => Array(gridWidth).fill(-1));
     const nextToMonster: Array<Array<{ x: number; z: number } | null>> = Array.from({ length: gridHeight }, () =>
@@ -3949,17 +3949,9 @@ export class LabyrinthBuilder {
       (level.theme === 'labyrinth' || level.id === 3)
         ? [
             { x: 3, z: 3 },
-            { x: 9, z: 3 },
             { x: 17, z: 3 },
-            { x: 3, z: 9 },
-            { x: 11, z: 7 },
-            { x: 17, z: 9 },
-            { x: 17, z: 13 },
-            { x: 3, z: 15 },
-            { x: 11, z: 15 },
+            { x: 3, z: 17 },
             { x: 17, z: 17 },
-            { x: 7, z: 15 },
-            { x: 13, z: 19 },
           ]
         : level.gridWidth <= 15
         ? [
@@ -4003,7 +3995,7 @@ export class LabyrinthBuilder {
         const fHeight = level.floorHeight || 3.8;
         for (let f = 0; f < fCount; f++) {
           const hex = (f === 1 && level.id === 3) ? 0xffb347 : lightHex;
-          const pureLight = new THREE.PointLight(hex, f === 1 ? 2.4 : 2.0, 12, 1.2);
+          const pureLight = new THREE.PointLight(hex, f === 1 ? 2.8 : 2.4, 20, 1.1);
           pureLight.position.set(wx, f * fHeight + wallHeight * 0.85, wz);
           rootGroup.add(pureLight);
         }

@@ -8,6 +8,10 @@ export interface PropCollider {
 }
 
 export class EnvironmentPropFactory {
+  // Shared GPU texture / material caches to eliminate duplicate canvas creations and draw-call thrashing
+  private static _directionalArrowMatMap = new Map<string, THREE.MeshBasicMaterial>();
+  private static _floorExitArrowMatMap = new Map<string, THREE.MeshBasicMaterial>();
+  private static _pocongTrailMatMap = new Map<string, THREE.MeshBasicMaterial>();
   // =========================================================================
   // LEVEL 2 — ABANDONED SCHOOL PROPS
   // =========================================================================
@@ -1479,6 +1483,16 @@ export class EnvironmentPropFactory {
     const group = new THREE.Group();
     group.name = 'DirectionalArrowDecal';
 
+    const cacheKey = `${dir}_${label}_${colorType}_${subLabel || ''}`;
+    if (this._directionalArrowMatMap.has(cacheKey)) {
+      const cachedMat = this._directionalArrowMatMap.get(cacheKey)!;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), cachedMat);
+      mesh.position.y = 1.9;
+      mesh.renderOrder = 50;
+      group.add(mesh);
+      return group;
+    }
+
     if (typeof document === 'undefined') {
       const dummy = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), new THREE.MeshBasicMaterial());
       dummy.position.y = 1.9;
@@ -1614,6 +1628,7 @@ export class EnvironmentPropFactory {
       polygonOffsetFactor: -4.0,
       polygonOffsetUnits: -4.0,
     });
+    this._directionalArrowMatMap.set(cacheKey, mat);
 
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), mat);
     mesh.position.y = 1.9; // Eye level
@@ -2249,6 +2264,15 @@ export class EnvironmentPropFactory {
     // so any mesh.rotation.y smoothly spins flat on the floor without tilting!
     geo.rotateX(-Math.PI / 2);
 
+    if (this._pocongTrailMatMap.has(bloodType)) {
+      const cachedMat = this._pocongTrailMatMap.get(bloodType)!;
+      const mesh = new THREE.Mesh(geo, cachedMat);
+      mesh.name = `PocongTrail_${bloodType}`;
+      mesh.position.y = 0.025;
+      mesh.renderOrder = 25;
+      return mesh;
+    }
+
     if (typeof document === 'undefined') {
       const dummy = new THREE.Mesh(geo, new THREE.MeshBasicMaterial());
       dummy.position.y = 0.025;
@@ -2459,6 +2483,7 @@ export class EnvironmentPropFactory {
       polygonOffsetFactor: -3.0,
       polygonOffsetUnits: -3.0,
     });
+    this._pocongTrailMatMap.set(bloodType, mat);
 
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = `PocongTrail_${bloodType}`;
@@ -2474,6 +2499,15 @@ export class EnvironmentPropFactory {
   public static createFloorExitArrowDecal(label: string = 'EXIT ➔'): THREE.Mesh {
     const geo = new THREE.PlaneGeometry(1.8, 1.8);
     geo.rotateX(-Math.PI / 2);
+
+    if (this._floorExitArrowMatMap.has(label)) {
+      const cachedMat = this._floorExitArrowMatMap.get(label)!;
+      const mesh = new THREE.Mesh(geo, cachedMat);
+      mesh.name = 'FloorExitArrowDecal';
+      mesh.position.y = 0.025;
+      mesh.renderOrder = 25;
+      return mesh;
+    }
 
     if (typeof document === 'undefined') {
       const dummy = new THREE.Mesh(geo, new THREE.MeshBasicMaterial());
@@ -2537,6 +2571,7 @@ export class EnvironmentPropFactory {
       polygonOffsetFactor: -3.0,
       polygonOffsetUnits: -3.0,
     });
+    this._floorExitArrowMatMap.set(label, mat);
 
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = 'FloorExitArrowDecal';
