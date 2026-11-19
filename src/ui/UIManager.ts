@@ -27,10 +27,12 @@ export class UIManager {
   private btnLangEn = document.getElementById('btn-lang-en');
   private selectedModalLang: Language = 'id';
 
-  // Donation Elements
+  // Donation & Social Elements
   private modalQris = document.getElementById('modal-qris');
   private btnMenuQris = document.getElementById('btn-menu-qris');
   private btnMenuPaypal = document.getElementById('btn-menu-paypal');
+  private linkMenuInstagram = document.getElementById('link-menu-instagram');
+  private linkMenuWebsite = document.getElementById('link-menu-website');
   private btnQrisDownload = document.getElementById('btn-qris-download');
   private btnQrisClose = document.getElementById('btn-qris-close');
   private currentOverviewLevel: LevelDefinition | null = null;
@@ -690,6 +692,14 @@ export class UIManager {
     this.btnMenuPaypal?.addEventListener('click', () => {
       audio.playUiClick();
       window.open('https://paypal.me/hanafidesar', '_blank', 'noopener,noreferrer');
+    });
+
+    this.linkMenuInstagram?.addEventListener('click', () => {
+      audio.playUiClick();
+    });
+
+    this.linkMenuWebsite?.addEventListener('click', () => {
+      audio.playUiClick();
     });
 
     this.btnQrisClose?.addEventListener('click', () => {
