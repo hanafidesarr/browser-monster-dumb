@@ -234,6 +234,58 @@ html, body {
   max-width: 320px;
 }
 
+.menu-donation-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.donation-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 18px;
+  padding: 8px 10px;
+  min-height: 42px;
+  background: linear-gradient(180deg, #242b35 0%, #171b22 100%);
+  border: 2px solid #414b5c;
+  border-right-color: #12151a;
+  border-bottom-color: #12151a;
+  color: #cbd5e1;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: transform 0.05s ease, background-color 0.1s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.donation-btn:hover {
+  background: linear-gradient(180deg, #2f3846 0%, #1e242d 100%);
+  color: #ffffff;
+}
+
+.donation-btn:active {
+  transform: translate(1px, 1px);
+  border-color: #12151a;
+  border-right-color: #414b5c;
+  border-bottom-color: #414b5c;
+}
+
+.donation-btn.qris-btn:hover {
+  border-color: #34d399;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.35);
+}
+
+.donation-btn.paypal-btn:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+}
+
+.donation-btn .btn-icon {
+  font-size: 15px;
+}
+
 .menu-footer {
   display: flex;
   flex-direction: column;
@@ -1752,6 +1804,22 @@ html, body {
     justify-content: center;
   }
 
+  .menu-donation-row {
+    width: auto;
+    flex: 1 1 100%;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .donation-btn {
+    flex: 0 1 auto;
+    min-width: 130px;
+    padding: 6px 12px;
+    font-size: 15px;
+    min-height: 38px;
+  }
+
   .retro-btn {
     padding: 6px 14px;
     font-size: 16px;
@@ -2456,4 +2524,156 @@ html, body {
 
 .lang-card-btn.active .lang-sub {
   color: #6ee7b7;
+}
+
+/* ==========================================================================
+   QRIS DONATION MODAL (Retro PS1 Style)
+   ========================================================================== */
+.qris-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 7, 10, 0.94);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.qris-modal-backdrop.hidden {
+  display: none !important;
+}
+
+.qris-modal-card {
+  max-width: 440px;
+  width: 95%;
+  background: radial-gradient(circle at center, #1b222c 0%, #0d1117 100%);
+  border: 2px solid #3d4a5c;
+  box-shadow: 0 0 35px rgba(0, 0, 0, 0.9), 0 0 15px rgba(50, 70, 95, 0.3);
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border-radius: 4px;
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+.qris-modal-title {
+  font-family: var(--font-title);
+  font-size: 32px;
+  letter-spacing: 2px;
+  color: #f3f4f6;
+  margin-bottom: 6px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.qris-modal-subtitle {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-bottom: 16px;
+  line-height: 1.4;
+  max-width: 360px;
+}
+
+.qris-image-wrapper {
+  background: #ffffff;
+  padding: 10px;
+  border: 2px solid #4b5563;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 290px;
+  width: 100%;
+}
+
+.qris-img {
+  width: 100%;
+  height: auto;
+  max-height: 290px;
+  object-fit: contain;
+  display: block;
+}
+
+.qris-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 290px;
+}
+
+.qris-modal-actions .download-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  font-size: 20px;
+  padding: 10px 16px;
+  cursor: pointer;
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  border-color: #34d399;
+  border-right-color: #047857;
+  border-bottom-color: #047857;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.qris-modal-actions .download-btn:hover {
+  background: linear-gradient(180deg, #34d399 0%, #10b981 100%);
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(52, 211, 153, 0.45);
+}
+
+.qris-modal-actions .close-btn {
+  font-size: 18px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  .qris-modal-card {
+    padding: 12px 16px;
+    max-height: 96dvh;
+    gap: 6px;
+  }
+  .qris-modal-title {
+    font-size: 24px;
+    margin-bottom: 2px;
+  }
+  .qris-modal-subtitle {
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  .qris-image-wrapper {
+    margin-bottom: 8px;
+    max-width: 170px;
+    padding: 5px;
+  }
+  .qris-img {
+    max-height: 150px;
+  }
+  .qris-modal-actions {
+    flex-direction: row;
+    gap: 8px;
+    max-width: 320px;
+  }
+  .qris-modal-actions .download-btn {
+    font-size: 15px;
+    padding: 6px 12px;
+    flex: 1;
+  }
+  .qris-modal-actions .close-btn {
+    font-size: 15px;
+    padding: 6px 12px;
+    flex: 1;
+  }
 }

@@ -37,6 +37,14 @@
           <button id="btn-menu-play" class="retro-btn primary-btn" data-i18n="menu.play">PLAY</button>
           <button id="btn-menu-levels" class="retro-btn" data-i18n="menu.levelSelect">LEVEL SELECT</button>
           <button id="btn-menu-settings" class="retro-btn" data-i18n="menu.settings">SETTINGS</button>
+          <div class="menu-donation-row">
+            <button id="btn-menu-qris" class="retro-btn donation-btn qris-btn" type="button">
+              <span class="btn-icon">&#129689;</span> <span data-i18n="menu.qris">DONASI QRIS</span>
+            </button>
+            <button id="btn-menu-paypal" class="retro-btn donation-btn paypal-btn" type="button">
+              <span class="btn-icon">&#128179;</span> <span data-i18n="menu.paypal">PAYPAL</span>
+            </button>
+          </div>
         </div>
 
         <div class="menu-footer">
@@ -349,6 +357,28 @@
         <button id="btn-modal-lang-confirm" class="retro-btn primary-btn pulse-glow" type="button">
           MULAI // START
         </button>
+      </div>
+    </div>
+
+    <!-- QRIS DONATION MODAL -->
+    <div id="modal-qris" class="qris-modal-backdrop hidden">
+      <div class="modal-card qris-modal-card">
+        <div class="ps1-badge" style="margin: 0 auto 8px auto;" data-i18n="qrisModal.badge">DUKUNG DEVELOPER // DONASI</div>
+        <h2 class="qris-modal-title" data-i18n="qrisModal.title">DONASI QRIS</h2>
+        <p class="qris-modal-subtitle" data-i18n="qrisModal.subtitle">Scan atau unduh kode QRIS di bawah ini untuk mendukung kelanjutan pengembangan game MONSTER DUMB.</p>
+        
+        <div class="qris-image-wrapper">
+          <img id="qris-preview-img" src="/qris-catbox.jpeg" alt="QRIS Monster Dumb" class="qris-img" />
+        </div>
+
+        <div class="qris-modal-actions">
+          <button id="btn-qris-download" class="retro-btn primary-btn download-btn" type="button">
+            <span class="btn-icon">&#11015;</span> <span data-i18n="qrisModal.download">UNDUH QRIS</span>
+          </button>
+          <button id="btn-qris-close" class="retro-btn small-btn close-btn" type="button" data-i18n="qrisModal.close">
+            TUTUP
+          </button>
+        </div>
       </div>
     </div>
 

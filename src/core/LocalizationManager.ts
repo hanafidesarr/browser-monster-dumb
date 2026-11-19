@@ -15,8 +15,17 @@ const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     'menu.play': 'MAIN',
     'menu.levelSelect': 'PILIH LEVEL',
     'menu.settings': 'PENGATURAN',
+    'menu.qris': 'DONASI QRIS',
+    'menu.paypal': 'PAYPAL',
     'menu.copyright': '© 2026 MONSTER DUMB — PS1 SURVIVAL HORROR',
     'menu.headphones': 'DISARANKAN MENGGUNAKAN HEADPHONE',
+
+    // QRIS Modal
+    'qrisModal.badge': 'DUKUNG DEVELOPER // DONASI',
+    'qrisModal.title': 'DONASI QRIS',
+    'qrisModal.subtitle': 'Scan atau unduh kode QRIS di bawah ini untuk mendukung kelanjutan pengembangan game MONSTER DUMB.',
+    'qrisModal.download': 'UNDUH QRIS',
+    'qrisModal.close': 'TUTUP',
 
     // Level Select
     'levelSelect.title': 'PILIHAN LEVEL',
@@ -134,8 +143,17 @@ const TRANSLATIONS: Record<Language, TranslationDictionary> = {
     'menu.play': 'PLAY',
     'menu.levelSelect': 'LEVEL SELECT',
     'menu.settings': 'SETTINGS',
+    'menu.qris': 'QRIS DONATE',
+    'menu.paypal': 'PAYPAL',
     'menu.copyright': '© 2026 MONSTER DUMB — PS1 SURVIVAL HORROR',
     'menu.headphones': 'HEADPHONES RECOMMENDED',
+
+    // QRIS Modal
+    'qrisModal.badge': 'SUPPORT DEVELOPER // DONATION',
+    'qrisModal.title': 'QRIS DONATION',
+    'qrisModal.subtitle': 'Scan or download the QRIS code below to support the game development.',
+    'qrisModal.download': 'DOWNLOAD QRIS',
+    'qrisModal.close': 'CLOSE',
 
     // Level Select
     'levelSelect.title': 'LEVEL SELECTION',

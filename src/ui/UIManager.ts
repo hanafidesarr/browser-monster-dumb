@@ -26,6 +26,13 @@ export class UIManager {
   private btnLangId = document.getElementById('btn-lang-id');
   private btnLangEn = document.getElementById('btn-lang-en');
   private selectedModalLang: Language = 'id';
+
+  // Donation Elements
+  private modalQris = document.getElementById('modal-qris');
+  private btnMenuQris = document.getElementById('btn-menu-qris');
+  private btnMenuPaypal = document.getElementById('btn-menu-paypal');
+  private btnQrisDownload = document.getElementById('btn-qris-download');
+  private btnQrisClose = document.getElementById('btn-qris-close');
   private currentOverviewLevel: LevelDefinition | null = null;
   private currentStatusId: string = '';
   private currentStatusEn: string = '';
@@ -114,6 +121,19 @@ export class UIManager {
     ];
     screens.forEach((s) => s.classList.remove('active'));
     this.hideJumpscareOverlay();
+    this.hideQrisModal();
+  }
+
+  public showQrisModal(): void {
+    if (this.modalQris) {
+      this.modalQris.classList.remove('hidden');
+    }
+  }
+
+  public hideQrisModal(): void {
+    if (this.modalQris) {
+      this.modalQris.classList.add('hidden');
+    }
   }
 
   public showJumpscareOverlay(): void {
@@ -677,6 +697,54 @@ export class UIManager {
     document.getElementById('btn-menu-settings')?.addEventListener('click', () => {
       audio.playUiClick();
       this.showSettings('main_menu');
+    });
+
+    // Donation Buttons (QRIS & PayPal)
+    this.btnMenuQris?.addEventListener('click', () => {
+      audio.playUiClick();
+      this.showQrisModal();
+    });
+
+    this.btnMenuPaypal?.addEventListener('click', () => {
+      audio.playUiClick();
+      window.open('https://paypal.me/hanafidesar', '_blank', 'noopener,noreferrer');
+    });
+
+    this.btnQrisClose?.addEventListener('click', () => {
+      audio.playUiClick();
+      this.hideQrisModal();
+    });
+
+    this.modalQris?.addEventListener('click', (e) => {
+      if (e.target === this.modalQris) {
+        audio.playUiClick();
+        this.hideQrisModal();
+      }
+    });
+
+    this.btnQrisDownload?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      audio.playUiClick();
+      try {
+        const response = await fetch('/qris-catbox.jpeg');
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const tempLink = document.createElement('a');
+        tempLink.href = blobUrl;
+        tempLink.download = 'qris-catbox.jpeg';
+        document.body.appendChild(tempLink);
+        tempLink.click();
+        document.body.removeChild(tempLink);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } catch (_) {
+        window.open('/qris-catbox.jpeg', '_blank');
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.modalQris && !this.modalQris.classList.contains('hidden')) {
+        this.hideQrisModal();
+      }
     });
 
     // Level Select Back
