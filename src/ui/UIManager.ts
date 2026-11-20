@@ -25,7 +25,7 @@ export class UIManager {
   private btnModalLangConfirm = document.getElementById('btn-modal-lang-confirm');
   private btnLangId = document.getElementById('btn-lang-id');
   private btnLangEn = document.getElementById('btn-lang-en');
-  private selectedModalLang: Language = 'id';
+  private selectedModalLang: Language = 'en';
 
   // Donation & Social Elements
   private modalQris = document.getElementById('modal-qris');

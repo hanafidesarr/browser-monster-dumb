@@ -27,7 +27,7 @@ const DEFAULT_SAVE: SaveData = {
   completedLevels: {},
   unlockedWeapons: ['baseball_bat'],
   selectedWeapon: 'baseball_bat',
-  language: 'id',
+  language: 'en',
   hasChosenLanguage: false,
   weaponsLockedV2Migration: true,
   settings: {
@@ -38,7 +38,7 @@ const DEFAULT_SAVE: SaveData = {
     mouseSensitivity: 5,
     touchSensitivity: 8,
     graphicsQuality: 'med',
-    language: 'id',
+    language: 'en',
   },
 };
 
@@ -48,6 +48,10 @@ export class SaveManager {
 
   private constructor() {
     this.data = this.load();
+    if (this.isDevModeEnabled()) {
+      this.data.unlockedLevel = 10;
+      this.data.unlockedWeapons = ['baseball_bat', 'machine_gun', 'grenade', 'rasengan', 'kamehameha'];
+    }
     this.save();
   }
 
@@ -108,28 +112,32 @@ export class SaveManager {
           : ['baseball_bat'];
 
         // Strict weapon lock enforcement:
-        // Level 2 -> machine_gun (only unlocked if picked up or level 2 completed or level 3+ reached)
-        const hasCompletedLvl2 = !!(parsed.completedLevels && parsed.completedLevels[2]);
-        if (!hasCompletedLvl2 && unlockedLevel < 2) {
-          unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'machine_gun' && w !== 'slipper');
-        }
+        if (!this.isDevModeEnabled()) {
+          // Level 2 -> machine_gun (only unlocked if picked up or level 2 completed or level 3+ reached)
+          const hasCompletedLvl2 = !!(parsed.completedLevels && parsed.completedLevels[2]);
+          if (!hasCompletedLvl2 && unlockedLevel < 2) {
+            unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'machine_gun' && w !== 'slipper');
+          }
 
-        // Level 3 -> grenade (only unlocked if picked up or level 3 completed or level 4+ reached)
-        const hasCompletedLvl3 = !!(parsed.completedLevels && parsed.completedLevels[3]);
-        if (!hasCompletedLvl3 && unlockedLevel < 3) {
-          unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'grenade' && w !== 'signboard');
-        }
+          // Level 3 -> grenade (only unlocked if picked up or level 3 completed or level 4+ reached)
+          const hasCompletedLvl3 = !!(parsed.completedLevels && parsed.completedLevels[3]);
+          if (!hasCompletedLvl3 && unlockedLevel < 3) {
+            unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'grenade' && w !== 'signboard');
+          }
 
-        // Level 4 -> rasengan (strictly locked unless Level 4 has been completed)
-        const hasCompletedLvl4 = !!(parsed.completedLevels && parsed.completedLevels[4]);
-        if (!hasCompletedLvl4) {
-          unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'rasengan' && w !== 'toy_hammer');
-        }
+          // Level 4 -> rasengan (strictly locked unless Level 4 has been completed)
+          const hasCompletedLvl4 = !!(parsed.completedLevels && parsed.completedLevels[4]);
+          if (!hasCompletedLvl4) {
+            unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'rasengan' && w !== 'toy_hammer');
+          }
 
-        // Level 5 -> kamehameha (strictly locked unless Level 5 has been completed)
-        const hasCompletedLvl5 = !!(parsed.completedLevels && parsed.completedLevels[5]);
-        if (!hasCompletedLvl5) {
-          unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'kamehameha' && w !== 'electric_fan');
+          // Level 5 -> kamehameha (strictly locked unless Level 5 has been completed)
+          const hasCompletedLvl5 = !!(parsed.completedLevels && parsed.completedLevels[5]);
+          if (!hasCompletedLvl5) {
+            unlockedWeapons = unlockedWeapons.filter((w: string) => w !== 'kamehameha' && w !== 'electric_fan');
+          }
+        } else {
+          unlockedWeapons = ['baseball_bat', 'machine_gun', 'grenade', 'rasengan', 'kamehameha'];
         }
 
         if (!unlockedWeapons.includes('baseball_bat')) {
@@ -202,6 +210,7 @@ export class SaveManager {
         ...this.data,
         unlockedLevel: Math.max(10, this.data.unlockedLevel),
         currentLevel: this.data.currentLevel || 1,
+        unlockedWeapons: ['baseball_bat', 'machine_gun', 'grenade', 'rasengan', 'kamehameha'],
       };
     }
     return this.data;
@@ -267,7 +276,10 @@ export class SaveManager {
 
   public isWeaponUnlocked(weaponId: string): boolean {
     if (['frying_pan', 'chair', 'broom', 'spatula'].includes(weaponId)) return false;
-    const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : weaponId);
+    const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : (weaponId === 'toy_hammer' ? 'rasengan' : (weaponId === 'electric_fan' ? 'kamehameha' : weaponId)));
+    if (this.isDevModeEnabled()) {
+      return ['baseball_bat', 'machine_gun', 'grenade', 'rasengan', 'kamehameha'].includes(effectiveId);
+    }
     if (!this.data.unlockedWeapons) {
       this.data.unlockedWeapons = ['baseball_bat'];
     }
@@ -276,7 +288,7 @@ export class SaveManager {
 
   public unlockWeapon(weaponId: string): boolean {
     if (['frying_pan', 'chair', 'broom', 'spatula'].includes(weaponId)) return false;
-    const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : weaponId);
+    const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : (weaponId === 'toy_hammer' ? 'rasengan' : (weaponId === 'electric_fan' ? 'kamehameha' : weaponId)));
     if (!this.data.unlockedWeapons) {
       this.data.unlockedWeapons = ['baseball_bat'];
     }
@@ -299,7 +311,7 @@ export class SaveManager {
   }
 
   public setSelectedWeapon(weaponId: string): void {
-    const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : weaponId);
+    const effectiveId = weaponId === 'signboard' ? 'grenade' : (weaponId === 'slipper' ? 'machine_gun' : (weaponId === 'toy_hammer' ? 'rasengan' : (weaponId === 'electric_fan' ? 'kamehameha' : weaponId)));
     if (this.isWeaponUnlocked(effectiveId)) {
       this.data.selectedWeapon = effectiveId;
       this.save();
@@ -307,7 +319,7 @@ export class SaveManager {
   }
 
   public getLanguage(): 'id' | 'en' {
-    return this.data.settings?.language || this.data.language || 'id';
+    return this.data.settings?.language || this.data.language || 'en';
   }
 
   public setLanguage(lang: 'id' | 'en'): void {

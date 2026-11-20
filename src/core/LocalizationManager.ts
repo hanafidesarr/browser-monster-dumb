@@ -489,7 +489,7 @@ const WEAPON_LOCALIZATION: Record<Language, Record<string, WeaponLocalization>> 
 
 export class LocalizationManager {
   private static instance: LocalizationManager;
-  private currentLanguage: Language = 'id';
+  private currentLanguage: Language = 'en';
   private listeners: Array<(lang: Language) => void> = [];
 
   private constructor() {
